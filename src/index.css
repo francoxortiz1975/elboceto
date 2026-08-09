@@ -427,9 +427,11 @@ h1, h2, h3, .font-title {
   overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
+  field-sizing: content;
   user-select: text !important;
   -webkit-user-select: text !important;
 }
+
 
 /* Typography — headings and inputs with proper line-height and no clipping */
 .node-heading-input {
