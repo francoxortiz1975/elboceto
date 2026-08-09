@@ -446,17 +446,19 @@ h1, h2, h3, .font-title {
   border: none;
   outline: none;
   font-family: var(--font-title);
-  font-size: 1.85rem;
+  font-size: 1.45rem;
   font-style: italic;
+  font-weight: 600;
   color: var(--text-ink);
-  line-height: 56px;
-  min-height: 56px;
+  line-height: 28px;
+  min-height: 28px;
   padding: 0;
   display: block;
   resize: none;
   overflow: visible;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre !important;
+  word-break: normal !important;
+  field-sizing: content;
 }
 
 .node-subheading-input {
@@ -465,8 +467,9 @@ h1, h2, h3, .font-title {
   border: none;
   outline: none;
   font-family: var(--font-title);
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   font-style: italic;
+  font-weight: 500;
   color: var(--text-ink);
   line-height: 28px;
   min-height: 28px;
@@ -474,9 +477,11 @@ h1, h2, h3, .font-title {
   display: block;
   resize: none;
   overflow: visible;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre !important;
+  word-break: normal !important;
+  field-sizing: content;
 }
+
 
 .is-bold {
   font-weight: 600 !important;
