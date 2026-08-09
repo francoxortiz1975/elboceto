@@ -225,9 +225,25 @@ export function FreeformNode({
   const containerRef = useRef(null);
   const inputRefs = useRef({});
 
+  const normalizeBlock = (b) => ({
+    id: b.id || 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    text: b.text || '',
+    isHeading: !!b.isHeading || b.type === 'heading',
+    isSubheading: !!b.isSubheading || b.type === 'subheading',
+    isBold: !!b.isBold,
+    isCheck: !!b.isCheck || b.type === 'check',
+    isBullet: !!b.isBullet || b.type === 'bullet',
+    isToggle: !!b.isToggle || b.type === 'toggle',
+    completed: !!b.completed,
+    isOpen: b.isOpen !== undefined ? b.isOpen : true,
+    children: b.children || []
+  });
+
+  const blocks = (node.blocks || []).map(normalizeBlock);
+
   const handleCopyNoteContent = (e) => {
     if (e) e.stopPropagation();
-    const textContent = (node.blocks || []).map(b => {
+    const textContent = blocks.map(b => {
       let line = b.text || '';
       if (b.isHeading) line = `# ${line}`;
       else if (b.isSubheading) line = `## ${line}`;
@@ -328,21 +344,6 @@ export function FreeformNode({
     }
   }, [node.blocks, focusedTarget]);
 
-  const normalizeBlock = (b) => ({
-    id: b.id || 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-    text: b.text || '',
-    isHeading: !!b.isHeading || b.type === 'heading',
-    isSubheading: !!b.isSubheading || b.type === 'subheading',
-    isBold: !!b.isBold,
-    isCheck: !!b.isCheck || b.type === 'check',
-    isBullet: !!b.isBullet || b.type === 'bullet',
-    isToggle: !!b.isToggle || b.type === 'toggle',
-    completed: !!b.completed,
-    isOpen: b.isOpen !== undefined ? b.isOpen : true,
-    children: b.children || []
-  });
-
-  const blocks = node.blocks.map(normalizeBlock);
 
   const handleListMouseDown = (e) => {
     e.stopPropagation();
