@@ -413,6 +413,8 @@ export function FreeformNode({
         transform: `translate3d(${node.x}px, ${node.y}px, 0)`,
         zIndex: showToolbar || isSelected ? 1000 : 10
       }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
         onSelect(node.id);
@@ -423,6 +425,7 @@ export function FreeformNode({
         setShowToolbar(true);
       }}
     >
+
       {/* Left Grip Handle — matching Document Notes view */}
       <div
         className="node-left-grip"
@@ -586,8 +589,6 @@ export function FreeformNode({
                   suppressContentEditableWarning
                   className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
                   data-placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
                   onInput={(e) => handleTextChange(idx, e.currentTarget.innerText)}
                   onKeyDown={(e) => handleKeyDown(e, idx)}
                 />
@@ -610,8 +611,6 @@ export function FreeformNode({
                         className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
                         style={{ fontSize: '0.86rem' }}
                         data-placeholder="Sub-elemento..."
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
                         onInput={(e) => {
                           const children = [...(b.children || [])];
                           children[cIdx] = e.currentTarget.innerText;

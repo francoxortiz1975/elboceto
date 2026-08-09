@@ -267,12 +267,25 @@ h1, h2, h3, .font-title {
   cursor: grabbing;
 }
 
-/* Explicit text selection inside text inputs and textareas */
-input, textarea, [contenteditable] {
+/* Explicit text selection inside text items and containers */
+.freeform-node,
+.freeform-node *,
+.doc-central-stream,
+.doc-central-stream * {
   user-select: text !important;
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
 }
+
+.node-left-grip,
+.doc-block-grip,
+.inline-context-bar,
+.doc-top-header,
+.btn-icon {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 
 
 
