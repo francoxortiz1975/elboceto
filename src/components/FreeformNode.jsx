@@ -430,7 +430,6 @@ export function FreeformNode({
       newBlocks[idx - 1] = prevB;
       newBlocks.splice(idx, 1);
       updateBlocks(newBlocks);
-      setFocusedTarget({ type: 'child', blockIdx: idx - 1, childIdx: targetChildIdx });
     } else if (e.key === 'Backspace' && blocks[idx].text === '' && blocks.length > 1) {
       e.preventDefault();
       const newBlocks = blocks.filter((_, i) => i !== idx);
@@ -443,6 +442,21 @@ export function FreeformNode({
   };
 
   const handleChildKeyDown = (e, blockIdx, childIdx) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      try {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        if (containerRef.current) {
+          range.selectNodeContents(containerRef.current);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      } catch (err) {
+        // Fallback
+      }
+      return;
+    }
     const currentB = blocks[blockIdx];
     const children = [...(currentB.children || [])];
     if (e.key === 'Enter') {
@@ -466,12 +480,11 @@ export function FreeformNode({
     }
   };
 
-  // Format date/time label for indicator
+  // Format date-only label for indicator (no clock icon, no time)
   const eventLabel = node.eventDate
     ? (() => {
         const d = new Date(node.eventDate + 'T00:00:00');
-        const day = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-        return node.eventTime ? `${day} · ${node.eventTime}` : day;
+        return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
       })()
     : null;
 
@@ -486,8 +499,6 @@ export function FreeformNode({
   }, [blocks]);
 
   return (
-
-
     <div
       ref={containerRef}
       className={`freeform-node ${node.isCard ? 'is-card' : ''} ${isSelected ? 'selected' : ''} ${node.isEvent ? 'is-event-node' : ''}`}
@@ -606,7 +617,7 @@ export function FreeformNode({
         />
       )}
 
-      {/* Date/Time badge on the LEFT SIDE of the node */}
+      {/* Date badge on the LEFT SIDE of the node (Date only, no time, no clock icon) */}
       {eventLabel && (
         <div style={{
           position: 'absolute',
@@ -619,8 +630,6 @@ export function FreeformNode({
           pointerEvents: 'none',
           whiteSpace: 'nowrap'
         }}>
-
-          <Clock size={10} style={{ color: 'var(--text-muted)' }} />
           <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
             {eventLabel}
           </span>
