@@ -151,7 +151,8 @@ export function CanvasBoard({
   };
 
   const handleDragStartNote = (e, noteId) => {
-    if (!e.target.closest('.node-drag-handle')) return;
+    if (!e.target.closest('.node-drag-handle') && !e.target.closest('.node-left-grip')) return;
+
 
 
     e.stopPropagation();

@@ -14,8 +14,9 @@ import {
   Type,
   X,
   Clock,
-  GripHorizontal
+  GripVertical
 } from 'lucide-react';
+
 
 // ─── Inline Event Scheduler Popover ───────────────────────────────────────────
 function EventSchedulerPopover({ node, onUpdate, onClose }) {
@@ -410,14 +411,14 @@ export function FreeformNode({
         setShowToolbar(true);
       }}
     >
-      {/* Drag Handle — only this strip can initiate a drag */}
+      {/* Left Grip Handle — matching Document Notes view */}
       <div
-        className="node-drag-handle"
+        className="node-left-grip"
         onMouseDown={(e) => onDragStart(e, node.id)}
         onTouchStart={(e) => onDragStart(e, node.id)}
-        title="Arrastra para mover"
+        title="Mantén presionado para mover"
       >
-        <GripHorizontal size={12} className="node-drag-icon" />
+        <GripVertical size={14} />
       </div>
       {/* Floating Toolbar */}
       {showToolbar && (
@@ -567,6 +568,8 @@ export function FreeformNode({
                   className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
                   value={b.text}
                   rows={1}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onChange={(e) => {
                     e.target.style.height = 'auto';
                     e.target.style.height = e.target.scrollHeight + 'px';
@@ -592,6 +595,8 @@ export function FreeformNode({
                         style={{ fontSize: '0.86rem' }}
                         value={childText}
                         rows={1}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         onChange={(e) => {
                           e.target.style.height = 'auto';
                           e.target.style.height = e.target.scrollHeight + 'px';

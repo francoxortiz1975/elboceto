@@ -209,7 +209,7 @@ h1, h2, h3, .font-title {
   max-width: 520px;
   user-select: text;
   z-index: 10;
-  padding: 0 6px;          /* no vertical padding — sits cleanly on grid */
+  padding: 0 6px 0 20px;     /* Left padding for the left grip icon button */
   border-radius: 2px;
   border: 1px solid transparent;
 }
@@ -224,7 +224,7 @@ h1, h2, h3, .font-title {
   background: var(--bg-postit);
   border: var(--border-hairline);
   box-shadow: var(--shadow-subtle);
-  padding: 12px 16px;
+  padding: 12px 16px 12px 24px;
 }
 
 .freeform-node.is-card:hover {
@@ -232,40 +232,45 @@ h1, h2, h3, .font-title {
   border-color: rgba(24, 24, 27, 0.3);
 }
 
-/* Drag handle — 100% transparent grab zone at the top edge of each note */
-.node-drag-handle {
+/* Left Grip Handle — matching Document Notes view (.doc-block-grip) */
+.node-left-grip {
   position: absolute;
-  top: -10px;
-  left: 0;
-  right: 0;
-  height: 16px;
+  left: 2px;
+  top: 4px;
+  width: 16px;
+  height: 24px;
   cursor: grab;
-  z-index: 5;
-  background: transparent !important;
+  color: var(--text-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  color: var(--text-subtle);
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  z-index: 20;
 }
 
-.freeform-node:hover .node-drag-handle {
-  opacity: 0.4;
+.freeform-node:hover .node-left-grip,
+.freeform-node:focus-within .node-left-grip,
+.freeform-node.selected .node-left-grip {
+  opacity: 0.6;
 }
 
-.freeform-node .node-drag-handle:hover {
-  opacity: 0.9;
-  background: transparent !important;
+.node-left-grip:hover {
+  opacity: 1;
+  color: var(--text-ink);
 }
 
-.node-drag-handle:active {
+.node-left-grip:active {
   cursor: grabbing;
 }
 
-.node-drag-icon {
-  opacity: 0.6;
+/* Explicit text selection inside text inputs and textareas */
+input, textarea, [contenteditable] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
 }
+
 
 
 /* Home Pin Popover & Button Controls */
