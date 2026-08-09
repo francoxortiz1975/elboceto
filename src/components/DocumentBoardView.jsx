@@ -308,14 +308,14 @@ export function DocumentBoardView({
         showCompleted={showCompleted}
       />
 
-      {/* Subtle Transparent Spatial Navigation Trigger to Main Canvas Board */}
-      <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
+      {/* Subtle Transparent Spatial Navigation Trigger to Main Canvas Board — Centered on X-axis */}
+      <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
         <button
           className="subtle-spatial-nav"
           onClick={onTransitionToBoard}
           title="Ir al Lienzo Principal"
         >
-          <span>v</span>
+          <ChevronDown size={14} />
           <span className="nav-label font-mono">Lienzo</span>
         </button>
       </div>

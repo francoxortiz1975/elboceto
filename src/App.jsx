@@ -21,7 +21,9 @@ import {
   CheckSquare,
   FileText,
   MapPin,
-  MoreVertical
+  MoreVertical,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 const STORAGE_KEY_NOTES = 'el_boceto_notes_v2';
@@ -678,25 +680,25 @@ export default function App() {
           showCompleted={showCompleted}
         />
 
-        {/* Subtle Transparent Spatial Navigation Triggers */}
-        <div style={{ position: 'fixed', top: '70px', right: '20px', zIndex: 100 }}>
+        {/* Subtle Transparent Spatial Navigation Triggers — Centered on X-axis */}
+        <div style={{ position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
           <button
             className="subtle-spatial-nav"
             onClick={() => setActiveView('notes')}
             title="Ir a Notas"
           >
-            <span>^</span>
+            <ChevronUp size={14} />
             <span className="nav-label font-mono">Notas</span>
           </button>
         </div>
 
-        <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
+        <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
           <button
             className="subtle-spatial-nav"
             onClick={() => setActiveView('planner')}
             title="Ir a Planificador"
           >
-            <span>v</span>
+            <ChevronDown size={14} />
             <span className="nav-label font-mono">Planificador</span>
           </button>
         </div>

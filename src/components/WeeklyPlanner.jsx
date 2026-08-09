@@ -5,7 +5,8 @@ import {
   Plus,
   Check,
   ArrowUp,
-  Trash2
+  Trash2,
+  ChevronUp
 } from 'lucide-react';
 
 const DAYS_ES = [
@@ -306,17 +307,21 @@ export function WeeklyPlanner({
     <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-book)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* Header */}
-      <div style={{ padding: '14px 24px', borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0 }}>
+      <div style={{ padding: '14px 24px', borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span className="brand-title" style={{ fontSize: '1.4rem' }}>Planificador Semanal</span>
+        </div>
+
+        {/* Subtle Transparent Spatial Navigation Trigger — Centered on X-axis */}
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
           <button
             className="subtle-spatial-nav"
             onClick={onTransitionToBoard}
             title="Ir al Lienzo Principal"
           >
-            <span>^</span>
+            <ChevronUp size={14} />
             <span className="nav-label font-mono">Lienzo</span>
           </button>
-          <span className="brand-title" style={{ fontSize: '1.4rem' }}>Planificador Semanal</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button className="btn-icon" onClick={() => setWeekOffset(p => p - 1)}><ChevronLeft size={14} /></button>
