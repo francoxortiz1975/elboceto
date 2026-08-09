@@ -575,24 +575,21 @@ export function FreeformNode({
                     <ChevronRight size={14} />
                   </span>
                 )}
-                <textarea
-                  ref={(el) => (inputRefs.current[`main_${idx}`] = el)}
+                <div
+                  ref={(el) => {
+                    inputRefs.current[`main_${idx}`] = el;
+                    if (el && el.innerText !== b.text && document.activeElement !== el) {
+                      el.innerText = b.text || '';
+                    }
+                  }}
+                  contentEditable
+                  suppressContentEditableWarning
                   className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
-                  value={b.text}
-                  rows={1}
+                  data-placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
-                  onChange={(e) => {
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                    handleTextChange(idx, e.target.value);
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                  }}
+                  onInput={(e) => handleTextChange(idx, e.currentTarget.innerText)}
                   onKeyDown={(e) => handleKeyDown(e, idx)}
-                  placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                 />
               </div>
 
@@ -601,29 +598,28 @@ export function FreeformNode({
                   {(b.children || []).map((childText, cIdx) => (
                     <div key={cIdx} className="block-row">
                       <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
-                      <textarea
-                        ref={(el) => (inputRefs.current[`child_${idx}_${cIdx}`] = el)}
+                      <div
+                        ref={(el) => {
+                          inputRefs.current[`child_${idx}_${cIdx}`] = el;
+                          if (el && el.innerText !== childText && document.activeElement !== el) {
+                            el.innerText = childText || '';
+                          }
+                        }}
+                        contentEditable
+                        suppressContentEditableWarning
                         className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
                         style={{ fontSize: '0.86rem' }}
-                        value={childText}
-                        rows={1}
+                        data-placeholder="Sub-elemento..."
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          e.target.style.height = 'auto';
-                          e.target.style.height = e.target.scrollHeight + 'px';
+                        onInput={(e) => {
                           const children = [...(b.children || [])];
-                          children[cIdx] = e.target.value;
+                          children[cIdx] = e.currentTarget.innerText;
                           const newBlocks = [...blocks];
                           newBlocks[idx] = { ...b, children };
                           updateBlocks(newBlocks);
                         }}
-                        onFocus={(e) => {
-                          e.target.style.height = 'auto';
-                          e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
                         onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
-                        placeholder="Sub-elemento..."
                       />
                     </div>
                   ))}

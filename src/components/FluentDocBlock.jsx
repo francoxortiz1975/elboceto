@@ -284,42 +284,57 @@ export function FluentDocBlock({
       {/* Block Content Renderer */}
       <div className="doc-block-content">
         {block.type === 'heading-1' && (
-          <input
-            ref={inputRef}
-            type="text"
+          <div
+            ref={(el) => {
+              inputRef.current = el;
+              if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                el.innerText = block.text || '';
+              }
+            }}
+            contentEditable
+            suppressContentEditableWarning
             className="doc-input doc-h1"
             style={textStyle}
-            placeholder="Título 1"
-            value={block.text || ''}
-            onChange={handleTextChange}
+            data-placeholder="Título 1"
+            onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
             onKeyDown={handleKeyDown}
             onFocus={() => onFocusBlock(index)}
           />
         )}
 
         {block.type === 'heading-2' && (
-          <input
-            ref={inputRef}
-            type="text"
+          <div
+            ref={(el) => {
+              inputRef.current = el;
+              if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                el.innerText = block.text || '';
+              }
+            }}
+            contentEditable
+            suppressContentEditableWarning
             className="doc-input doc-h2"
             style={textStyle}
-            placeholder="Título 2"
-            value={block.text || ''}
-            onChange={handleTextChange}
+            data-placeholder="Título 2"
+            onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
             onKeyDown={handleKeyDown}
             onFocus={() => onFocusBlock(index)}
           />
         )}
 
         {block.type === 'heading-3' && (
-          <input
-            ref={inputRef}
-            type="text"
+          <div
+            ref={(el) => {
+              inputRef.current = el;
+              if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                el.innerText = block.text || '';
+              }
+            }}
+            contentEditable
+            suppressContentEditableWarning
             className="doc-input doc-h3"
             style={textStyle}
-            placeholder="Título 3"
-            value={block.text || ''}
-            onChange={handleTextChange}
+            data-placeholder="Título 3"
+            onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
             onKeyDown={handleKeyDown}
             onFocus={() => onFocusBlock(index)}
           />
@@ -333,14 +348,19 @@ export function FluentDocBlock({
             >
               {block.completed && <Check size={12} />}
             </button>
-            <input
-              ref={inputRef}
-              type="text"
+            <div
+              ref={(el) => {
+                inputRef.current = el;
+                if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                  el.innerText = block.text || '';
+                }
+              }}
+              contentEditable
+              suppressContentEditableWarning
               className={`doc-input doc-p ${block.completed ? 'line-through' : ''}`}
               style={textStyle}
-              placeholder="Tarea..."
-              value={block.text || ''}
-              onChange={handleTextChange}
+              data-placeholder="Tarea..."
+              onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
               onKeyDown={handleKeyDown}
               onFocus={() => onFocusBlock(index)}
             />
@@ -350,14 +370,19 @@ export function FluentDocBlock({
         {block.type === 'bullet' && (
           <div className="doc-bullet-row">
             <span className="doc-bullet-dot">•</span>
-            <input
-              ref={inputRef}
-              type="text"
+            <div
+              ref={(el) => {
+                inputRef.current = el;
+                if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                  el.innerText = block.text || '';
+                }
+              }}
+              contentEditable
+              suppressContentEditableWarning
               className="doc-input doc-p"
               style={textStyle}
-              placeholder="Elemento..."
-              value={block.text || ''}
-              onChange={handleTextChange}
+              data-placeholder="Elemento..."
+              onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
               onKeyDown={handleKeyDown}
               onFocus={() => onFocusBlock(index)}
             />
@@ -367,14 +392,19 @@ export function FluentDocBlock({
         {block.type === 'numbered' && (
           <div className="doc-numbered-row">
             <span className="doc-number font-mono">{index + 1}.</span>
-            <input
-              ref={inputRef}
-              type="text"
+            <div
+              ref={(el) => {
+                inputRef.current = el;
+                if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                  el.innerText = block.text || '';
+                }
+              }}
+              contentEditable
+              suppressContentEditableWarning
               className="doc-input doc-p"
               style={textStyle}
-              placeholder="Punto..."
-              value={block.text || ''}
-              onChange={handleTextChange}
+              data-placeholder="Punto..."
+              onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
               onKeyDown={handleKeyDown}
               onFocus={() => onFocusBlock(index)}
             />
@@ -384,14 +414,19 @@ export function FluentDocBlock({
         {block.type === 'callout' && (
           <div className="doc-callout-clean">
             <Sparkles size={15} className="doc-callout-icon" />
-            <input
-              ref={inputRef}
-              type="text"
+            <div
+              ref={(el) => {
+                inputRef.current = el;
+                if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                  el.innerText = block.text || '';
+                }
+              }}
+              contentEditable
+              suppressContentEditableWarning
               className="doc-input doc-p"
               style={textStyle}
-              placeholder="Nota o destacado..."
-              value={block.text || ''}
-              onChange={handleTextChange}
+              data-placeholder="Nota o destacado..."
+              onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
               onKeyDown={handleKeyDown}
               onFocus={() => onFocusBlock(index)}
             />
@@ -400,14 +435,19 @@ export function FluentDocBlock({
 
         {block.type === 'quote' && (
           <div className="doc-quote-box">
-            <input
-              ref={inputRef}
-              type="text"
+            <div
+              ref={(el) => {
+                inputRef.current = el;
+                if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                  el.innerText = block.text || '';
+                }
+              }}
+              contentEditable
+              suppressContentEditableWarning
               className="doc-input doc-quote"
               style={textStyle}
-              placeholder="Escribe una cita..."
-              value={block.text || ''}
-              onChange={handleTextChange}
+              data-placeholder="Escribe una cita..."
+              onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
               onKeyDown={handleKeyDown}
               onFocus={() => onFocusBlock(index)}
             />
@@ -421,14 +461,19 @@ export function FluentDocBlock({
         )}
 
         {(!block.type || block.type === 'paragraph') && (
-          <input
-            ref={inputRef}
-            type="text"
+          <div
+            ref={(el) => {
+              inputRef.current = el;
+              if (el && el.innerText !== (block.text || '') && document.activeElement !== el) {
+                el.innerText = block.text || '';
+              }
+            }}
+            contentEditable
+            suppressContentEditableWarning
             className="doc-input doc-p"
             style={textStyle}
-            placeholder="Escribe aquí... (doble clic para barra de herramientas, '/' para menú o '#' para título)"
-            value={block.text || ''}
-            onChange={handleTextChange}
+            data-placeholder="Escribe aquí... (doble clic para barra de herramientas, '/' para menú o '#' para título)"
+            onInput={(e) => handleTextChange({ target: { value: e.currentTarget.innerText } })}
             onKeyDown={handleKeyDown}
             onFocus={() => onFocusBlock(index)}
           />

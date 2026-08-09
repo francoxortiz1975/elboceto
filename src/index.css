@@ -477,18 +477,24 @@ input, textarea, [contenteditable] {
   line-height: 1.5;
   min-height: 28px;
   padding: 2px 0;
-  resize: none;
-  overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
-  field-sizing: content;
 }
 
+.block-text-input[contenteditable]:empty::before,
+.node-heading-input[contenteditable]:empty::before,
+.node-subheading-input[contenteditable]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-subtle);
+  pointer-events: none;
+  display: inline-block;
+}
 
 .block-text-input.completed {
   text-decoration: line-through;
   color: var(--text-muted);
 }
+
 
 .toggle-arrow {
   display: inline-flex;
@@ -1029,7 +1035,17 @@ input, textarea, [contenteditable] {
   font-size: 0.95rem;
   color: var(--text-ink);
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
+
+.doc-input[contenteditable]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-subtle);
+  pointer-events: none;
+  display: inline-block;
+}
+
 
 .doc-input.doc-h1 {
   font-family: var(--font-title);
