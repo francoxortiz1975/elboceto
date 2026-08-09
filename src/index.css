@@ -528,9 +528,15 @@ h1, h2, h3, .font-title {
   line-height: 1.5;
   min-height: 28px;
   padding: 2px 0;
+  resize: none;
+  overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
+  field-sizing: content;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
+
 
 .block-text-input[contenteditable]:empty::before,
 .node-heading-input[contenteditable]:empty::before,
