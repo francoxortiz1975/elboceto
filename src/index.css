@@ -437,11 +437,10 @@ input, textarea, [contenteditable] {
 /* Minimal Checkmark, Numbered, Toggle Block Rows */
 .block-row {
   display: flex;
-  align-items: center;   /* vertically centre everything in the 28px row */
+  align-items: flex-start;
   gap: 8px;
   width: 100%;
-  height: 28px;          /* exactly one grid cell */
-  overflow: hidden;
+  min-height: 28px;
 }
 
 .block-checkmark {
@@ -455,6 +454,7 @@ input, textarea, [contenteditable] {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 6px;
   transition: all var(--transition-fast);
 }
 
@@ -472,8 +472,9 @@ input, textarea, [contenteditable] {
   font-family: var(--font-body);
   font-size: 0.93rem;
   color: var(--text-ink);
-  line-height: 1.6;
+  line-height: 1.5;
   min-height: 28px;
+  padding: 2px 0;
   resize: none;
   overflow: hidden;
   white-space: pre-wrap;
@@ -493,6 +494,7 @@ input, textarea, [contenteditable] {
   height: 16px;
   flex-shrink: 0;
   cursor: pointer;
+  margin-top: 5px;
   color: var(--text-muted);
   transition: transform var(--transition-fast);
 }
@@ -506,8 +508,8 @@ input, textarea, [contenteditable] {
   font-size: 0.73rem;
   color: var(--text-muted);
   min-width: 18px;
-  line-height: 28px;
-  height: 28px;
+  line-height: 1.5;
+  margin-top: 4px;
 }
 
 /* Modal Overlay */

@@ -384,16 +384,18 @@ export function FreeformNode({
     }
   };
 
-  // Format date/time label for indicator
-  const eventLabel = node.eventDate
-    ? (() => {
-        const d = new Date(node.eventDate + 'T00:00:00');
-        const day = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-        return node.eventTime ? `${day} · ${node.eventTime}` : day;
-      })()
-    : null;
+  // Auto-expand all textareas to fit wrapped content reactively
+  useEffect(() => {
+    Object.values(inputRefs.current).forEach(el => {
+      if (el && el.tagName === 'TEXTAREA') {
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight}px`;
+      }
+    });
+  }, [blocks]);
 
   return (
+
     <div
       ref={containerRef}
       className={`freeform-node ${node.isCard ? 'is-card' : ''} ${isSelected ? 'selected' : ''} ${node.isEvent ? 'is-event-node' : ''}`}
