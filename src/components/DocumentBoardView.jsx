@@ -308,15 +308,15 @@ export function DocumentBoardView({
         showCompleted={showCompleted}
       />
 
-      {/* Spatial Navigation Trigger to Main Canvas Board */}
+      {/* Subtle Transparent Spatial Navigation Trigger to Main Canvas Board */}
       <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
         <button
-          className="btn-icon active"
-          style={{ borderRadius: '20px', padding: '8px 14px', boxShadow: 'var(--shadow-floating)' }}
+          className="subtle-spatial-nav"
           onClick={onTransitionToBoard}
+          title="Ir al Lienzo Principal"
         >
-          <ArrowDown size={14} />
-          <span className="font-mono">↓ Ir al Lienzo Principal</span>
+          <span>v</span>
+          <span className="nav-label font-mono">Lienzo</span>
         </button>
       </div>
     </div>

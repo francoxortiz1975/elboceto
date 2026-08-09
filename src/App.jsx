@@ -513,36 +513,6 @@ export default function App() {
 
       {/* Permanent Top-Right Reactive Floating Dock */}
       <div className="reactive-floating-dock">
-        {/* View Switcher Tabs */}
-        <button
-          className={`dock-icon-btn ${activeView === 'board' ? 'active' : ''}`}
-          onClick={() => setActiveView('board')}
-          title="Lienzo Principal"
-        >
-          <Plus size={13} />
-          <span className="font-mono">Lienzo</span>
-        </button>
-
-        <button
-          className={`dock-icon-btn ${activeView === 'notes' ? 'active' : ''}`}
-          onClick={() => setActiveView('notes')}
-          title="Tablero de Notas"
-        >
-          <FileText size={13} />
-          <span className="font-mono">Notas</span>
-        </button>
-
-        <button
-          className={`dock-icon-btn ${activeView === 'planner' ? 'active' : ''}`}
-          onClick={() => setActiveView('planner')}
-          title="Planificador Semanal"
-        >
-          <Calendar size={13} />
-          <span className="font-mono">Planificador</span>
-        </button>
-
-        <div className="dock-divider" />
-
         {/* 1. Pin / Inicio Button with ▼ toggle popover */}
         <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
           <button
@@ -708,27 +678,26 @@ export default function App() {
           showCompleted={showCompleted}
         />
 
-        {/* Spatial Navigation Triggers */}
+        {/* Subtle Transparent Spatial Navigation Triggers */}
         <div style={{ position: 'fixed', top: '70px', right: '20px', zIndex: 100 }}>
           <button
-            className="btn-icon active"
-            style={{ borderRadius: '20px', padding: '8px 14px', boxShadow: 'var(--shadow-floating)' }}
+            className="subtle-spatial-nav"
             onClick={() => setActiveView('notes')}
+            title="Ir a Notas"
           >
-            <FileText size={14} />
-            <span className="font-mono">↑ Vista 1: Notas Organizadas</span>
+            <span>^</span>
+            <span className="nav-label font-mono">Notas</span>
           </button>
         </div>
 
         <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
           <button
-            className="btn-icon active"
-            style={{ borderRadius: '20px', padding: '8px 14px', boxShadow: 'var(--shadow-floating)' }}
+            className="subtle-spatial-nav"
             onClick={() => setActiveView('planner')}
+            title="Ir a Planificador"
           >
-            <Calendar size={14} />
-            <span className="font-mono">↓ Vista 3: Planificador Semanal</span>
-            <ArrowDown size={12} />
+            <span>v</span>
+            <span className="nav-label font-mono">Planificador</span>
           </button>
         </div>
 

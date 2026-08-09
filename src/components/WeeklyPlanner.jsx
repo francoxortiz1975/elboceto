@@ -308,12 +308,15 @@ export function WeeklyPlanner({
       {/* Header */}
       <div style={{ padding: '14px 24px', borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button className="btn-icon active" onClick={onTransitionToBoard}>
-            <ArrowUp size={14} />
-            <span className="font-mono">↑ Vista 1: Pizarra</span>
+          <button
+            className="subtle-spatial-nav"
+            onClick={onTransitionToBoard}
+            title="Ir al Lienzo Principal"
+          >
+            <span>^</span>
+            <span className="nav-label font-mono">Lienzo</span>
           </button>
           <span className="brand-title" style={{ fontSize: '1.4rem' }}>Planificador Semanal</span>
-          <span className="minimal-badge font-mono">Vista 2</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button className="btn-icon" onClick={() => setWeekOffset(p => p - 1)}><ChevronLeft size={14} /></button>
