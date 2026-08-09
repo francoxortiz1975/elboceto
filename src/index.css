@@ -678,13 +678,14 @@ h1, h2, h3, .font-title {
 
 .doc-central-stream.top-left-start {
   width: 100%;
-  max-width: 840px;
+  max-width: 100%;
   margin: 0;
   padding: 10px 20px 40px 10px;
   min-height: 80vh;
   display: flex;
   flex-direction: column;
 }
+
 
 .doc-header-inline {
   display: flex;
