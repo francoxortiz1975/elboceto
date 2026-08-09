@@ -268,15 +268,18 @@ h1, h2, h3, .font-title {
 }
 
 .freeform-node:hover .node-left-grip,
-.freeform-node:focus-within .node-left-grip,
-.freeform-node:hover .node-left-grip,
 .freeform-node.selected .node-left-grip {
-  opacity: 1;
+  opacity: 0.85;
 }
 
 .freeform-node.selected .node-left-grip {
-  color: #3b82f6;
+  color: var(--text-ink);
 }
+
+.freeform-node.selected:focus-within .node-left-grip {
+  opacity: 0 !important;
+}
+
 
 
 .node-left-grip:hover {
