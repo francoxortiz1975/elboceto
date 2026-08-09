@@ -289,8 +289,14 @@ export default function App() {
         });
         setNotes(prev => [...prev, ...pastedNotes]);
         setSelectedNoteIds(newPastedIds);
+      } else if ((key === 'backspace' || key === 'delete') && !isEditingText && selectedNoteIds.length > 0) {
+        e.preventDefault();
+        pushSnapshot();
+        setNotes(prev => prev.filter(n => !selectedNoteIds.includes(n.id)));
+        setSelectedNoteIds([]);
       }
     };
+
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
