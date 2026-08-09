@@ -12,7 +12,10 @@ import {
   Heading3,
   Quote,
   Minus,
-  Trash2
+  Trash2,
+  Bold,
+  Italic,
+  Underline
 } from 'lucide-react';
 
 export function FluentDocBlock({
@@ -30,6 +33,7 @@ export function FluentDocBlock({
 }) {
   const inputRef = useRef(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [showToolbar, setShowToolbar] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
 
   useEffect(() => {
@@ -41,7 +45,6 @@ export function FluentDocBlock({
   const handleTextChange = (e) => {
     const text = e.target.value;
 
-    // Check for slash menu trigger
     if (text.endsWith('/')) {
       setShowSlashMenu(true);
       setSlashFilter('');
@@ -54,7 +57,6 @@ export function FluentDocBlock({
       }
     }
 
-    // Check Markdown auto-conversions when typing at start of block
     if (block.type === 'paragraph' || !block.type) {
       if (text.startsWith('# ')) {
         onUpdateBlock(block.id, { type: 'heading-1', text: text.slice(2) });
@@ -99,8 +101,9 @@ export function FluentDocBlock({
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape' && showSlashMenu) {
+    if (e.key === 'Escape') {
       setShowSlashMenu(false);
+      setShowToolbar(false);
       return;
     }
 
@@ -127,6 +130,7 @@ export function FluentDocBlock({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       setShowSlashMenu(false);
+      setShowToolbar(false);
       if ((block.type === 'check' || block.type === 'bullet' || block.type === 'numbered') && !block.text) {
         onUpdateBlock(block.id, { type: 'paragraph' });
         return;
@@ -138,6 +142,7 @@ export function FluentDocBlock({
     if (e.key === 'Backspace' && !block.text && totalBlocks > 1) {
       e.preventDefault();
       setShowSlashMenu(false);
+      setShowToolbar(false);
       onDeleteBlock(block.id);
       return;
     }
@@ -150,6 +155,11 @@ export function FluentDocBlock({
       e.preventDefault();
       onFocusBlock(index + 1);
     }
+  };
+
+  const handleDoubleClickBlock = (e) => {
+    e.stopPropagation();
+    setShowToolbar(true);
   };
 
   const applyBlockType = (type, extraProps = {}) => {
@@ -176,25 +186,114 @@ export function FluentDocBlock({
 
   const filteredSlashOptions = SLASH_OPTIONS.filter(opt => opt.label.toLowerCase().includes(slashFilter));
 
+  const textStyle = {
+    fontWeight: block.isBold ? '700' : 'normal',
+    fontStyle: block.isItalic ? 'italic' : 'normal',
+    textDecoration: block.isUnderline ? 'underline' : block.completed ? 'line-through' : 'none'
+  };
+
   return (
     <div
       className={`fluent-doc-block type-${block.type || 'paragraph'} ${block.completed ? 'is-completed' : ''}`}
-      style={{ paddingLeft: `${indentPadding}px` }}
+      style={{
+        paddingLeft: `${indentPadding}px`,
+        top: block.y ? `${block.y}px` : undefined,
+        left: block.x ? `${block.x}px` : undefined,
+        position: block.x !== undefined ? 'absolute' : 'relative'
+      }}
+      onDoubleClick={handleDoubleClickBlock}
     >
-      <div className="doc-block-grip" onMouseDown={(e) => onDragStartBlock(e, block.id)}>
+      {/* Drag handle */}
+      <div
+        className="doc-block-grip"
+        onMouseDown={(e) => onDragStartBlock(e, block.id)}
+        title="Mantén presionado para mover bloque"
+      >
         <GripVertical size={14} />
       </div>
 
+      {/* Floating Toolbar Context Menu (Shown on Double-Click or Focus Toggle) */}
+      {(showToolbar || (isFocused && showToolbar)) && (
+        <div className="doc-block-toolbar">
+          <button
+            className={`toolbar-btn ${block.type === 'heading-1' ? 'active' : ''}`}
+            onClick={() => applyBlockType('heading-1')}
+            title="Título 1"
+          >
+            <Heading1 size={13} />
+          </button>
+          <button
+            className={`toolbar-btn ${block.type === 'heading-2' ? 'active' : ''}`}
+            onClick={() => applyBlockType('heading-2')}
+            title="Título 2"
+          >
+            <Heading2 size={13} />
+          </button>
+          <button
+            className={`toolbar-btn ${block.type === 'paragraph' ? 'active' : ''}`}
+            onClick={() => applyBlockType('paragraph')}
+            title="Texto"
+          >
+            <Type size={13} />
+          </button>
+          <button
+            className={`toolbar-btn ${block.type === 'check' ? 'active' : ''}`}
+            onClick={() => applyBlockType('check')}
+            title="Tarea"
+          >
+            <CheckSquare size={13} />
+          </button>
+
+          <div className="toolbar-divider" />
+
+          <button
+            className={`toolbar-btn ${block.isBold ? 'active' : ''}`}
+            onClick={() => onUpdateBlock(block.id, { isBold: !block.isBold })}
+            title="Negrita"
+          >
+            <Bold size={13} />
+          </button>
+          <button
+            className={`toolbar-btn ${block.isItalic ? 'active' : ''}`}
+            onClick={() => onUpdateBlock(block.id, { isItalic: !block.isItalic })}
+            title="Cursiva"
+          >
+            <Italic size={13} />
+          </button>
+          <button
+            className={`toolbar-btn ${block.isUnderline ? 'active' : ''}`}
+            onClick={() => onUpdateBlock(block.id, { isUnderline: !block.isUnderline })}
+            title="Subrayado"
+          >
+            <Underline size={13} />
+          </button>
+
+          <div className="toolbar-divider" />
+
+          {/* Delete / Trash Icon inside toolbar as requested */}
+          <button
+            className="toolbar-btn danger"
+            onClick={() => onDeleteBlock(block.id)}
+            title="Eliminar bloque"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Block Content Renderer */}
       <div className="doc-block-content">
         {block.type === 'heading-1' && (
           <input
             ref={inputRef}
             type="text"
             className="doc-input doc-h1"
+            style={textStyle}
             placeholder="Título 1"
             value={block.text || ''}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => onFocusBlock(index)}
           />
         )}
 
@@ -203,10 +302,12 @@ export function FluentDocBlock({
             ref={inputRef}
             type="text"
             className="doc-input doc-h2"
+            style={textStyle}
             placeholder="Título 2"
             value={block.text || ''}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => onFocusBlock(index)}
           />
         )}
 
@@ -215,10 +316,12 @@ export function FluentDocBlock({
             ref={inputRef}
             type="text"
             className="doc-input doc-h3"
+            style={textStyle}
             placeholder="Título 3"
             value={block.text || ''}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => onFocusBlock(index)}
           />
         )}
 
@@ -234,10 +337,12 @@ export function FluentDocBlock({
               ref={inputRef}
               type="text"
               className={`doc-input doc-p ${block.completed ? 'line-through' : ''}`}
+              style={textStyle}
               placeholder="Tarea..."
               value={block.text || ''}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
+              onFocus={() => onFocusBlock(index)}
             />
           </div>
         )}
@@ -249,10 +354,12 @@ export function FluentDocBlock({
               ref={inputRef}
               type="text"
               className="doc-input doc-p"
+              style={textStyle}
               placeholder="Elemento..."
               value={block.text || ''}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
+              onFocus={() => onFocusBlock(index)}
             />
           </div>
         )}
@@ -264,10 +371,12 @@ export function FluentDocBlock({
               ref={inputRef}
               type="text"
               className="doc-input doc-p"
+              style={textStyle}
               placeholder="Punto..."
               value={block.text || ''}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
+              onFocus={() => onFocusBlock(index)}
             />
           </div>
         )}
@@ -279,10 +388,12 @@ export function FluentDocBlock({
               ref={inputRef}
               type="text"
               className="doc-input doc-p"
+              style={textStyle}
               placeholder="Nota o destacado..."
               value={block.text || ''}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
+              onFocus={() => onFocusBlock(index)}
             />
           </div>
         )}
@@ -293,10 +404,12 @@ export function FluentDocBlock({
               ref={inputRef}
               type="text"
               className="doc-input doc-quote"
+              style={textStyle}
               placeholder="Escribe una cita..."
               value={block.text || ''}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
+              onFocus={() => onFocusBlock(index)}
             />
           </div>
         )}
@@ -312,17 +425,15 @@ export function FluentDocBlock({
             ref={inputRef}
             type="text"
             className="doc-input doc-p"
-            placeholder="Escribe aquí... (usa '/' para menú o '#' para título)"
+            style={textStyle}
+            placeholder="Escribe aquí... (doble clic para barra de herramientas, '/' para menú o '#' para título)"
             value={block.text || ''}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => onFocusBlock(index)}
           />
         )}
       </div>
-
-      <button className="doc-block-delete-btn" onClick={() => onDeleteBlock(block.id)} title="Eliminar bloque">
-        <Trash2 size={13} />
-      </button>
 
       {showSlashMenu && (
         <div className="slash-menu-popup">

@@ -8,10 +8,32 @@ import {
   FilePlus,
   Trash2,
   StickyNote,
-  GripVertical
+  GripVertical,
+  FileText,
+  Sparkles,
+  BookOpen,
+  Feather,
+  Bookmark,
+  Compass,
+  Lightbulb,
+  PenTool,
+  CheckSquare
 } from 'lucide-react';
 
-const EMOJI_OPTIONS = ['📝', '💡', '🚀', '📌', '🎨', '🎯', '📚', '⚡', '🧠'];
+const ICON_MAP = {
+  FileText,
+  Sparkles,
+  BookOpen,
+  Feather,
+  Bookmark,
+  Compass,
+  Layers,
+  Lightbulb,
+  PenTool,
+  CheckSquare
+};
+
+const ICON_NAMES = Object.keys(ICON_MAP);
 
 export function FreeformDocEditor({
   documents = [],
@@ -25,20 +47,20 @@ export function FreeformDocEditor({
   onTransitionToBoard
 }) {
   const [focusedBlockIndex, setFocusedBlockIndex] = useState(0);
-  const activePostitDrag = useRef(null);
-  const [activeDraggingCardId, setActiveDraggingCardId] = useState(null);
+  const activeDrag = useRef(null);
+  const [activeDraggingId, setActiveDraggingId] = useState(null);
 
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0] || {
     id: 'doc_default',
     title: 'Notas Organizadas',
-    icon: '📝',
+    iconName: 'FileText',
     blocks: [
       { id: 'b1', type: 'heading-1', text: 'Notas Organizadas del Documento' },
-      { id: 'b2', type: 'callout', text: 'Escribe de forma fluida y agrega post-its libres en cualquier parte del tablero.' },
-      { id: 'b3', type: 'paragraph', text: 'Presiona Enter para nuevo párrafo o "/" para menú de bloques.' }
+      { id: 'b2', type: 'callout', text: 'Haz doble clic en un bloque para la barra de herramientas o en el lienzo para crear nuevas notas.' },
+      { id: 'b3', type: 'paragraph', text: 'Arrastra cualquier título o bloque libremente por el tablero.' }
     ],
     floatingNotes: [
-      { id: 'fn1', x: 80, y: 180, title: 'Idea Libres', text: 'Esta nota post-it se puede mover libremente a cualquier posición.' }
+      { id: 'fn1', x: 80, y: 180, title: 'Post-it Libre', text: 'Esta tarjeta se puede mover libremente a cualquier posición.' }
     ]
   };
 
@@ -98,7 +120,80 @@ export function FreeformDocEditor({
     updateBlocks(next);
   };
 
-  // Floating Post-It Management Anywhere on the Grid
+  // Double Click Canvas to Add New Block / Note at clicked location
+  const handleDoubleClickCanvas = (e) => {
+    if (e.target.closest('.fluent-doc-block') || e.target.closest('.free-postit-card') || e.target.closest('.doc-top-header')) {
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(24, Math.round((e.clientX - rect.left) / 24) * 24);
+    const y = Math.max(80, Math.round((e.clientY - rect.top) / 28) * 28);
+
+    const newBlock = {
+      id: `b_${Date.now()}`,
+      type: 'paragraph',
+      text: 'Nueva nota...',
+      x,
+      y
+    };
+    updateBlocks([...blocks, newBlock]);
+  };
+
+  // Dragging Spatial Blocks or Header Title
+  const handleDragStartBlock = (e, blockId) => {
+    const targetBlock = blocks.find(b => b.id === blockId);
+    const rect = e.currentTarget.getBoundingClientRect();
+
+    activeDrag.current = {
+      type: 'block',
+      id: blockId,
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: targetBlock?.x || rect.left,
+      initY: targetBlock?.y || rect.top
+    };
+    setActiveDraggingId(blockId);
+  };
+
+  const handleMouseDownPostIt = (e, noteId) => {
+    if (e.target.closest('input') || e.target.closest('textarea') || e.target.closest('button')) return;
+    const targetNote = floatingNotes.find(n => n.id === noteId);
+    if (!targetNote) return;
+
+    activeDrag.current = {
+      type: 'postit',
+      id: noteId,
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: targetNote.x,
+      initY: targetNote.y
+    };
+    setActiveDraggingId(noteId);
+  };
+
+  const handleMouseMoveDocBoard = (e) => {
+    if (!activeDrag.current) return;
+    const { type, id, startX, startY, initX, initY } = activeDrag.current;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    const snappedX = Math.max(24, Math.round((initX + dx) / 24) * 24);
+    const snappedY = Math.max(80, Math.round((initY + dy) / 28) * 28);
+
+    if (type === 'postit') {
+      const next = floatingNotes.map(n => (n.id === id ? { ...n, x: snappedX, y: snappedY } : n));
+      updateFloatingNotes(next);
+    } else if (type === 'block') {
+      const next = blocks.map(b => (b.id === id ? { ...b, x: snappedX, y: snappedY } : b));
+      updateBlocks(next);
+    }
+  };
+
+  const handleMouseUpDocBoard = () => {
+    activeDrag.current = null;
+    setActiveDraggingId(null);
+  };
+
   const handleAddFloatingNote = () => {
     const newFloating = [
       ...floatingNotes,
@@ -123,40 +218,7 @@ export function FreeformDocEditor({
     updateFloatingNotes(next);
   };
 
-  // Drag Post-It Anywhere
-  const handleMouseDownPostIt = (e, noteId) => {
-    if (e.target.closest('input') || e.target.closest('textarea') || e.target.closest('button')) return;
-    const targetNote = floatingNotes.find(n => n.id === noteId);
-    if (!targetNote) return;
-
-    activePostitDrag.current = {
-      noteId,
-      startX: e.clientX,
-      startY: e.clientY,
-      initX: targetNote.x,
-      initY: targetNote.y
-    };
-    setActiveDraggingCardId(noteId);
-  };
-
-  const handleMouseMoveDocBoard = (e) => {
-    if (!activePostitDrag.current) return;
-    const { noteId, startX, startY, initX, initY } = activePostitDrag.current;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-
-    const snappedX = Math.max(24, Math.round((initX + dx) / 24) * 24);
-    const snappedY = Math.max(80, Math.round((initY + dy) / 28) * 28);
-
-    const next = floatingNotes.map(n => (n.id === noteId ? { ...n, x: snappedX, y: snappedY } : n));
-    updateFloatingNotes(next);
-  };
-
-  const handleMouseUpDocBoard = () => {
-    activePostitDrag.current = null;
-    setActiveDraggingCardId(null);
-  };
-
+  const CurrentHeaderIcon = ICON_MAP[currentDoc.iconName] || FileText;
   const gridClass = gridMode === 'dots' ? 'bg-grid-dots' : gridMode === 'lines' ? 'bg-grid-lines' : 'bg-clean';
 
   return (
@@ -164,6 +226,7 @@ export function FreeformDocEditor({
       className={`freeform-doc-view ${gridClass}`}
       onMouseMove={handleMouseMoveDocBoard}
       onMouseUp={handleMouseUpDocBoard}
+      onDoubleClick={handleDoubleClickCanvas}
     >
       {/* Header Bar */}
       <header className="doc-top-header">
@@ -176,27 +239,30 @@ export function FreeformDocEditor({
 
         {/* Multi-Document Switcher Tabs */}
         <div className="doc-tabs-bar">
-          {documents.map(doc => (
-            <button
-              key={doc.id}
-              className={`doc-tab-btn ${doc.id === currentDoc.id ? 'active' : ''}`}
-              onClick={() => onSelectDoc(doc.id)}
-            >
-              <span>{doc.icon || '📝'}</span>
-              <span className="doc-tab-title">{doc.title || 'Sin Título'}</span>
-              {documents.length > 1 && (
-                <span
-                  className="doc-tab-close"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteDoc(doc.id);
-                  }}
-                >
-                  ×
-                </span>
-              )}
-            </button>
-          ))}
+          {documents.map(doc => {
+            const TabIcon = ICON_MAP[doc.iconName] || FileText;
+            return (
+              <button
+                key={doc.id}
+                className={`doc-tab-btn ${doc.id === currentDoc.id ? 'active' : ''}`}
+                onClick={() => onSelectDoc(doc.id)}
+              >
+                <TabIcon size={14} className="doc-outline-icon" />
+                <span className="doc-tab-title">{doc.title || 'Sin Título'}</span>
+                {documents.length > 1 && (
+                  <span
+                    className="doc-tab-close"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteDoc(doc.id);
+                    }}
+                  >
+                    ×
+                  </span>
+                )}
+              </button>
+            );
+          })}
           <button className="doc-tab-add" onClick={onCreateDoc} title="Nuevo Documento">
             <FilePlus size={14} />
           </button>
@@ -225,13 +291,13 @@ export function FreeformDocEditor({
         </div>
       </header>
 
-      {/* Main Document Board Canvas (No paper background frame) */}
+      {/* Main Document Board Canvas (Direct on Canvas Grid) */}
       <div className="doc-board-canvas">
-        {/* Floating Post-Its Placed Anywhere on Grid */}
+        {/* Floating Post-Its Anywhere */}
         {floatingNotes.map(fn => (
           <div
             key={fn.id}
-            className={`free-postit-card ${activeDraggingCardId === fn.id ? 'is-dragging' : ''}`}
+            className={`free-postit-card ${activeDraggingId === fn.id ? 'is-dragging' : ''}`}
             style={{
               left: `${fn.x}px`,
               top: `${fn.y}px`
@@ -263,22 +329,27 @@ export function FreeformDocEditor({
           </div>
         ))}
 
-        {/* Central Organized Document Stream (Direct on Canvas Grid) */}
+        {/* Central Stream & Free-positioned Blocks */}
         <div className="doc-central-stream">
-          {/* Header Title & Emoji */}
+          {/* Header Title & Minimalist Outline Icon */}
           <div className="doc-header-section">
-            <div className="doc-emoji-picker">
-              <span className="doc-current-emoji">{currentDoc.icon || '📝'}</span>
-              <div className="doc-emoji-dropdown">
-                {EMOJI_OPTIONS.map(emo => (
-                  <button
-                    key={emo}
-                    className="emoji-opt"
-                    onClick={() => onUpdateDoc({ ...currentDoc, icon: emo })}
-                  >
-                    {emo}
-                  </button>
-                ))}
+            <div className="doc-icon-picker">
+              <div className="doc-current-icon">
+                <CurrentHeaderIcon size={24} className="doc-outline-icon" />
+              </div>
+              <div className="doc-icon-dropdown">
+                {ICON_NAMES.map(name => {
+                  const OptIcon = ICON_MAP[name];
+                  return (
+                    <button
+                      key={name}
+                      className="icon-opt-btn"
+                      onClick={() => onUpdateDoc({ ...currentDoc, iconName: name })}
+                    >
+                      <OptIcon size={16} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -305,7 +376,7 @@ export function FreeformDocEditor({
                 onFocusBlock={(newIdx) => setFocusedBlockIndex(newIdx)}
                 onIndentBlock={handleIndentBlock}
                 onOutdentBlock={handleOutdentBlock}
-                onDragStartBlock={() => {}}
+                onDragStartBlock={handleDragStartBlock}
                 isFocused={focusedBlockIndex === idx}
               />
             ))}

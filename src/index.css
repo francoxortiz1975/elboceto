@@ -685,26 +685,28 @@ h1, h2, h3, .font-title {
   margin-bottom: 24px;
 }
 
-.doc-emoji-picker {
+.doc-icon-picker {
   position: relative;
   display: inline-block;
   margin-bottom: 12px;
 }
 
-.doc-current-emoji {
-  font-size: 2rem;
+.doc-current-icon {
   cursor: pointer;
-  display: inline-block;
-  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
   border-radius: var(--radius-md);
+  color: var(--text-ink);
   transition: var(--transition-fast);
 }
 
-.doc-current-emoji:hover {
+.doc-current-icon:hover {
   background: var(--bg-hover);
 }
 
-.doc-emoji-dropdown {
+.doc-icon-dropdown {
   display: none;
   position: absolute;
   top: 100%;
@@ -719,21 +721,28 @@ h1, h2, h3, .font-title {
   z-index: 100;
 }
 
-.doc-emoji-picker:hover .doc-emoji-dropdown {
+.doc-icon-picker:hover .doc-icon-dropdown {
   display: grid;
 }
 
-.emoji-opt {
-  font-size: 1.2rem;
+.icon-opt-btn {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   border-radius: 4px;
+  color: var(--text-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.emoji-opt:hover {
+.icon-opt-btn:hover {
   background: var(--bg-hover);
+}
+
+.doc-outline-icon {
+  stroke-width: 1.5px;
 }
 
 .doc-title-input {
@@ -769,10 +778,56 @@ h1, h2, h3, .font-title {
   transition: opacity 0.15s ease;
 }
 
-.fluent-doc-block:hover .doc-block-grip,
-.fluent-doc-block:hover .doc-block-delete-btn {
+.fluent-doc-block:hover .doc-block-grip {
   opacity: 1;
 }
+
+/* Floating Context Toolbar for Blocks */
+.doc-block-toolbar {
+  position: absolute;
+  top: -36px;
+  left: 24px;
+  background: var(--bg-note);
+  border: var(--border-hairline);
+  border-radius: 20px;
+  padding: 3px 8px;
+  box-shadow: var(--shadow-floating);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 150;
+  animation: fadeIn 0.12s ease-out;
+}
+
+.toolbar-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-btn:hover, .toolbar-btn.active {
+  background: var(--bg-hover);
+  color: var(--text-ink);
+}
+
+.toolbar-btn.danger:hover {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(24, 24, 27, 0.12);
+  margin: 0 2px;
+}
+
 
 .doc-block-content {
   flex: 1;

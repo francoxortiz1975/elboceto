@@ -279,18 +279,29 @@ export default function App() {
     }
   }, [viewport]);
 
-  // Handle Wheel Scroll transitions between View 1 (Board) and View 2 (Weekly Planner)
+  // Handle Wheel Scroll transitions between View 1 (Notes), View 2 (Board), View 3 (Planner)
   useEffect(() => {
     const handleWheel = (e) => {
-      if (activeView === 'board' && e.deltaY > 100 && !e.target.closest('.note-card') && !e.target.closest('.freeform-node')) {
-        setActiveView('planner');
-      } else if (activeView === 'planner' && e.deltaY < -100) {
+      // Allow view switching when scrolling on empty canvas areas
+      if (e.target.closest('.note-card') || e.target.closest('.freeform-node')) {
+        return;
+      }
+      if (activeView === 'board') {
+        if (e.deltaY < -100) {
+          setActiveView('notes');
+        } else if (e.deltaY > 100) {
+          setActiveView('planner');
+        }
+      } else if (activeView === 'notes' && e.deltaY > 80 && window.scrollY <= 0) {
+        setActiveView('board');
+      } else if (activeView === 'planner' && e.deltaY < -80) {
         setActiveView('board');
       }
     };
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
   }, [activeView]);
+
 
   const handleAddNote = (x = 140, y = 160, isCard = false) => {
     pushSnapshot();
