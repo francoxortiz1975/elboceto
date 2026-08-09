@@ -237,7 +237,18 @@ export function CanvasBoard({
             key={node.id}
             node={node}
             isSelected={selectedNoteIds.includes(node.id)}
-            onSelect={(id) => onSelectNotes([id])}
+            onSelect={(id, isShift) => {
+              if (isShift) {
+                if (selectedNoteIds.includes(id)) {
+                  onSelectNotes(selectedNoteIds.filter(item => item !== id));
+                } else {
+                  onSelectNotes([...selectedNoteIds, id]);
+                }
+              } else {
+                onSelectNotes([id]);
+              }
+            }}
+
             onUpdate={onUpdateNote}
             onDelete={onDeleteNote}
             onOpenCalendarModal={onOpenCalendarModal}

@@ -233,25 +233,69 @@ export default function App() {
     setPlannerTasks(next.plannerTasks);
   }, [notes, plannerTasks]);
 
-  // Global Keyboard Listener for Undo (Control+Z / Cmd+Z) and Redo
+  const copiedNoteCards = useRef([]);
+
+  // Global Keyboard Listener for Undo (Cmd+Z), Redo (Cmd+Shift+Z / Cmd+Y), and Copy/Paste Note Cards (Cmd+C / Cmd+V)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const isZ = e.key.toLowerCase() === 'z';
-      const isY = e.key.toLowerCase() === 'y';
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      const activeEl = document.activeElement;
+      const isEditingText = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
 
-      if (isCtrlOrCmd && isZ && !e.shiftKey) {
+      if (isCtrlOrCmd && key === 'z' && !e.shiftKey) {
+        if (!isEditingText) {
+          e.preventDefault();
+          handleUndo();
+        }
+      } else if ((isCtrlOrCmd && key === 'z' && e.shiftKey) || (isCtrlOrCmd && key === 'y')) {
+        if (!isEditingText) {
+          e.preventDefault();
+          handleRedo();
+        }
+      } else if (isCtrlOrCmd && key === 'c' && !isEditingText && selectedNoteIds.length > 0) {
         e.preventDefault();
-        handleUndo();
-      } else if ((isCtrlOrCmd && isZ && e.shiftKey) || (isCtrlOrCmd && isY)) {
+        const selectedNotesList = notes.filter(n => selectedNoteIds.includes(n.id));
+        copiedNoteCards.current = JSON.parse(JSON.stringify(selectedNotesList));
+
+        const textContent = selectedNotesList.map(n => {
+          return (n.blocks || []).map(b => {
+            let line = b.text || '';
+            if (b.isHeading) line = `# ${line}`;
+            else if (b.isSubheading) line = `## ${line}`;
+            else if (b.isCheck) line = `[${b.completed ? 'x' : ' '}] ${line}`;
+            else if (b.isBullet) line = `- ${line}`;
+            else if (b.isNumber) line = `1. ${line}`;
+            if (b.isToggle && b.children?.length) {
+              line += '\n' + b.children.map(c => `  - ${c}`).join('\n');
+            }
+            return line;
+          }).join('\n');
+        }).join('\n\n---\n\n');
+        navigator.clipboard.writeText(textContent);
+      } else if (isCtrlOrCmd && key === 'v' && !isEditingText && copiedNoteCards.current.length > 0) {
         e.preventDefault();
-        handleRedo();
+        pushSnapshot();
+        const newPastedIds = [];
+        const pastedNotes = copiedNoteCards.current.map(n => {
+          const newId = 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+          newPastedIds.push(newId);
+          return {
+            ...JSON.parse(JSON.stringify(n)),
+            id: newId,
+            x: n.x + 24,
+            y: n.y + 28
+          };
+        });
+        setNotes(prev => [...prev, ...pastedNotes]);
+        setSelectedNoteIds(newPastedIds);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [selectedNoteIds, notes, handleUndo, handleRedo, pushSnapshot]);
+
 
   // Persistence Effects
   useEffect(() => {
