@@ -495,13 +495,32 @@ export default function App() {
     }
   };
 
+  const [showDocDropdown, setShowDocDropdown] = useState(false);
+  const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
+
   const handleGoToHomePin = () => {
-    const targetHome = viewport.homePin || { x: 0, y: 140 };
-    setViewport(prev => ({ ...prev, pan: targetHome }));
+    if (activeView === 'notes' && currentDoc) {
+      const targetHome = currentDoc.viewport?.homePin || { x: 0, y: 140 };
+      handleUpdateDoc({
+        ...currentDoc,
+        viewport: { ...currentDoc.viewport, pan: targetHome }
+      });
+    } else {
+      const targetHome = viewport.homePin || { x: 0, y: 140 };
+      setViewport(prev => ({ ...prev, pan: targetHome }));
+    }
   };
 
   const handleConfirmSetHomePin = () => {
-    setViewport(prev => ({ ...prev, homePin: { ...prev.pan } }));
+    if (activeView === 'notes' && currentDoc) {
+      const curPan = currentDoc.viewport?.pan || { x: 0, y: 140 };
+      handleUpdateDoc({
+        ...currentDoc,
+        viewport: { ...currentDoc.viewport, homePin: { ...curPan } }
+      });
+    } else {
+      setViewport(prev => ({ ...prev, homePin: { ...prev.pan } }));
+    }
     setShowPinConfirm(false);
   };
 
@@ -515,6 +534,77 @@ export default function App() {
 
       {/* Permanent Top-Right Reactive Floating Dock */}
       <div className="reactive-floating-dock">
+        {/* Document Switcher Pill in Notes View */}
+        {activeView === 'notes' && (
+          <>
+            <div style={{ position: 'relative' }}>
+              <button
+                className="dock-icon-btn active"
+                onClick={(e) => { e.stopPropagation(); setShowDocDropdown(prev => !prev); }}
+                title="Cambiar Nota Organizada"
+              >
+                <span>{currentDoc?.icon || '📝'}</span>
+                <span className="font-mono" style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {currentDoc?.title || 'Sin título'}
+                </span>
+                <ChevronDown size={11} />
+              </button>
+
+              {showDocDropdown && (
+                <div
+                  className="vertical-more-panel"
+                  style={{ right: 0, width: '240px' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="panel-section-title font-mono">MIS NOTAS ({documents.length})</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '180px', overflowY: 'auto', marginBottom: '8px' }}>
+                    {documents.map(d => (
+                      <div
+                        key={d.id}
+                        className={`sidebar-item ${d.id === activeDocId ? 'active' : ''}`}
+                        style={{ padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                        onClick={() => {
+                          setActiveDocId(d.id);
+                          setShowDocDropdown(false);
+                        }}
+                      >
+                        <span className="font-mono" style={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {d.icon || '📝'} {d.title || 'Sin título'}
+                        </span>
+                        {documents.length > 1 && (
+                          <button
+                            className="btn-icon"
+                            style={{ padding: '2px', color: 'var(--text-muted)' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteDoc(d.id);
+                            }}
+                            title="Eliminar esta nota"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    className="btn-icon active"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => {
+                      handleCreateDoc();
+                      setShowDocDropdown(false);
+                    }}
+                  >
+                    <Plus size={12} />
+                    <span className="font-mono" style={{ fontSize: '0.75rem' }}>+ Nueva Nota</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="dock-divider" />
+          </>
+        )}
+
         {/* 1. Pin / Inicio Button with ▼ toggle popover */}
         <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
           <button
@@ -537,7 +627,7 @@ export default function App() {
             <div className="home-pin-popover" style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)' }}>
               <div className="home-pin-title font-mono">📍 Posición Fija de Inicio</div>
               <div className="home-pin-desc">
-                ¿Actualizar posición de inicio (`X: {viewport.pan?.x || 0}, Y: {viewport.pan?.y || 0}`)?
+                ¿Actualizar posición de inicio (`X: {activeView === 'notes' ? (currentDoc?.viewport?.pan?.x || 0) : (viewport.pan?.x || 0)}, Y: {activeView === 'notes' ? (currentDoc?.viewport?.pan?.y || 0) : (viewport.pan?.y || 0)}`)?
               </div>
               <div className="home-pin-actions">
                 <button className="btn-pin-cancel font-mono" onClick={() => setShowPinConfirm(false)}>
