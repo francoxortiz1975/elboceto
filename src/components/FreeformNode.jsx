@@ -320,7 +320,16 @@ export function FreeformNode({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  const adjustTextareaBounds = (el) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.width = 'auto';
+    el.style.width = `${Math.max(el.scrollWidth, 180)}px`;
+  };
+
   const updateBlocks = (newBlocks) => onUpdate({ ...node, blocks: newBlocks });
+
 
   const handleTextChange = (idx, rawText) => {
     const newBlocks = [...blocks];
@@ -624,10 +633,7 @@ export function FreeformNode({
           <textarea
             ref={(el) => {
               inputRefs.current['main_0'] = el;
-              if (el) {
-                el.style.height = 'auto';
-                el.style.height = `${el.scrollHeight}px`;
-              }
+              if (el) adjustTextareaBounds(el);
             }}
             wrap="off"
             className={`freeform-multiline-editor ${blocks[0]?.isHeading ? 'node-heading-input' : blocks[0]?.isSubheading ? 'node-subheading-input' : ''} ${blocks[0]?.isBold ? 'is-bold' : ''}`}
@@ -636,8 +642,7 @@ export function FreeformNode({
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
             onChange={(e) => {
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
+              adjustTextareaBounds(e.target);
               const raw = e.target.value;
               const lines = raw.split('\n');
               const newBlocks = lines.map((line, i) => {
@@ -656,10 +661,7 @@ export function FreeformNode({
               });
               updateBlocks(newBlocks);
             }}
-            onFocus={(e) => {
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
+            onFocus={(e) => adjustTextareaBounds(e.target)}
             placeholder="Escribe tu nota aquí..."
           />
         ) : (
@@ -709,7 +711,10 @@ export function FreeformNode({
                     </span>
                   )}
                   <textarea
-                    ref={(el) => (inputRefs.current[`main_${idx}`] = el)}
+                    ref={(el) => {
+                      inputRefs.current[`main_${idx}`] = el;
+                      if (el) adjustTextareaBounds(el);
+                    }}
                     wrap="off"
                     className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
                     value={b.text}
@@ -717,14 +722,10 @@ export function FreeformNode({
                     onMouseDown={handleListMouseDown}
                     onTouchStart={(e) => e.stopPropagation()}
                     onChange={(e) => {
-                      e.target.style.height = 'auto';
-                      e.target.style.height = `${e.target.scrollHeight}px`;
+                      adjustTextareaBounds(e.target);
                       handleTextChange(idx, e.target.value);
                     }}
-                    onFocus={(e) => {
-                      e.target.style.height = 'auto';
-                      e.target.style.height = `${e.target.scrollHeight}px`;
-                    }}
+                    onFocus={(e) => adjustTextareaBounds(e.target)}
                     onKeyDown={(e) => handleKeyDown(e, idx)}
                     placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   />
@@ -736,7 +737,10 @@ export function FreeformNode({
                       <div key={cIdx} className="block-row">
                         <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
                         <textarea
-                          ref={(el) => (inputRefs.current[`child_${idx}_${cIdx}`] = el)}
+                          ref={(el) => {
+                            inputRefs.current[`child_${idx}_${cIdx}`] = el;
+                            if (el) adjustTextareaBounds(el);
+                          }}
                           wrap="off"
                           className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
                           style={{ fontSize: '0.86rem' }}
@@ -747,18 +751,14 @@ export function FreeformNode({
                           onTouchStart={(e) => e.stopPropagation()}
 
                           onChange={(e) => {
-                            e.target.style.height = 'auto';
-                            e.target.style.height = `${e.target.scrollHeight}px`;
+                            adjustTextareaBounds(e.target);
                             const children = [...(b.children || [])];
                             children[cIdx] = e.target.value;
                             const newBlocks = [...blocks];
                             newBlocks[idx] = { ...b, children };
                             updateBlocks(newBlocks);
                           }}
-                          onFocus={(e) => {
-                            e.target.style.height = 'auto';
-                            e.target.style.height = `${e.target.scrollHeight}px`;
-                          }}
+                          onFocus={(e) => adjustTextareaBounds(e.target)}
                           onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
                           placeholder="Sub-elemento..."
                         />
@@ -774,3 +774,4 @@ export function FreeformNode({
     </div>
   );
 }
+
