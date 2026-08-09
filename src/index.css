@@ -508,6 +508,15 @@ h1, h2, h3, .font-title {
   gap: 8px;
   width: 100%;
   min-height: 28px;
+  border-radius: 3px;
+  transition: background 80ms ease;
+  cursor: text;
+}
+
+/* Visual highlight when block row is part of a drag selection */
+.block-row-selected {
+  background: rgba(70, 130, 255, 0.13);
+  border-radius: 3px;
 }
 
 .block-checkmark {

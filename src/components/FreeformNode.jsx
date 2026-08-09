@@ -219,6 +219,9 @@ export function FreeformNode({
   const [showEventPopover, setShowEventPopover] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const [focusedTarget, setFocusedTarget] = useState(null);
+  const [blockSelRange, setBlockSelRange] = useState(null); // { start, end } block-level drag selection
+  const isDraggingBlockSel = useRef(false);
+  const blockSelStartIdx = useRef(null);
   const containerRef = useRef(null);
   const inputRefs = useRef({});
 
@@ -256,6 +259,61 @@ export function FreeformNode({
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
+
+  // Global mouseup to finalize block drag selection
+  useEffect(() => {
+    const onMouseUp = () => {
+      if (isDraggingBlockSel.current) {
+        isDraggingBlockSel.current = false;
+      }
+    };
+    document.addEventListener('mouseup', onMouseUp);
+    return () => document.removeEventListener('mouseup', onMouseUp);
+  }, []);
+
+  // Intercept Cmd+C when block selection is active → copy selected blocks
+  useEffect(() => {
+    if (!blockSelRange) return;
+    const handleCopy = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        const { start, end } = blockSelRange;
+        const lo = Math.min(start, end);
+        const hi = Math.max(start, end);
+        const lines = blocks.slice(lo, hi + 1).map(b => {
+          let line = b.text || '';
+          if (b.isHeading) line = `# ${line}`;
+          else if (b.isSubheading) line = `## ${line}`;
+          else if (b.isCheck) line = `[${b.completed ? 'x' : ' '}] ${line}`;
+          else if (b.isBullet) line = `- ${line}`;
+          else if (b.isNumber) line = `1. ${line}`;
+          if (b.isToggle && b.children?.length) {
+            line += '\n' + b.children.map(c => `  - ${c}`).join('\n');
+          }
+          return line;
+        });
+        navigator.clipboard.writeText(lines.join('\n'));
+        setCopiedToast(true);
+        setTimeout(() => setCopiedToast(false), 2000);
+      }
+    };
+    document.addEventListener('keydown', handleCopy);
+    return () => document.removeEventListener('keydown', handleCopy);
+  }, [blockSelRange, blocks]);
+
+  const handleBlockRowMouseDown = (e, idx) => {
+    // Only trigger block drag selection from the block row background, not inside a textarea
+    if (e.target.tagName === 'TEXTAREA') return;
+    e.stopPropagation();
+    isDraggingBlockSel.current = true;
+    blockSelStartIdx.current = idx;
+    setBlockSelRange({ start: idx, end: idx });
+  };
+
+  const handleBlockRowMouseEnter = (idx) => {
+    if (!isDraggingBlockSel.current) return;
+    setBlockSelRange({ start: blockSelStartIdx.current, end: idx });
+  };
 
   // Auto-focus input when focusedTarget changes
   useEffect(() => {
@@ -749,9 +807,17 @@ export function FreeformNode({
 
             if (!showCompleted && b.isCheck && b.completed) return null;
 
+            const isBlockSelected = blockSelRange &&
+              idx >= Math.min(blockSelRange.start, blockSelRange.end) &&
+              idx <= Math.max(blockSelRange.start, blockSelRange.end);
+
             return (
               <div key={b.id || idx} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                <div className="block-row">
+                <div
+                  className={`block-row ${isBlockSelected ? 'block-row-selected' : ''}`}
+                  onMouseDown={(e) => handleBlockRowMouseDown(e, idx)}
+                  onMouseEnter={() => handleBlockRowMouseEnter(idx)}
+                >
                   {b.isCheck && (
                     <button
                       className={`block-checkmark ${b.completed ? 'checked' : ''}`}
@@ -799,8 +865,8 @@ export function FreeformNode({
                       adjustTextareaBounds(e.target);
                       handleTextChange(idx, e.target.value);
                     }}
-                    onFocus={(e) => adjustTextareaBounds(e.target)}
-                    onKeyDown={(e) => handleKeyDown(e, idx)}
+                    onFocus={(e) => { adjustTextareaBounds(e.target); setBlockSelRange(null); }}
+                    onKeyDown={(e) => { setBlockSelRange(null); handleKeyDown(e, idx); }}
                     placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   />
                 </div>
