@@ -734,8 +734,10 @@ export function FreeformNode({
               updateBlocks(newBlocks);
             }}
             onFocus={(e) => adjustTextareaBounds(e.target)}
+            onKeyDown={(e) => handleKeyDown(e, 0)}
             placeholder="Escribe tu nota aquí..."
           />
+
         ) : (
           blocks.map((b, idx) => {
             const numberCount = blocks.slice(0, idx + 1).filter(item => item.isNumber).length;
