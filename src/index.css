@@ -449,8 +449,9 @@ h1, h2, h3, .font-title {
   font-size: 1.85rem;
   font-style: italic;
   color: var(--text-ink);
-  line-height: 56px;
-  min-height: 56px;
+  line-height: 28px;
+  min-height: 28px;
+  height: 28px;
   padding: 0;
   display: block;
   resize: none;
@@ -471,6 +472,7 @@ h1, h2, h3, .font-title {
   color: var(--text-ink);
   line-height: 28px;
   min-height: 28px;
+  height: 28px;
   padding: 0;
   display: block;
   resize: none;
@@ -479,6 +481,7 @@ h1, h2, h3, .font-title {
   word-break: normal !important;
   field-sizing: content;
 }
+
 
 
 
