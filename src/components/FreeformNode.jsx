@@ -406,11 +406,7 @@ export function FreeformNode({
       onDoubleClick={(e) => {
         e.stopPropagation();
         onSelect(node.id);
-        if (showToolbar) {
-          onDelete(node.id);
-        } else {
-          setShowToolbar(true);
-        }
+        setShowToolbar(true);
       }}
     >
       {/* Drag Handle — only this strip can initiate a drag */}
