@@ -280,27 +280,39 @@ export default function App() {
   }, [viewport]);
 
   // Handle Wheel Scroll transitions between View 1 (Notes), View 2 (Board), View 3 (Planner)
+  const lastTransitionTime = useRef(0);
+
   useEffect(() => {
     const handleWheel = (e) => {
-      // Allow view switching when scrolling on empty canvas areas
       if (e.target.closest('.note-card') || e.target.closest('.freeform-node')) {
         return;
       }
+
+      const now = Date.now();
+      if (now - lastTransitionTime.current < 500) {
+        return; // Lock transition during continuous scroll gestures to prevent skipping views
+      }
+
       if (activeView === 'board') {
-        if (e.deltaY < -100) {
+        if (e.deltaY < -60) {
+          lastTransitionTime.current = now;
           setActiveView('notes');
-        } else if (e.deltaY > 100) {
+        } else if (e.deltaY > 60) {
+          lastTransitionTime.current = now;
           setActiveView('planner');
         }
-      } else if (activeView === 'notes' && e.deltaY > 80 && window.scrollY <= 0) {
+      } else if (activeView === 'notes' && e.deltaY > 60) {
+        lastTransitionTime.current = now;
         setActiveView('board');
-      } else if (activeView === 'planner' && e.deltaY < -80) {
+      } else if (activeView === 'planner' && e.deltaY < -60) {
+        lastTransitionTime.current = now;
         setActiveView('board');
       }
     };
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
   }, [activeView]);
+
 
 
   const handleAddNote = (x = 140, y = 160, isCard = false) => {

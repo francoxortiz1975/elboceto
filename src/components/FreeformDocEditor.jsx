@@ -17,7 +17,9 @@ import {
   Compass,
   Lightbulb,
   PenTool,
-  CheckSquare
+  CheckSquare,
+  Smile,
+  X
 } from 'lucide-react';
 
 const ICON_MAP = {
@@ -47,6 +49,7 @@ export function FreeformDocEditor({
   onTransitionToBoard
 }) {
   const [focusedBlockIndex, setFocusedBlockIndex] = useState(0);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const activeDrag = useRef(null);
   const [activeDraggingId, setActiveDraggingId] = useState(null);
 
@@ -54,18 +57,20 @@ export function FreeformDocEditor({
     id: 'doc_default',
     title: 'Notas Organizadas',
     iconName: 'FileText',
+    showIcon: true,
     blocks: [
       { id: 'b1', type: 'heading-1', text: 'Notas Organizadas del Documento' },
       { id: 'b2', type: 'callout', text: 'Haz doble clic en cualquier lugar del lienzo para añadir un bloque o nota libre.' },
       { id: 'b3', type: 'paragraph', text: 'Arrastra cualquier título o bloque libremente por el tablero.' }
     ],
     floatingNotes: [
-      { id: 'fn1', x: 80, y: 180, title: 'Post-it Libre', text: 'Esta tarjeta se puede mover libremente a cualquier posición.' }
+      { id: 'fn1', x: 740, y: 120, title: 'Post-it Libre', text: 'Esta tarjeta se puede mover libremente a cualquier posición.' }
     ]
   };
 
   const blocks = currentDoc.blocks || [];
   const floatingNotes = currentDoc.floatingNotes || [];
+  const hasIcon = currentDoc.showIcon !== false && !!currentDoc.iconName;
 
   const updateBlocks = (newBlocks) => {
     onUpdateDoc({ ...currentDoc, blocks: newBlocks });
@@ -126,7 +131,7 @@ export function FreeformDocEditor({
       e.target.closest('.fluent-doc-block') ||
       e.target.closest('.free-postit-card') ||
       e.target.closest('.doc-top-header') ||
-      e.target.closest('.doc-central-stream')
+      e.target.closest('.doc-header-inline')
     ) {
       return;
     }
@@ -208,8 +213,8 @@ export function FreeformDocEditor({
       ...floatingNotes,
       {
         id: `fn_${Date.now()}`,
-        x: 100 + (floatingNotes.length % 4) * 220,
-        y: 160 + Math.floor(floatingNotes.length / 4) * 160,
+        x: 640 + (floatingNotes.length % 3) * 220,
+        y: 120 + Math.floor(floatingNotes.length / 3) * 160,
         title: 'Post-it',
         text: 'Nota libre...'
       }
@@ -227,10 +232,9 @@ export function FreeformDocEditor({
     updateFloatingNotes(next);
   };
 
-  const CurrentHeaderIcon = ICON_MAP[currentDoc.iconName] || FileText;
+  const CurrentHeaderIcon = ICON_MAP[currentDoc.iconName || 'FileText'] || FileText;
   const gridClass = gridMode === 'dots' ? 'bg-grid-dots' : gridMode === 'lines' ? 'bg-grid-lines' : 'bg-clean';
 
-  // Separate central stream blocks vs spatially positioned blocks
   const centralBlocks = blocks.filter(b => b.x === undefined);
   const spatialBlocks = blocks.filter(b => b.x !== undefined);
 
@@ -253,14 +257,14 @@ export function FreeformDocEditor({
         {/* Multi-Document Switcher Tabs */}
         <div className="doc-tabs-bar">
           {documents.map(doc => {
-            const TabIcon = ICON_MAP[doc.iconName] || FileText;
+            const TabIcon = ICON_MAP[doc.iconName || 'FileText'] || FileText;
             return (
               <button
                 key={doc.id}
                 className={`doc-tab-btn ${doc.id === currentDoc.id ? 'active' : ''}`}
                 onClick={() => onSelectDoc(doc.id)}
               >
-                <TabIcon size={14} className="doc-outline-icon" />
+                {doc.showIcon !== false && <TabIcon size={14} className="doc-outline-icon" />}
                 <span className="doc-tab-title">{doc.title || 'Sin Título'}</span>
                 {documents.length > 1 && (
                   <span
@@ -374,29 +378,55 @@ export function FreeformDocEditor({
           );
         })}
 
-        {/* Central Organized Document Stream */}
-        <div className="doc-central-stream">
-          {/* Header Title & Minimalist Outline Icon */}
-          <div className="doc-header-section">
-            <div className="doc-icon-picker">
-              <div className="doc-current-icon">
-                <CurrentHeaderIcon size={24} className="doc-outline-icon" />
-              </div>
-              <div className="doc-icon-dropdown">
-                {ICON_NAMES.map(name => {
-                  const OptIcon = ICON_MAP[name];
-                  return (
+        {/* Top-Left Aligned Main Document Content (No Useless Left Margin) */}
+        <div className="doc-central-stream top-left-start">
+          {/* Inline Title & Optional Icon directly to the Left */}
+          <div className="doc-header-inline">
+            {hasIcon ? (
+              <div className="doc-icon-picker">
+                <div className="doc-current-icon" onClick={() => setShowIconPicker(p => !p)}>
+                  <CurrentHeaderIcon size={26} className="doc-outline-icon" />
+                </div>
+                {showIconPicker && (
+                  <div className="doc-icon-dropdown">
+                    {ICON_NAMES.map(name => {
+                      const OptIcon = ICON_MAP[name];
+                      return (
+                        <button
+                          key={name}
+                          className="icon-opt-btn"
+                          onClick={() => {
+                            onUpdateDoc({ ...currentDoc, iconName: name });
+                            setShowIconPicker(false);
+                          }}
+                        >
+                          <OptIcon size={16} />
+                        </button>
+                      );
+                    })}
                     <button
-                      key={name}
-                      className="icon-opt-btn"
-                      onClick={() => onUpdateDoc({ ...currentDoc, iconName: name })}
+                      className="icon-opt-btn remove-icon-btn"
+                      onClick={() => {
+                        onUpdateDoc({ ...currentDoc, showIcon: false });
+                        setShowIconPicker(false);
+                      }}
+                      title="Quitar icono"
                     >
-                      <OptIcon size={16} />
+                      <X size={14} />
                     </button>
-                  );
-                })}
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <button
+                className="btn-icon-subtle font-mono"
+                onClick={() => onUpdateDoc({ ...currentDoc, showIcon: true, iconName: 'FileText' })}
+                title="Añadir Icono Opcional"
+              >
+                <Smile size={14} />
+                <span>+ Icono</span>
+              </button>
+            )}
 
             <input
               type="text"
