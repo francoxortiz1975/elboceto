@@ -396,6 +396,22 @@ h1, h2, h3, .font-title {
   animation: fadeIn 0.12s ease-out;
 }
 
+.copy-toast-alert {
+  position: absolute;
+  top: -38px;
+  right: 0;
+  background: var(--text-ink);
+  color: var(--bg-book);
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  box-shadow: var(--shadow-floating);
+  z-index: 100000;
+  animation: fadeIn 0.15s ease-out;
+  pointer-events: none;
+}
+
+
 /* Typography — headings and inputs with proper line-height and no clipping */
 .node-heading-input {
   width: 100%;

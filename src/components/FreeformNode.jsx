@@ -14,7 +14,8 @@ import {
   Type,
   X,
   Clock,
-  GripVertical
+  GripVertical,
+  Copy
 } from 'lucide-react';
 
 
@@ -216,9 +217,33 @@ export function FreeformNode({
 }) {
   const [showToolbar, setShowToolbar] = useState(false);
   const [showEventPopover, setShowEventPopover] = useState(false);
+  const [copiedToast, setCopiedToast] = useState(false);
   const [focusedTarget, setFocusedTarget] = useState(null);
   const containerRef = useRef(null);
   const inputRefs = useRef({});
+
+  const handleCopyNoteContent = (e) => {
+    if (e) e.stopPropagation();
+    const textContent = (node.blocks || []).map(b => {
+      let line = b.text || '';
+      if (b.isHeading) line = `# ${line}`;
+      else if (b.isSubheading) line = `## ${line}`;
+      else if (b.isCheck) line = `[${b.completed ? 'x' : ' '}] ${line}`;
+      else if (b.isBullet) line = `- ${line}`;
+      else if (b.isNumber) line = `1. ${line}`;
+
+      if (b.isToggle && b.children?.length) {
+        const subLines = b.children.map(c => `  - ${c}`).join('\n');
+        line += '\n' + subLines;
+      }
+      return line;
+    }).join('\n');
+
+    navigator.clipboard.writeText(textContent);
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 2000);
+  };
+
 
   // Close toolbar when clicking outside
   useEffect(() => {
@@ -497,11 +522,23 @@ export function FreeformNode({
             <StickyNote size={12} />
           </button>
 
+          <button className="btn-icon" onClick={handleCopyNoteContent} title="Copiar Contenido de la Nota">
+            <Copy size={12} />
+          </button>
+
           <button className="btn-icon" style={{ color: 'var(--text-muted)' }} onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} title="Eliminar">
             <Trash2 size={12} />
           </button>
         </div>
       )}
+
+      {/* Copied Toast Alert */}
+      {copiedToast && (
+        <div className="copy-toast-alert font-mono">
+          ✓ ¡Nota copiada al portapapeles!
+        </div>
+      )}
+
 
       {/* Event Scheduler Popover */}
       {showToolbar && showEventPopover && (
