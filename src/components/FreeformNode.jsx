@@ -274,15 +274,19 @@ export function FreeformNode({
   }, []);
 
 
-  // Auto-focus input when focusedTarget changes
+  // Auto-focus input when focusedTarget changes and set precise caret position
   useEffect(() => {
     if (focusedTarget) {
-      if (focusedTarget.type === 'main') {
-        const key = `main_${focusedTarget.index}`;
-        if (inputRefs.current[key]) inputRefs.current[key].focus();
-      } else if (focusedTarget.type === 'child') {
-        const key = `child_${focusedTarget.blockIdx}_${focusedTarget.childIdx}`;
-        if (inputRefs.current[key]) inputRefs.current[key].focus();
+      const key = focusedTarget.type === 'main'
+        ? `main_${focusedTarget.index}`
+        : `child_${focusedTarget.blockIdx}_${focusedTarget.childIdx}`;
+      const el = inputRefs.current[key];
+      if (el) {
+        el.focus();
+        const pos = focusedTarget.caretPos !== undefined ? focusedTarget.caretPos : el.value.length;
+        try {
+          el.setSelectionRange(pos, pos);
+        } catch (err) {}
       }
     }
   }, [node.blocks, focusedTarget]);
@@ -387,6 +391,11 @@ export function FreeformNode({
   const handleToggleCardMode = () => onUpdate({ ...node, isCard: !node.isCard });
 
   const handleKeyDown = (e, idx) => {
+    const el = e.target;
+    const val = el ? el.value || '' : '';
+    const selStart = el ? el.selectionStart || 0 : 0;
+    const selEnd = el ? el.selectionEnd || 0 : 0;
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
       e.preventDefault();
       try {
@@ -397,9 +406,7 @@ export function FreeformNode({
           sel.removeAllRanges();
           sel.addRange(range);
         }
-      } catch (err) {
-        // Fallback
-      }
+      } catch (err) {}
       return;
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
@@ -407,21 +414,34 @@ export function FreeformNode({
       toggleProperty(idx, 'isBold');
       return;
     }
+
+    // ── ENTER: Split text at caret and create new block ───────────────────────
     if (e.key === 'Enter') {
       e.preventDefault();
       const currentB = blocks[idx];
+      const headText = val.slice(0, selStart);
+      const tailText = val.slice(selStart);
+
+      const updatedCurrentB = { ...currentB, text: headText };
       const newB = normalizeBlock({
+        text: tailText,
         isCheck: currentB.isCheck,
         isNumber: currentB.isNumber,
         isBullet: currentB.isBullet,
         isBold: currentB.isBold,
         isToggle: false, isHeading: false, isSubheading: false
       });
+
       const newBlocks = [...blocks];
+      newBlocks[idx] = updatedCurrentB;
       newBlocks.splice(idx + 1, 0, newB);
       updateBlocks(newBlocks);
-      setFocusedTarget({ type: 'main', index: idx + 1 });
-    } else if (e.key === 'Tab' && !e.shiftKey && idx > 0) {
+      setFocusedTarget({ type: 'main', index: idx + 1, caretPos: 0 });
+      return;
+    }
+
+    // ── TAB / SHIFT+TAB: Indent to toggle child or outdent ────────────────────
+    if (e.key === 'Tab' && !e.shiftKey && idx > 0) {
       e.preventDefault();
       const newBlocks = [...blocks];
       const currentB = newBlocks[idx];
@@ -432,41 +452,78 @@ export function FreeformNode({
       newBlocks[idx - 1] = prevB;
       newBlocks.splice(idx, 1);
       updateBlocks(newBlocks);
+      setFocusedTarget({ type: 'child', blockIdx: idx - 1, childIdx: targetChildIdx, caretPos: currentB.text.length });
+      return;
     }
 
+    // ── BACKSPACE / DELETE: Merge line, delete block or note card ──────────────
     if (e.key === 'Backspace' || e.key === 'Delete') {
-      const el = e.target;
-      const val = el ? el.value || '' : '';
-      const isAllSelectedInBlock = el && el.selectionStart === 0 && el.selectionEnd === val.length && val.length > 0;
+      const isAllSelectedInBlock = selStart === 0 && selEnd === val.length && val.length > 0;
       const isEmptyBlock = val === '';
       const sel = window.getSelection();
       const selStr = sel ? sel.toString() : '';
       const isEntireNodeSelected = containerRef.current && sel && sel.anchorNode && containerRef.current.contains(sel.anchorNode) && selStr.length > val.length;
 
-      // Case 1: Full note container selected (e.g. via Cmd+A)
+      // Full note container selected (Cmd+A + Backspace)
       if (isEntireNodeSelected) {
         e.preventDefault();
         onDelete(node.id);
         return;
       }
 
-      // Case 2: Single block note and ALL text selected or block empty
+      // Single block note and ALL text selected or empty block
       if (blocks.length === 1 && (isAllSelectedInBlock || isEmptyBlock)) {
         e.preventDefault();
         onDelete(node.id);
         return;
       }
 
-      // Case 3: Multi-block note and ALL text in THIS block selected or block empty
-      if (blocks.length > 1 && (isAllSelectedInBlock || isEmptyBlock)) {
+      // Multi-block note and ALL text in block selected
+      if (blocks.length > 1 && isAllSelectedInBlock) {
         e.preventDefault();
         const newBlocks = blocks.filter((_, i) => i !== idx);
         updateBlocks(newBlocks);
-        setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
+        setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1), caretPos: blocks[Math.max(0, idx - 1)].text.length });
         return;
       }
 
-      // Case 4: Partial text selection — let browser delete characters naturally!
+      // Backspace at caret position 0 → Merge current line into previous block!
+      if (e.key === 'Backspace' && selStart === 0 && selEnd === 0) {
+        e.preventDefault();
+        if (idx > 0) {
+          const prevB = { ...blocks[idx - 1] };
+          const targetCaret = prevB.text.length;
+          prevB.text = prevB.text + val;
+
+          const newBlocks = [...blocks];
+          newBlocks[idx - 1] = prevB;
+          newBlocks.splice(idx, 1);
+          updateBlocks(newBlocks);
+          setFocusedTarget({ type: 'main', index: idx - 1, caretPos: targetCaret });
+        } else if (idx === 0 && blocks.length > 1 && isEmptyBlock) {
+          const newBlocks = blocks.filter((_, i) => i !== 0);
+          updateBlocks(newBlocks);
+          setFocusedTarget({ type: 'main', index: 0, caretPos: 0 });
+        }
+        return;
+      }
+    }
+
+    // ── ARROW KEY NAVIGATION BETWEEN BLOCKS ──────────────────────────────────
+    if (e.key === 'ArrowUp' && idx > 0 && selStart === 0) {
+      e.preventDefault();
+      const prevLen = blocks[idx - 1].text.length;
+      setFocusedTarget({ type: 'main', index: idx - 1, caretPos: Math.min(selStart, prevLen) });
+    } else if (e.key === 'ArrowDown' && idx < blocks.length - 1 && selEnd === val.length) {
+      e.preventDefault();
+      const nextLen = blocks[idx + 1].text.length;
+      setFocusedTarget({ type: 'main', index: idx + 1, caretPos: Math.min(selEnd, nextLen) });
+    } else if (e.key === 'ArrowLeft' && idx > 0 && selStart === 0 && selEnd === 0) {
+      e.preventDefault();
+      setFocusedTarget({ type: 'main', index: idx - 1, caretPos: blocks[idx - 1].text.length });
+    } else if (e.key === 'ArrowRight' && idx < blocks.length - 1 && selStart === val.length && selEnd === val.length) {
+      e.preventDefault();
+      setFocusedTarget({ type: 'main', index: idx + 1, caretPos: 0 });
     } else if (e.key === 'Escape') {
       setShowToolbar(false);
       setShowEventPopover(false);
@@ -474,6 +531,11 @@ export function FreeformNode({
   };
 
   const handleChildKeyDown = (e, blockIdx, childIdx) => {
+    const el = e.target;
+    const val = el ? el.value || '' : '';
+    const selStart = el ? el.selectionStart || 0 : 0;
+    const selEnd = el ? el.selectionEnd || 0 : 0;
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
       e.preventDefault();
       try {
@@ -484,18 +546,29 @@ export function FreeformNode({
           sel.removeAllRanges();
           sel.addRange(range);
         }
-      } catch (err) {
-        // Fallback
-      }
+      } catch (err) {}
       return;
     }
+
     const currentB = blocks[blockIdx];
     const children = [...(currentB.children || [])];
 
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const headText = val.slice(0, selStart);
+      const tailText = val.slice(selStart);
+      children[childIdx] = headText;
+      children.splice(childIdx + 1, 0, tailText);
+
+      const newBlocks = [...blocks];
+      newBlocks[blockIdx] = { ...currentB, children };
+      updateBlocks(newBlocks);
+      setFocusedTarget({ type: 'child', blockIdx, childIdx: childIdx + 1, caretPos: 0 });
+      return;
+    }
+
     if (e.key === 'Backspace' || e.key === 'Delete') {
-      const el = e.target;
-      const val = el ? el.value || '' : '';
-      const isAllSelectedInBlock = el && el.selectionStart === 0 && el.selectionEnd === val.length && val.length > 0;
+      const isAllSelectedInBlock = selStart === 0 && selEnd === val.length && val.length > 0;
       const isEmptyBlock = val === '';
       const sel = window.getSelection();
       const selStr = sel ? sel.toString() : '';
@@ -507,42 +580,37 @@ export function FreeformNode({
         return;
       }
 
-      if (isAllSelectedInBlock || isEmptyBlock) {
+      if (isAllSelectedInBlock || (isEmptyBlock && e.key === 'Backspace' && selStart === 0)) {
         e.preventDefault();
         children.splice(childIdx, 1);
         const newBlocks = [...blocks];
         newBlocks[blockIdx] = { ...currentB, children };
         updateBlocks(newBlocks);
         if (children.length > 0) {
-          setFocusedTarget({ type: 'child', blockIdx, childIdx: Math.max(0, childIdx - 1) });
+          setFocusedTarget({ type: 'child', blockIdx, childIdx: Math.max(0, childIdx - 1), caretPos: (children[Math.max(0, childIdx - 1)] || '').length });
         } else {
-          setFocusedTarget({ type: 'main', index: blockIdx });
+          setFocusedTarget({ type: 'main', index: blockIdx, caretPos: currentB.text.length });
         }
         return;
       }
-    }
 
+      // Backspace at position 0 in child item → merge with previous child item
+      if (e.key === 'Backspace' && selStart === 0 && selEnd === 0 && childIdx > 0) {
+        e.preventDefault();
+        const prevChildText = children[childIdx - 1] || '';
+        const targetCaret = prevChildText.length;
+        children[childIdx - 1] = prevChildText + val;
+        children.splice(childIdx, 1);
 
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      children.splice(childIdx + 1, 0, '');
-      const newBlocks = [...blocks];
-      newBlocks[blockIdx] = { ...currentB, children };
-      updateBlocks(newBlocks);
-      setFocusedTarget({ type: 'child', blockIdx, childIdx: childIdx + 1 });
-    } else if (e.key === 'Backspace' && children[childIdx] === '') {
-      e.preventDefault();
-      children.splice(childIdx, 1);
-      const newBlocks = [...blocks];
-      newBlocks[blockIdx] = { ...currentB, children };
-      updateBlocks(newBlocks);
-      if (children.length > 0) {
-        setFocusedTarget({ type: 'child', blockIdx, childIdx: Math.max(0, childIdx - 1) });
-      } else {
-        setFocusedTarget({ type: 'main', index: blockIdx });
+        const newBlocks = [...blocks];
+        newBlocks[blockIdx] = { ...currentB, children };
+        updateBlocks(newBlocks);
+        setFocusedTarget({ type: 'child', blockIdx, childIdx: childIdx - 1, caretPos: targetCaret });
+        return;
       }
     }
   };
+
 
 
   // Format date-only label for indicator (no clock icon, no time)
