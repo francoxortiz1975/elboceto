@@ -4,6 +4,7 @@ import { SidebarList } from './components/SidebarList';
 import { GoogleCalendarModal } from './components/GoogleCalendarModal';
 import { WeeklyPlanner } from './components/WeeklyPlanner';
 import { LeftEdgePanel } from './components/LeftEdgePanel';
+import { FreeformDocEditor } from './components/FreeformDocEditor';
 import {
   Plus,
   BookOpen,
@@ -17,12 +18,34 @@ import {
   RotateCcw,
   Undo2,
   Redo2,
-  CheckSquare
+  CheckSquare,
+  FileText
 } from 'lucide-react';
 
 const STORAGE_KEY_NOTES = 'el_boceto_notes_v2';
 const STORAGE_KEY_PLANNER = 'el_boceto_planner_v1';
 const STORAGE_KEY_VIEWPORT = 'el_boceto_viewport_v1';
+const STORAGE_KEY_DOCUMENTS = 'el_boceto_documents_v1';
+
+const INITIAL_DOCUMENTS = [
+  {
+    id: 'doc_1',
+    title: 'Notas de Desarrollo y Ideas',
+    icon: '📝',
+    blocks: [
+      { id: 'b1', type: 'heading-1', text: 'Notas en Documento Libre' },
+      { id: 'b2', type: 'callout', text: 'Escribe de forma fluida como en Notion o arrastra bloques libremente al margen.', color: 'amber' },
+      { id: 'b3', type: 'paragraph', text: 'Presiona Enter para crear párrafos, Tab para sangrar o "/" para desplegar el menú de bloques.' },
+      { id: 'b4', type: 'heading-2', text: 'Lista de Objetivos' },
+      { id: 'b5', type: 'check', text: 'Organizar ideas en vista de documento fluida', completed: true },
+      { id: 'b6', type: 'check', text: 'Arrastrar bloques libres al margen derecho', completed: false }
+    ],
+    floatingNotes: [
+      { id: 'fn1', x: 20, y: 140, title: 'Recordatorio', text: 'Puedes deslizar hacia arriba para el Lienzo o hacia abajo para el Planificador.' }
+    ]
+  }
+];
+
 
 const INITIAL_DEMO_NOTES = [
   {
@@ -84,6 +107,50 @@ export default function App() {
     }
     return INITIAL_PLANNER_TASKS;
   });
+
+  // Freeform Document Notes state
+  const [documents, setDocuments] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_DOCUMENTS);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading documents:', e);
+    }
+    return INITIAL_DOCUMENTS;
+  });
+
+  const [activeDocId, setActiveDocId] = useState(() => documents[0]?.id || 'doc_1');
+
+  const handleCreateDoc = () => {
+    const newDoc = {
+      id: `doc_${Date.now()}`,
+      title: 'Nuevo Documento',
+      icon: '📝',
+      blocks: [
+        { id: `b_${Date.now()}`, type: 'heading-1', text: 'Nuevo Documento' },
+        { id: `b_${Date.now() + 1}`, type: 'paragraph', text: 'Empieza a escribir aquí...' }
+      ],
+      floatingNotes: []
+    };
+    setDocuments(prev => [...prev, newDoc]);
+    setActiveDocId(newDoc.id);
+  };
+
+  const handleUpdateDoc = (updatedDoc) => {
+    setDocuments(prev => prev.map(d => (d.id === updatedDoc.id ? updatedDoc : d)));
+  };
+
+  const handleDeleteDoc = (docId) => {
+    if (documents.length <= 1) return;
+    setDocuments(prev => {
+      const next = prev.filter(d => d.id !== docId);
+      if (activeDocId === docId) {
+        setActiveDocId(next[0]?.id || '');
+      }
+      return next;
+    });
+  };
+
 
   // Persistent pan state only (zoom removed — always 1:1 for grid alignment)
   const [viewport, setViewport] = useState(() => {
@@ -194,6 +261,15 @@ export default function App() {
       console.error('Error saving planner tasks:', e);
     }
   }, [plannerTasks]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(documents));
+    } catch (e) {
+      console.error('Error saving documents:', e);
+    }
+  }, [documents]);
+
 
   useEffect(() => {
     try {
@@ -392,15 +468,23 @@ export default function App() {
         />
 
         {/* Spatial Navigation Trigger */}
-        <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
+        <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100, display: 'flex', gap: '8px' }}>
           <button
             className="btn-icon active"
+            style={{ borderRadius: '20px', padding: '8px 14px', boxShadow: 'var(--shadow-floating)' }}
+            onClick={() => setActiveView('document_notes')}
+          >
+            <FileText size={14} />
+            <span className="font-mono">↓ Vista 2: Editor de Documentos</span>
+            <ArrowDown size={12} />
+          </button>
+          <button
+            className="btn-icon"
             style={{ borderRadius: '20px', padding: '8px 14px', boxShadow: 'var(--shadow-floating)' }}
             onClick={() => setActiveView('planner')}
           >
             <Calendar size={14} />
-            <span className="font-mono">↓ Vista 2: Planificador Semanal</span>
-            <ArrowDown size={12} />
+            <span className="font-mono">Planificador</span>
           </button>
         </div>
 
@@ -409,6 +493,10 @@ export default function App() {
           <button className="btn-icon active" onClick={() => handleAddNote(100, 100, false)}>
             <Plus size={14} />
             <span>Escribir</span>
+          </button>
+          <button className="btn-icon" onClick={() => setActiveView('document_notes')}>
+            <FileText size={14} />
+            <span>Documento</span>
           </button>
           <button className="btn-icon" onClick={() => setActiveView('planner')}>
             <Calendar size={14} />
@@ -421,7 +509,30 @@ export default function App() {
         </div>
       </div>
 
-      {/* View 2: Weekly Planner (Full Screen Table with Hours) */}
+      {/* View 2: Freeform Document Notes (Notion-style + Margin Canvas) */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transform: activeView === 'document_notes' ? 'translateY(0)' : activeView === 'board' ? 'translateY(100vh)' : 'translateY(-100vh)',
+          transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        <FreeformDocEditor
+          documents={documents}
+          activeDocId={activeDocId}
+          onSelectDoc={setActiveDocId}
+          onCreateDoc={handleCreateDoc}
+          onUpdateDoc={handleUpdateDoc}
+          onDeleteDoc={handleDeleteDoc}
+          gridMode={gridMode}
+          onGridModeChange={setGridMode}
+          onTransitionToBoard={() => setActiveView('board')}
+          onTransitionToPlanner={() => setActiveView('planner')}
+        />
+      </div>
+
+      {/* View 3: Weekly Planner (Full Screen Table with Hours) */}
       <div
         style={{
           position: 'absolute',
@@ -439,6 +550,7 @@ export default function App() {
           onTransitionToBoard={() => setActiveView('board')}
         />
       </div>
+
 
       {/* Sidebar List Panel */}
       <SidebarList
