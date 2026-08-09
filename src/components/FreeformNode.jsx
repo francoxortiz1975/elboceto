@@ -274,22 +274,27 @@ export function FreeformNode({
   }, []);
 
 
-  // Auto-focus input when focusedTarget changes and set precise caret position
+  // Auto-focus input when focusedTarget changes and set precise caret position once
   useEffect(() => {
     if (focusedTarget) {
-      const key = focusedTarget.type === 'main'
-        ? `main_${focusedTarget.index}`
-        : `child_${focusedTarget.blockIdx}_${focusedTarget.childIdx}`;
+      const target = focusedTarget;
+      setFocusedTarget(null);
+
+      const key = target.type === 'main'
+        ? `main_${target.index}`
+        : `child_${target.blockIdx}_${target.childIdx}`;
       const el = inputRefs.current[key];
       if (el) {
         el.focus();
-        const pos = focusedTarget.caretPos !== undefined ? focusedTarget.caretPos : el.value.length;
-        try {
-          el.setSelectionRange(pos, pos);
-        } catch (err) {}
+        if (target.caretPos !== undefined) {
+          try {
+            el.setSelectionRange(target.caretPos, target.caretPos);
+          } catch (err) {}
+        }
       }
     }
-  }, [node.blocks, focusedTarget]);
+  }, [focusedTarget]);
+
 
 
   const handleListMouseDown = (e) => {
