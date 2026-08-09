@@ -428,6 +428,7 @@ export function FreeformNode({
 
       {/* Left Grip Handle — matching Document Notes view */}
       <div
+        contentEditable={false}
         className="node-left-grip"
         onMouseDown={(e) => onDragStart(e, node.id)}
         onTouchStart={(e) => onDragStart(e, node.id)}
@@ -438,6 +439,7 @@ export function FreeformNode({
       {/* Floating Toolbar */}
       {showToolbar && (
         <div
+          contentEditable={false}
           className="inline-context-bar"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -514,16 +516,19 @@ export function FreeformNode({
 
       {/* Date/Time badge on the LEFT SIDE of the node */}
       {eventLabel && (
-        <div style={{
-          position: 'absolute',
-          top: '4px',
-          right: 'calc(100% + 8px)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap'
-        }}>
+        <div
+          contentEditable={false}
+          style={{
+            position: 'absolute',
+            top: '4px',
+            right: 'calc(100% + 8px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
           <Clock size={10} style={{ color: 'var(--text-muted)' }} />
           <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
             {eventLabel}
@@ -531,8 +536,8 @@ export function FreeformNode({
         </div>
       )}
 
-      {/* Render Blocks */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {/* Render Blocks inside a Unified ContentEditable Host */}
+      <div className="note-text-body" contentEditable={true} suppressContentEditableWarning style={{ display: 'flex', flexDirection: 'column', gap: 0, outline: 'none' }}>
         {blocks.map((b, idx) => {
           const numberCount = blocks.slice(0, idx + 1).filter(item => item.isNumber).length;
           const inputClass = b.isHeading
@@ -548,6 +553,7 @@ export function FreeformNode({
               <div className="block-row">
                 {b.isCheck && (
                   <button
+                    contentEditable={false}
                     className={`block-checkmark ${b.completed ? 'checked' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -560,13 +566,14 @@ export function FreeformNode({
                   </button>
                 )}
                 {b.isBullet && (
-                  <span className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-ink)', marginTop: '2px', minWidth: '14px' }}>•</span>
+                  <span contentEditable={false} className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-ink)', marginTop: '2px', minWidth: '14px' }}>•</span>
                 )}
                 {b.isNumber && (
-                  <span className="numbered-badge">{numberCount}.</span>
+                  <span contentEditable={false} className="numbered-badge">{numberCount}.</span>
                 )}
                 {b.isToggle && (
                   <span
+                    contentEditable={false}
                     className={`toggle-arrow ${b.isOpen ? 'open' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -585,8 +592,6 @@ export function FreeformNode({
                       el.innerText = b.text || '';
                     }
                   }}
-                  contentEditable
-                  suppressContentEditableWarning
                   className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
                   data-placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   onInput={(e) => handleTextChange(idx, e.currentTarget.innerText)}
@@ -598,7 +603,7 @@ export function FreeformNode({
                 <div style={{ paddingLeft: '22px', borderLeft: 'var(--border-hairline)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
                   {(b.children || []).map((childText, cIdx) => (
                     <div key={cIdx} className="block-row">
-                      <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
+                      <span contentEditable={false} className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
                       <div
                         ref={(el) => {
                           inputRefs.current[`child_${idx}_${cIdx}`] = el;
@@ -606,8 +611,6 @@ export function FreeformNode({
                             el.innerText = childText || '';
                           }
                         }}
-                        contentEditable
-                        suppressContentEditableWarning
                         className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
                         style={{ fontSize: '0.86rem' }}
                         data-placeholder="Sub-elemento..."

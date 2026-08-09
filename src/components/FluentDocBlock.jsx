@@ -205,6 +205,7 @@ export function FluentDocBlock({
     >
       {/* Drag handle */}
       <div
+        contentEditable={false}
         className="doc-block-grip"
         onMouseDown={(e) => onDragStartBlock(e, block.id)}
         title="Mantén presionado para mover bloque"
@@ -214,7 +215,8 @@ export function FluentDocBlock({
 
       {/* Floating Toolbar Context Menu (Shown on Double-Click or Focus Toggle) */}
       {(showToolbar || (isFocused && showToolbar)) && (
-        <div className="doc-block-toolbar">
+        <div contentEditable={false} className="doc-block-toolbar">
+
           <button
             className={`toolbar-btn ${block.type === 'heading-1' ? 'active' : ''}`}
             onClick={() => applyBlockType('heading-1')}

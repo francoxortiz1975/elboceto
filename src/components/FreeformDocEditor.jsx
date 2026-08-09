@@ -440,8 +440,8 @@ export function FreeformDocEditor({
             />
           </div>
 
-          {/* Fluid Central Block Stack */}
-          <div className="doc-blocks-stack">
+          {/* Fluid Central Block Stack (Unified ContentEditable Host) */}
+          <div className="doc-blocks-stack" contentEditable={true} suppressContentEditableWarning style={{ outline: 'none' }}>
             {centralBlocks.map((block) => {
               const globalIdx = blocks.findIndex(b => b.id === block.id);
               return (
@@ -462,6 +462,7 @@ export function FreeformDocEditor({
               );
             })}
           </div>
+
         </div>
 
       </div>
