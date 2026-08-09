@@ -13,7 +13,8 @@ import {
   Bold,
   Type,
   X,
-  Clock
+  Clock,
+  GripHorizontal
 } from 'lucide-react';
 
 // ─── Inline Event Scheduler Popover ───────────────────────────────────────────
@@ -415,7 +416,9 @@ export function FreeformNode({
         onMouseDown={(e) => onDragStart(e, node.id)}
         onTouchStart={(e) => onDragStart(e, node.id)}
         title="Arrastra para mover"
-      />
+      >
+        <GripHorizontal size={12} className="node-drag-icon" />
+      </div>
       {/* Floating Toolbar */}
       {showToolbar && (
         <div
@@ -559,12 +562,20 @@ export function FreeformNode({
                     <ChevronRight size={14} />
                   </span>
                 )}
-                <input
+                <textarea
                   ref={(el) => (inputRefs.current[`main_${idx}`] = el)}
-                  type="text"
                   className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
                   value={b.text}
-                  onChange={(e) => handleTextChange(idx, e.target.value)}
+                  rows={1}
+                  onChange={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                    handleTextChange(idx, e.target.value);
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
                   onKeyDown={(e) => handleKeyDown(e, idx)}
                   placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                 />
@@ -575,18 +586,24 @@ export function FreeformNode({
                   {(b.children || []).map((childText, cIdx) => (
                     <div key={cIdx} className="block-row">
                       <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
-                      <input
+                      <textarea
                         ref={(el) => (inputRefs.current[`child_${idx}_${cIdx}`] = el)}
-                        type="text"
                         className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
                         style={{ fontSize: '0.86rem' }}
                         value={childText}
+                        rows={1}
                         onChange={(e) => {
+                          e.target.style.height = 'auto';
+                          e.target.style.height = e.target.scrollHeight + 'px';
                           const children = [...(b.children || [])];
                           children[cIdx] = e.target.value;
                           const newBlocks = [...blocks];
                           newBlocks[idx] = { ...b, children };
                           updateBlocks(newBlocks);
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.height = 'auto';
+                          e.target.style.height = e.target.scrollHeight + 'px';
                         }}
                         onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
                         placeholder="Sub-elemento..."
