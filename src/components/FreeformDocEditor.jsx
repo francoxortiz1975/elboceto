@@ -56,7 +56,7 @@ export function FreeformDocEditor({
     iconName: 'FileText',
     blocks: [
       { id: 'b1', type: 'heading-1', text: 'Notas Organizadas del Documento' },
-      { id: 'b2', type: 'callout', text: 'Haz doble clic en un bloque para la barra de herramientas o en el lienzo para crear nuevas notas.' },
+      { id: 'b2', type: 'callout', text: 'Haz doble clic en cualquier lugar del lienzo para añadir un bloque o nota libre.' },
       { id: 'b3', type: 'paragraph', text: 'Arrastra cualquier título o bloque libremente por el tablero.' }
     ],
     floatingNotes: [
@@ -120,11 +120,17 @@ export function FreeformDocEditor({
     updateBlocks(next);
   };
 
-  // Double Click Canvas to Add New Block / Note at clicked location
+  // Double Click Canvas anywhere to create a new block at exact double-clicked grid coordinates
   const handleDoubleClickCanvas = (e) => {
-    if (e.target.closest('.fluent-doc-block') || e.target.closest('.free-postit-card') || e.target.closest('.doc-top-header')) {
+    if (
+      e.target.closest('.fluent-doc-block') ||
+      e.target.closest('.free-postit-card') ||
+      e.target.closest('.doc-top-header') ||
+      e.target.closest('.doc-central-stream')
+    ) {
       return;
     }
+
     const rect = e.currentTarget.getBoundingClientRect();
     const x = Math.max(24, Math.round((e.clientX - rect.left) / 24) * 24);
     const y = Math.max(80, Math.round((e.clientY - rect.top) / 28) * 28);
@@ -132,15 +138,18 @@ export function FreeformDocEditor({
     const newBlock = {
       id: `b_${Date.now()}`,
       type: 'paragraph',
-      text: 'Nueva nota...',
+      text: '',
       x,
       y
     };
-    updateBlocks([...blocks, newBlock]);
+    const nextBlocks = [...blocks, newBlock];
+    updateBlocks(nextBlocks);
+    setFocusedBlockIndex(nextBlocks.length - 1);
   };
 
   // Dragging Spatial Blocks or Header Title
   const handleDragStartBlock = (e, blockId) => {
+    e.stopPropagation();
     const targetBlock = blocks.find(b => b.id === blockId);
     const rect = e.currentTarget.getBoundingClientRect();
 
@@ -149,8 +158,8 @@ export function FreeformDocEditor({
       id: blockId,
       startX: e.clientX,
       startY: e.clientY,
-      initX: targetBlock?.x || rect.left,
-      initY: targetBlock?.y || rect.top
+      initX: targetBlock?.x !== undefined ? targetBlock.x : rect.left,
+      initY: targetBlock?.y !== undefined ? targetBlock.y : rect.top
     };
     setActiveDraggingId(blockId);
   };
@@ -220,6 +229,10 @@ export function FreeformDocEditor({
 
   const CurrentHeaderIcon = ICON_MAP[currentDoc.iconName] || FileText;
   const gridClass = gridMode === 'dots' ? 'bg-grid-dots' : gridMode === 'lines' ? 'bg-grid-lines' : 'bg-clean';
+
+  // Separate central stream blocks vs spatially positioned blocks
+  const centralBlocks = blocks.filter(b => b.x === undefined);
+  const spatialBlocks = blocks.filter(b => b.x !== undefined);
 
   return (
     <div
@@ -329,7 +342,39 @@ export function FreeformDocEditor({
           </div>
         ))}
 
-        {/* Central Stream & Free-positioned Blocks */}
+        {/* Spatially Positioned Blocks Created via Double-Click Anywhere */}
+        {spatialBlocks.map((block) => {
+          const globalIdx = blocks.findIndex(b => b.id === block.id);
+          return (
+            <div
+              key={block.id}
+              className="spatial-block-wrapper"
+              style={{
+                position: 'absolute',
+                left: `${block.x}px`,
+                top: `${block.y}px`,
+                zIndex: activeDraggingId === block.id ? 25 : 15,
+                minWidth: '220px'
+              }}
+            >
+              <FluentDocBlock
+                block={block}
+                index={globalIdx}
+                totalBlocks={blocks.length}
+                onUpdateBlock={handleUpdateBlock}
+                onDeleteBlock={handleDeleteBlock}
+                onAddBlockBelow={handleAddBlockBelow}
+                onFocusBlock={(newIdx) => setFocusedBlockIndex(newIdx)}
+                onIndentBlock={handleIndentBlock}
+                onOutdentBlock={handleOutdentBlock}
+                onDragStartBlock={handleDragStartBlock}
+                isFocused={focusedBlockIndex === globalIdx}
+              />
+            </div>
+          );
+        })}
+
+        {/* Central Organized Document Stream */}
         <div className="doc-central-stream">
           {/* Header Title & Minimalist Outline Icon */}
           <div className="doc-header-section">
@@ -362,24 +407,27 @@ export function FreeformDocEditor({
             />
           </div>
 
-          {/* Fluid Block Stack */}
+          {/* Fluid Central Block Stack */}
           <div className="doc-blocks-stack">
-            {blocks.map((block, idx) => (
-              <FluentDocBlock
-                key={block.id}
-                block={block}
-                index={idx}
-                totalBlocks={blocks.length}
-                onUpdateBlock={handleUpdateBlock}
-                onDeleteBlock={handleDeleteBlock}
-                onAddBlockBelow={handleAddBlockBelow}
-                onFocusBlock={(newIdx) => setFocusedBlockIndex(newIdx)}
-                onIndentBlock={handleIndentBlock}
-                onOutdentBlock={handleOutdentBlock}
-                onDragStartBlock={handleDragStartBlock}
-                isFocused={focusedBlockIndex === idx}
-              />
-            ))}
+            {centralBlocks.map((block) => {
+              const globalIdx = blocks.findIndex(b => b.id === block.id);
+              return (
+                <FluentDocBlock
+                  key={block.id}
+                  block={block}
+                  index={globalIdx}
+                  totalBlocks={blocks.length}
+                  onUpdateBlock={handleUpdateBlock}
+                  onDeleteBlock={handleDeleteBlock}
+                  onAddBlockBelow={handleAddBlockBelow}
+                  onFocusBlock={(newIdx) => setFocusedBlockIndex(newIdx)}
+                  onIndentBlock={handleIndentBlock}
+                  onOutdentBlock={handleOutdentBlock}
+                  onDragStartBlock={handleDragStartBlock}
+                  isFocused={focusedBlockIndex === globalIdx}
+                />
+              );
+            })}
           </div>
 
           {/* Add block button */}
