@@ -231,13 +231,36 @@ export function FreeformNode({
     isBold: !!b.isBold,
     isCheck: !!b.isCheck || b.type === 'check',
     isBullet: !!b.isBullet || b.type === 'bullet',
+    isNumber: !!b.isNumber || b.type === 'number',
     isToggle: !!b.isToggle || b.type === 'toggle',
     completed: !!b.completed,
     isOpen: b.isOpen !== undefined ? b.isOpen : true,
-    children: b.children || []
+    indent: b.indent || 0
   });
 
-  const blocks = (node.blocks || []).map(normalizeBlock);
+  // Flatten any legacy b.children into flat block objects with indent = 1
+  const rawBlocks = node.blocks || [];
+  const blocks = [];
+  rawBlocks.forEach((rawB) => {
+    const parentB = normalizeBlock(rawB);
+    blocks.push(parentB);
+    if (rawB.children && rawB.children.length > 0) {
+      rawB.children.forEach((c, cIdx) => {
+        const isObj = typeof c === 'object' && c !== null;
+        const txt = isObj ? c.text || '' : String(c || '');
+        const done = isObj ? !!c.completed : false;
+        const bold = isObj ? !!c.isBold : false;
+        blocks.push(normalizeBlock({
+          id: 'b_child_' + (parentB.id) + '_' + cIdx,
+          text: txt,
+          completed: done,
+          isBold: bold,
+          isCheck: true,
+          indent: (parentB.indent || 0) + 1
+        }));
+      });
+    }
+  });
 
   const handleCopyNoteContent = (e) => {
     if (e) e.stopPropagation();
@@ -249,22 +272,15 @@ export function FreeformNode({
       else if (b.isBullet) line = `- ${line}`;
       else if (b.isNumber) line = `1. ${line}`;
 
-      if (b.isToggle && b.children?.length) {
-        const subLines = b.children.map(c => {
-          const isObj = typeof c === 'object' && c !== null;
-          const txt = isObj ? c.text || '' : String(c || '');
-          const done = isObj ? !!c.completed : false;
-          return `  [${done ? 'x' : ' '}] ${txt}`;
-        }).join('\n');
-        line += '\n' + subLines;
-      }
-      return line;
+      const indentSpaces = '  '.repeat(b.indent || 0);
+      return `${indentSpaces}${line}`;
     }).join('\n');
 
     navigator.clipboard.writeText(textContent);
     setCopiedToast(true);
     setTimeout(() => setCopiedToast(false), 2000);
   };
+
 
 
 
@@ -533,10 +549,10 @@ export function FreeformNode({
         isCheck: currentB.isCheck,
         isNumber: currentB.isNumber,
         isBullet: currentB.isBullet,
+        indent: currentB.indent || 0, // Inherit indent level on Enter!
         isBold: false, // Reset bold to normal text for next line!
         isToggle: false, isHeading: false, isSubheading: false // Reset heading to normal text for next line!
       });
-
 
       const newBlocks = [...blocks];
       newBlocks[idx] = updatedCurrentB;
@@ -546,21 +562,25 @@ export function FreeformNode({
       return;
     }
 
-    // ── TAB / SHIFT+TAB: Indent to toggle child or outdent ────────────────────
-    if (e.key === 'Tab' && !e.shiftKey && idx > 0) {
+    // ── TAB / SHIFT+TAB: Indent or outdent current block row ──────────────────
+    if (e.key === 'Tab') {
       e.preventDefault();
       const newBlocks = [...blocks];
-      const currentB = newBlocks[idx];
-      const prevB = { ...newBlocks[idx - 1] };
-      prevB.isToggle = true; prevB.isOpen = true;
-      const targetChildIdx = (prevB.children || []).length;
-      prevB.children = [...(prevB.children || []), currentB.text || ''];
-      newBlocks[idx - 1] = prevB;
-      newBlocks.splice(idx, 1);
+      const currentB = { ...newBlocks[idx] };
+      if (!e.shiftKey) {
+        currentB.indent = Math.min(3, (currentB.indent || 0) + 1);
+        if (idx > 0 && !newBlocks[idx - 1].isToggle) {
+          newBlocks[idx - 1] = { ...newBlocks[idx - 1], isToggle: true, isOpen: true };
+        }
+      } else {
+        currentB.indent = Math.max(0, (currentB.indent || 0) - 1);
+      }
+      newBlocks[idx] = currentB;
       updateBlocks(newBlocks);
-      setFocusedTarget({ type: 'child', blockIdx: idx - 1, childIdx: targetChildIdx, caretPos: currentB.text.length });
+      setFocusedTarget({ type: 'main', index: idx, caretPos: selStart });
       return;
     }
+
 
     // ── BACKSPACE / DELETE: Merge line, delete block or note card ──────────────
     if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -892,7 +912,30 @@ export function FreeformNode({
 
       {/* Render Note Body Content — Standard Block-Based Editor */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
-        {blocks.map((b, idx) => {
+
+        {(() => {
+          // Calculate collapsed visibility for indented blocks under closed toggle parents
+          const hiddenMap = {};
+          let closedToggleIndent = null;
+
+          blocks.forEach((b, i) => {
+            if (closedToggleIndent !== null) {
+              if ((b.indent || 0) > closedToggleIndent) {
+                hiddenMap[i] = true;
+              } else {
+                closedToggleIndent = null;
+              }
+            }
+            if (b.isToggle && !b.isOpen) {
+              if (closedToggleIndent === null || (b.indent || 0) <= closedToggleIndent) {
+                closedToggleIndent = b.indent || 0;
+              }
+            }
+          });
+
+          return blocks.map((b, idx) => {
+            if (hiddenMap[idx]) return null;
+            if (!showCompleted && b.isCheck && b.completed) return null;
 
             const numberCount = blocks.slice(0, idx + 1).filter(item => item.isNumber).length;
             const inputClass = b.isHeading
@@ -901,11 +944,18 @@ export function FreeformNode({
               ? 'node-subheading-input'
               : 'block-text-input';
 
-            if (!showCompleted && b.isCheck && b.completed) return null;
-
             return (
               <div key={b.id || idx} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                <div className="block-row">
+                <div className="block-row" style={{ paddingLeft: `${(b.indent || 0) * 18}px`, position: 'relative' }}>
+                  {b.indent > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      left: `${(b.indent - 1) * 18 + 6}px`,
+                      top: 0, bottom: 0,
+                      width: '1px',
+                      background: 'rgba(24,24,27,0.1)'
+                    }} />
+                  )}
                   {b.isCheck && (
                     <button
                       className={`block-checkmark ${b.completed ? 'checked' : ''}`}
@@ -961,84 +1011,17 @@ export function FreeformNode({
                     onPaste={(e) => handlePaste(e, idx)}
                     placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   />
-
-
                 </div>
-
-
-                {b.isToggle && b.isOpen && (
-                  <div style={{ paddingLeft: '20px', borderLeft: 'var(--border-hairline)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-                    {(b.children || []).map((child, cIdx) => {
-                      const isObj = typeof child === 'object' && child !== null;
-                      const childText = isObj ? child.text || '' : String(child || '');
-                      const isCompleted = isObj ? !!child.completed : false;
-                      const isChildBold = isObj ? !!child.isBold : false;
-
-                      return (
-                        <div key={cIdx} className="block-row">
-                          <button
-                            className={`block-checkmark ${isCompleted ? 'checked' : ''}`}
-                            style={{ marginTop: '5px' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const children = [...(b.children || [])];
-                              const cur = children[cIdx];
-                              const text = typeof cur === 'object' && cur !== null ? cur.text || '' : String(cur || '');
-                              const isBold = typeof cur === 'object' && cur !== null ? !!cur.isBold : false;
-                              children[cIdx] = { text, completed: !isCompleted, isBold };
-                              const newBlocks = [...blocks];
-                              newBlocks[idx] = { ...b, children };
-                              updateBlocks(newBlocks);
-                            }}
-                          >
-                            {isCompleted && <Check size={11} strokeWidth={3} />}
-                          </button>
-
-                          <textarea
-                            ref={(el) => {
-                              inputRefs.current[`child_${idx}_${cIdx}`] = el;
-                              if (el) adjustTextareaBounds(el);
-                            }}
-                            wrap="off"
-                            className={`block-text-input ${isCompleted ? 'completed' : ''} ${isChildBold || b.isBold ? 'is-bold' : ''}`}
-                            style={{ fontSize: '0.86rem' }}
-                            value={childText}
-                            rows={1}
-                            onMouseDown={handleListMouseDown}
-                            onTouchStart={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              adjustTextareaBounds(e.target);
-                              const val = e.target.value.replace(/[\r\n]/g, '');
-                              const children = [...(b.children || [])];
-                              const cur = children[cIdx];
-                              const completed = typeof cur === 'object' && cur !== null ? !!cur.completed : false;
-                              const isBold = typeof cur === 'object' && cur !== null ? !!cur.isBold : false;
-                              children[cIdx] = { text: val, completed, isBold };
-                              const newBlocks = [...blocks];
-                              newBlocks[idx] = { ...b, children };
-                              updateBlocks(newBlocks);
-                            }}
-                            onFocus={(e) => {
-                              adjustTextareaBounds(e.target);
-                              setActiveBlockIdx(idx);
-                            }}
-                            onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
-                            placeholder="Sub-tarea con checkmark..."
-                          />
-                        </div>
-                      );
-                    })}
-
-                  </div>
-                )}
-
               </div>
             );
-          })
-        }
+          });
+        })()}
+
       </div>
     </div>
   );
 }
+
+
 
 
