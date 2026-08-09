@@ -384,6 +384,15 @@ export function FreeformNode({
     }
   };
 
+  // Format date/time label for indicator
+  const eventLabel = node.eventDate
+    ? (() => {
+        const d = new Date(node.eventDate + 'T00:00:00');
+        const day = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+        return node.eventTime ? `${day} · ${node.eventTime}` : day;
+      })()
+    : null;
+
   // Auto-expand all textareas to fit wrapped content reactively
   useEffect(() => {
     Object.values(inputRefs.current).forEach(el => {
@@ -395,6 +404,7 @@ export function FreeformNode({
   }, [blocks]);
 
   return (
+
 
     <div
       ref={containerRef}
