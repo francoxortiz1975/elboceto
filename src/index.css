@@ -420,9 +420,9 @@ h1, h2, h3, .font-title {
   font-family: var(--font-body);
   font-size: 0.95rem;
   color: var(--text-ink);
-  line-height: 1.5;
+  line-height: 1.68;
   min-height: 28px;
-  padding: 2px 0;
+  padding: 4px 0;
   resize: none;
   overflow: hidden;
   white-space: pre-wrap;
@@ -431,6 +431,7 @@ h1, h2, h3, .font-title {
   user-select: text !important;
   -webkit-user-select: text !important;
 }
+
 
 
 /* Typography — headings and inputs with proper line-height and no clipping */
@@ -525,9 +526,9 @@ h1, h2, h3, .font-title {
   font-family: var(--font-body);
   font-size: 0.93rem;
   color: var(--text-ink);
-  line-height: 1.5;
+  line-height: 1.68;
   min-height: 28px;
-  padding: 2px 0;
+  padding: 4px 0;
   resize: none;
   overflow: hidden;
   white-space: pre-wrap;
@@ -536,6 +537,7 @@ h1, h2, h3, .font-title {
   user-select: text !important;
   -webkit-user-select: text !important;
 }
+
 
 
 .block-text-input[contenteditable]:empty::before,
