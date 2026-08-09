@@ -219,6 +219,7 @@ export function FreeformNode({
   const [showEventPopover, setShowEventPopover] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const [focusedTarget, setFocusedTarget] = useState(null);
+  const [activeBlockIdx, setActiveBlockIdx] = useState(0);
   const containerRef = useRef(null);
   const inputRefs = useRef({});
 
@@ -798,30 +799,40 @@ export function FreeformNode({
 
           <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
 
-          <button className={`btn-icon ${blocks[0]?.isHeading ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(0, 'isHeading'); }} title="Título (#)">
-            <Heading size={12} />
-          </button>
-          <button className={`btn-icon ${blocks[0]?.isSubheading ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(0, 'isSubheading'); }} title="Subtítulo (##)">
-            <Type size={12} />
-          </button>
-          <button className={`btn-icon ${blocks[0]?.isBold ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(0, 'isBold'); }} title="Negrita (Ctrl+B)">
-            <Bold size={12} />
-          </button>
+          {/* Active target index for toolbar actions */}
+          {(() => {
+            const curIdx = Math.min(activeBlockIdx, blocks.length - 1);
+            const curBlock = blocks[curIdx] || {};
 
-          <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
+            return (
+              <>
+                <button className={`btn-icon ${curBlock.isHeading ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isHeading'); }} title="Título (#)">
+                  <Heading size={12} />
+                </button>
+                <button className={`btn-icon ${curBlock.isSubheading ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isSubheading'); }} title="Subtítulo (##)">
+                  <Type size={12} />
+                </button>
+                <button className={`btn-icon ${curBlock.isBold ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isBold'); }} title="Negrita (Ctrl+B)">
+                  <Bold size={12} />
+                </button>
 
-          <button className={`btn-icon ${blocks[0]?.isCheck ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(0, 'isCheck'); }} title="Checkmark">
-            <CheckSquare size={12} />
-          </button>
-          <button className={`btn-icon ${blocks[0]?.isBullet ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(0, 'isBullet'); }} title="Bullet">
-            <List size={12} />
-          </button>
-          <button className={`btn-icon ${blocks[0]?.isNumber ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(0, 'isNumber'); }} title="Número">
-            <ListOrdered size={12} />
-          </button>
-          <button className={`btn-icon ${blocks[0]?.isToggle ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(0, 'isToggle'); }} title="Toggle">
-            <ListCollapse size={12} />
-          </button>
+                <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
+
+                <button className={`btn-icon ${curBlock.isCheck ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isCheck'); }} title="Checkmark">
+                  <CheckSquare size={12} />
+                </button>
+                <button className={`btn-icon ${curBlock.isBullet ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isBullet'); }} title="Bullet">
+                  <List size={12} />
+                </button>
+                <button className={`btn-icon ${curBlock.isNumber ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isNumber'); }} title="Número">
+                  <ListOrdered size={12} />
+                </button>
+                <button className={`btn-icon ${curBlock.isToggle ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isToggle'); }} title="Toggle">
+                  <ListCollapse size={12} />
+                </button>
+              </>
+            );
+          })()}
 
           <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
 
@@ -938,11 +949,15 @@ export function FreeformNode({
                       adjustTextareaBounds(e.target);
                       handleTextChange(idx, e.target.value);
                     }}
-                    onFocus={(e) => adjustTextareaBounds(e.target)}
+                    onFocus={(e) => {
+                      adjustTextareaBounds(e.target);
+                      setActiveBlockIdx(idx);
+                    }}
                     onKeyDown={(e) => handleKeyDown(e, idx)}
                     onPaste={(e) => handlePaste(e, idx)}
                     placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   />
+
 
                 </div>
 
