@@ -51,6 +51,7 @@ export function FreeformDocEditor({
   const [focusedBlockIndex, setFocusedBlockIndex] = useState(0);
   const [showIconPicker, setShowIconPicker] = useState(false);
   const activeDrag = useRef(null);
+  const canvasRef = useRef(null);
   const [activeDraggingId, setActiveDraggingId] = useState(null);
 
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0] || {
@@ -136,9 +137,12 @@ export function FreeformDocEditor({
       return;
     }
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.max(24, Math.round((e.clientX - rect.left) / 24) * 24);
-    const y = Math.max(80, Math.round((e.clientY - rect.top) / 28) * 28);
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scrollLeft = canvas.scrollLeft || 0;
+    const scrollTop = canvas.scrollTop || 0;
+    const x = Math.max(20, Math.round((e.clientX - rect.left + scrollLeft) / 24) * 24);
+    const y = Math.max(80, Math.round((e.clientY - rect.top + scrollTop) / 28) * 28);
 
     const newBlock = {
       id: `b_${Date.now()}`,
@@ -243,7 +247,6 @@ export function FreeformDocEditor({
       className={`freeform-doc-view ${gridClass}`}
       onMouseMove={handleMouseMoveDocBoard}
       onMouseUp={handleMouseUpDocBoard}
-      onDoubleClick={handleDoubleClickCanvas}
     >
       {/* Header Bar */}
       <header className="doc-top-header">
@@ -309,7 +312,7 @@ export function FreeformDocEditor({
       </header>
 
       {/* Main Document Board Canvas (Direct on Canvas Grid) */}
-      <div className="doc-board-canvas">
+      <div className="doc-board-canvas" ref={canvasRef} onDoubleClick={handleDoubleClickCanvas}>
         {/* Floating Post-Its Anywhere */}
         {floatingNotes.map(fn => (
           <div

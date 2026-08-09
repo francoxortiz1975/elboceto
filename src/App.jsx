@@ -341,7 +341,7 @@ export default function App() {
       ]
     };
     setNotes(prev => [newNote, ...prev]);
-    setSelectedNoteId(newNote.id);
+    handleSelectNotes(newNote.id);
   };
 
   const handleUpdateNote = (updatedNote) => {
@@ -351,7 +351,7 @@ export default function App() {
   const handleDeleteNote = (id) => {
     pushSnapshot();
     setNotes(prev => prev.filter(n => n.id !== id));
-    if (selectedNoteId === id) setSelectedNoteId(null);
+    if (selectedNoteId === id) handleSelectNotes(null);
   };
 
   const handleUpdatePlannerTasks = (actionOrValue) => {
@@ -596,7 +596,7 @@ export default function App() {
         onClose={() => setIsSidebarOpen(false)}
         notes={notes}
         onSelectNote={(id) => {
-          setSelectedNoteId(id);
+          handleSelectNotes(id);
           setActiveView('board');
         }}
         onAddNote={() => {
