@@ -459,16 +459,8 @@ export function FreeformDocEditor({
               );
             })}
           </div>
-
-          {/* Add block button */}
-          <button
-            className="doc-add-block-bottom font-mono"
-            onClick={() => handleAddBlockBelow(blocks[blocks.length - 1]?.id)}
-          >
-            <Plus size={14} />
-            <span>Añadir línea / bloque</span>
-          </button>
         </div>
+
       </div>
     </div>
   );
