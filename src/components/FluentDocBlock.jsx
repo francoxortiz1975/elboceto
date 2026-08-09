@@ -2,10 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   GripVertical,
   Check,
-  ChevronRight,
-  MessageSquare,
-  AlertCircle,
-  HelpCircle,
   Sparkles,
   Type,
   List,
@@ -85,7 +81,7 @@ export function FluentDocBlock({
         return;
       }
       if (text.startsWith('! ')) {
-        onUpdateBlock(block.id, { type: 'callout', text: text.slice(2), color: 'amber' });
+        onUpdateBlock(block.id, { type: 'callout', text: text.slice(2) });
         return;
       }
       if (text.startsWith('> ')) {
@@ -103,13 +99,11 @@ export function FluentDocBlock({
   };
 
   const handleKeyDown = (e) => {
-    // Hide slash menu on Escape
     if (e.key === 'Escape' && showSlashMenu) {
       setShowSlashMenu(false);
       return;
     }
 
-    // Slash menu selection via Enter
     if (showSlashMenu && e.key === 'Enter') {
       e.preventDefault();
       const filteredOptions = SLASH_OPTIONS.filter(opt => opt.label.toLowerCase().includes(slashFilter));
@@ -120,7 +114,6 @@ export function FluentDocBlock({
       return;
     }
 
-    // TAB / Shift+TAB for indentation
     if (e.key === 'Tab') {
       e.preventDefault();
       if (e.shiftKey) {
@@ -131,11 +124,9 @@ export function FluentDocBlock({
       return;
     }
 
-    // ENTER: create new block or split
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       setShowSlashMenu(false);
-      // If pressing enter on an empty list item, convert it back to paragraph
       if ((block.type === 'check' || block.type === 'bullet' || block.type === 'numbered') && !block.text) {
         onUpdateBlock(block.id, { type: 'paragraph' });
         return;
@@ -144,7 +135,6 @@ export function FluentDocBlock({
       return;
     }
 
-    // BACKSPACE on empty block
     if (e.key === 'Backspace' && !block.text && totalBlocks > 1) {
       e.preventDefault();
       setShowSlashMenu(false);
@@ -152,7 +142,6 @@ export function FluentDocBlock({
       return;
     }
 
-    // UP / DOWN Arrow navigation
     if (e.key === 'ArrowUp' && index > 0 && e.target.selectionStart === 0) {
       e.preventDefault();
       onFocusBlock(index - 1);
@@ -164,7 +153,6 @@ export function FluentDocBlock({
   };
 
   const applyBlockType = (type, extraProps = {}) => {
-    // Strip trailing slash if present
     const cleanText = (block.text || '').replace(/\/[\w]*$/, '').trim();
     onUpdateBlock(block.id, { type, text: cleanText, ...extraProps });
     setShowSlashMenu(false);
@@ -174,14 +162,14 @@ export function FluentDocBlock({
   const indentPadding = indentLevel * 20;
 
   const SLASH_OPTIONS = [
-    { label: 'Texto', icon: Type, type: 'paragraph' },
+    { label: 'Texto libre', icon: Type, type: 'paragraph' },
     { label: 'Título 1', icon: Heading1, type: 'heading-1' },
     { label: 'Título 2', icon: Heading2, type: 'heading-2' },
     { label: 'Título 3', icon: Heading3, type: 'heading-3' },
     { label: 'Lista de Tareas', icon: CheckSquare, type: 'check', extraProps: { completed: false } },
-    { label: 'Lista con Viñetas', icon: List, type: 'bullet' },
+    { label: 'Viñeta', icon: List, type: 'bullet' },
     { label: 'Lista Numerada', icon: ListOrdered, type: 'numbered' },
-    { label: 'Destacado / Nota', icon: Sparkles, type: 'callout', extraProps: { color: 'amber' } },
+    { label: 'Destacado', icon: Sparkles, type: 'callout' },
     { label: 'Cita', icon: Quote, type: 'quote' },
     { label: 'Línea Divisoria', icon: Minus, type: 'divider' },
   ];
@@ -193,12 +181,10 @@ export function FluentDocBlock({
       className={`fluent-doc-block type-${block.type || 'paragraph'} ${block.completed ? 'is-completed' : ''}`}
       style={{ paddingLeft: `${indentPadding}px` }}
     >
-      {/* Drag handle & Context menu */}
       <div className="doc-block-grip" onMouseDown={(e) => onDragStartBlock(e, block.id)}>
         <GripVertical size={14} />
       </div>
 
-      {/* Block Content Renderer */}
       <div className="doc-block-content">
         {block.type === 'heading-1' && (
           <input
@@ -287,26 +273,17 @@ export function FluentDocBlock({
         )}
 
         {block.type === 'callout' && (
-          <div className={`doc-callout-box color-${block.color || 'amber'}`}>
-            <Sparkles size={16} className="doc-callout-icon" />
+          <div className="doc-callout-clean">
+            <Sparkles size={15} className="doc-callout-icon" />
             <input
               ref={inputRef}
               type="text"
-              className="doc-input doc-p callout-input"
-              placeholder="Escribe una nota importante o destacado..."
+              className="doc-input doc-p"
+              placeholder="Nota o destacado..."
               value={block.text || ''}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
             />
-            <div className="callout-color-picker">
-              {['amber', 'blue', 'emerald', 'rose', 'purple'].map(color => (
-                <button
-                  key={color}
-                  className={`color-dot color-${color} ${block.color === color ? 'active' : ''}`}
-                  onClick={() => onUpdateBlock(block.id, { color })}
-                />
-              ))}
-            </div>
           </div>
         )}
 
@@ -335,7 +312,7 @@ export function FluentDocBlock({
             ref={inputRef}
             type="text"
             className="doc-input doc-p"
-            placeholder="Escribe aquí... (escribe '/' para menú o '#' para título)"
+            placeholder="Escribe aquí... (usa '/' para menú o '#' para título)"
             value={block.text || ''}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
@@ -343,12 +320,10 @@ export function FluentDocBlock({
         )}
       </div>
 
-      {/* Delete button on hover */}
       <button className="doc-block-delete-btn" onClick={() => onDeleteBlock(block.id)} title="Eliminar bloque">
         <Trash2 size={13} />
       </button>
 
-      {/* Slash Command Popup Menu */}
       {showSlashMenu && (
         <div className="slash-menu-popup">
           <div className="slash-menu-header font-mono">Convertir bloque</div>

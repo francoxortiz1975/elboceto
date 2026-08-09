@@ -368,12 +368,34 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
-      {/* View 1: Main Canvas Board */}
+      {/* View 1: Freeform Document Notes (ABOVE MAIN BOARD) */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          transform: activeView === 'board' ? 'translateY(0)' : 'translateY(-100vh)',
+          transform: activeView === 'notes' ? 'translateY(0)' : activeView === 'board' ? 'translateY(-100vh)' : 'translateY(-200vh)',
+          transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        <FreeformDocEditor
+          documents={documents}
+          activeDocId={activeDocId}
+          onSelectDoc={setActiveDocId}
+          onCreateDoc={handleCreateDoc}
+          onUpdateDoc={handleUpdateDoc}
+          onDeleteDoc={handleDeleteDoc}
+          gridMode={gridMode}
+          onGridModeChange={setGridMode}
+          onTransitionToBoard={() => setActiveView('board')}
+        />
+      </div>
+
+      {/* View 2: Main Canvas Board (CENTER) */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transform: activeView === 'board' ? 'translateY(0)' : activeView === 'notes' ? 'translateY(100vh)' : 'translateY(-100vh)',
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
@@ -467,36 +489,39 @@ export default function App() {
           showCompleted={showCompleted}
         />
 
-        {/* Spatial Navigation Trigger */}
-        <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100, display: 'flex', gap: '8px' }}>
+        {/* Spatial Navigation Triggers */}
+        <div style={{ position: 'fixed', top: '70px', right: '20px', zIndex: 100 }}>
           <button
             className="btn-icon active"
             style={{ borderRadius: '20px', padding: '8px 14px', boxShadow: 'var(--shadow-floating)' }}
-            onClick={() => setActiveView('document_notes')}
+            onClick={() => setActiveView('notes')}
           >
             <FileText size={14} />
-            <span className="font-mono">↓ Vista 2: Editor de Documentos</span>
-            <ArrowDown size={12} />
+            <span className="font-mono">↑ Vista 1: Notas Organizadas</span>
           </button>
+        </div>
+
+        <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
           <button
-            className="btn-icon"
+            className="btn-icon active"
             style={{ borderRadius: '20px', padding: '8px 14px', boxShadow: 'var(--shadow-floating)' }}
             onClick={() => setActiveView('planner')}
           >
             <Calendar size={14} />
-            <span className="font-mono">Planificador</span>
+            <span className="font-mono">↓ Vista 3: Planificador Semanal</span>
+            <ArrowDown size={12} />
           </button>
         </div>
 
         {/* Mobile Nav Bar */}
         <div className="mobile-nav-bar">
-          <button className="btn-icon active" onClick={() => handleAddNote(100, 100, false)}>
-            <Plus size={14} />
-            <span>Escribir</span>
-          </button>
-          <button className="btn-icon" onClick={() => setActiveView('document_notes')}>
+          <button className="btn-icon" onClick={() => setActiveView('notes')}>
             <FileText size={14} />
-            <span>Documento</span>
+            <span>Notas</span>
+          </button>
+          <button className="btn-icon active" onClick={() => setActiveView('board')}>
+            <Plus size={14} />
+            <span>Lienzo</span>
           </button>
           <button className="btn-icon" onClick={() => setActiveView('planner')}>
             <Calendar size={14} />
@@ -509,35 +534,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* View 2: Freeform Document Notes (Notion-style + Margin Canvas) */}
+      {/* View 3: Weekly Planner (BELOW MAIN BOARD) */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          transform: activeView === 'document_notes' ? 'translateY(0)' : activeView === 'board' ? 'translateY(100vh)' : 'translateY(-100vh)',
-          transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}
-      >
-        <FreeformDocEditor
-          documents={documents}
-          activeDocId={activeDocId}
-          onSelectDoc={setActiveDocId}
-          onCreateDoc={handleCreateDoc}
-          onUpdateDoc={handleUpdateDoc}
-          onDeleteDoc={handleDeleteDoc}
-          gridMode={gridMode}
-          onGridModeChange={setGridMode}
-          onTransitionToBoard={() => setActiveView('board')}
-          onTransitionToPlanner={() => setActiveView('planner')}
-        />
-      </div>
-
-      {/* View 3: Weekly Planner (Full Screen Table with Hours) */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          transform: activeView === 'planner' ? 'translateY(0)' : 'translateY(100vh)',
+          transform: activeView === 'planner' ? 'translateY(0)' : activeView === 'board' ? 'translateY(100vh)' : 'translateY(200vh)',
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
@@ -550,6 +552,7 @@ export default function App() {
           onTransitionToBoard={() => setActiveView('board')}
         />
       </div>
+
 
 
       {/* Sidebar List Panel */}

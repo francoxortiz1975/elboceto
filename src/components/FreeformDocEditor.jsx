@@ -2,21 +2,16 @@ import React, { useState, useRef } from 'react';
 import { FluentDocBlock } from './FluentDocBlock';
 import {
   Plus,
-  ArrowUp,
   ArrowDown,
   Grid,
   Layers,
-  FileText,
   FilePlus,
   Trash2,
-  Move,
-  Layout,
   StickyNote,
-  Sparkles,
-  BookOpen
+  GripVertical
 } from 'lucide-react';
 
-const EMOJI_OPTIONS = ['📝', '💡', '🚀', '📌', '🎨', '🎯', '📚', '⚡', '🌟', '🧠'];
+const EMOJI_OPTIONS = ['📝', '💡', '🚀', '📌', '🎨', '🎯', '📚', '⚡', '🧠'];
 
 export function FreeformDocEditor({
   documents = [],
@@ -27,34 +22,29 @@ export function FreeformDocEditor({
   onDeleteDoc,
   gridMode,
   onGridModeChange,
-  onTransitionToBoard,
-  onTransitionToPlanner
+  onTransitionToBoard
 }) {
   const [focusedBlockIndex, setFocusedBlockIndex] = useState(0);
-  const [activeSpatialDragId, setActiveSpatialDragId] = useState(null);
-  const dragRef = useRef(null);
+  const activePostitDrag = useRef(null);
+  const [activeDraggingCardId, setActiveDraggingCardId] = useState(null);
 
-  // Fallback default document if none exist
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0] || {
     id: 'doc_default',
-    title: 'Notas en Documento Libre',
+    title: 'Notas Organizadas',
     icon: '📝',
     blocks: [
-      { id: 'b1', type: 'heading-1', text: 'Bienvenido al Editor de Documentos' },
-      { id: 'b2', type: 'callout', text: 'Escribe de forma fluida estilo Notion y arrastra cualquier elemento libremente por el margen.', color: 'amber' },
-      { id: 'b3', type: 'paragraph', text: 'Presiona Enter para crear un nuevo párrafo, Tab para sangrar o "/" para ver el menú de bloques.' },
-      { id: 'b4', type: 'check', text: 'Probar el editor estilo Notion', completed: true },
-      { id: 'b5', type: 'check', text: 'Arrastrar un bloque al margen libre', completed: false }
+      { id: 'b1', type: 'heading-1', text: 'Notas Organizadas del Documento' },
+      { id: 'b2', type: 'callout', text: 'Escribe de forma fluida y agrega post-its libres en cualquier parte del tablero.' },
+      { id: 'b3', type: 'paragraph', text: 'Presiona Enter para nuevo párrafo o "/" para menú de bloques.' }
     ],
     floatingNotes: [
-      { id: 'fn1', x: 740, y: 180, title: 'Nota al Margen', text: 'Puedes colocar tarjetas post-it o bloques libres flotando en el margen derecho.' }
+      { id: 'fn1', x: 80, y: 180, title: 'Idea Libres', text: 'Esta nota post-it se puede mover libremente a cualquier posición.' }
     ]
   };
 
   const blocks = currentDoc.blocks || [];
   const floatingNotes = currentDoc.floatingNotes || [];
 
-  // --- Document Update Helpers ---
   const updateBlocks = (newBlocks) => {
     onUpdateDoc({ ...currentDoc, blocks: newBlocks });
   };
@@ -63,7 +53,6 @@ export function FreeformDocEditor({
     onUpdateDoc({ ...currentDoc, floatingNotes: newFloating });
   };
 
-  // --- Block Mutators ---
   const handleUpdateBlock = (blockId, updates) => {
     const next = blocks.map(b => (b.id === blockId ? { ...b, ...updates } : b));
     updateBlocks(next);
@@ -92,8 +81,7 @@ export function FreeformDocEditor({
   const handleIndentBlock = (blockId) => {
     const next = blocks.map(b => {
       if (b.id === blockId) {
-        const curIndent = b.indent || 0;
-        return { ...b, indent: Math.min(curIndent + 1, 4) };
+        return { ...b, indent: Math.min((b.indent || 0) + 1, 4) };
       }
       return b;
     });
@@ -103,24 +91,23 @@ export function FreeformDocEditor({
   const handleOutdentBlock = (blockId) => {
     const next = blocks.map(b => {
       if (b.id === blockId) {
-        const curIndent = b.indent || 0;
-        return { ...b, indent: Math.max(curIndent - 1, 0) };
+        return { ...b, indent: Math.max((b.indent || 0) - 1, 0) };
       }
       return b;
     });
     updateBlocks(next);
   };
 
-  // --- Spatial Floating Notes ---
+  // Floating Post-It Management Anywhere on the Grid
   const handleAddFloatingNote = () => {
     const newFloating = [
       ...floatingNotes,
       {
         id: `fn_${Date.now()}`,
-        x: 740,
-        y: 220 + floatingNotes.length * 120,
-        title: 'Idea Libre',
-        text: 'Escribe una nota flotante...'
+        x: 100 + (floatingNotes.length % 4) * 220,
+        y: 160 + Math.floor(floatingNotes.length / 4) * 160,
+        title: 'Post-it',
+        text: 'Nota libre...'
       }
     ];
     updateFloatingNotes(newFloating);
@@ -136,55 +123,38 @@ export function FreeformDocEditor({
     updateFloatingNotes(next);
   };
 
-  // --- Spatial Block Dragging ---
-  const handleDragStartBlock = (e, blockId) => {
-    // Convert block to floating note when dragged out to margin
-    const targetBlock = blocks.find(b => b.id === blockId);
-    if (!targetBlock) return;
+  // Drag Post-It Anywhere
+  const handleMouseDownPostIt = (e, noteId) => {
+    if (e.target.closest('input') || e.target.closest('textarea') || e.target.closest('button')) return;
+    const targetNote = floatingNotes.find(n => n.id === noteId);
+    if (!targetNote) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    dragRef.current = {
-      blockId,
+    activePostitDrag.current = {
+      noteId,
       startX: e.clientX,
       startY: e.clientY,
-      initialRect: rect
+      initX: targetNote.x,
+      initY: targetNote.y
     };
-    setActiveSpatialDragId(blockId);
+    setActiveDraggingCardId(noteId);
   };
 
-  const handleSpatialMouseMove = (e) => {
-    if (!dragRef.current) return;
-    const { blockId, startX, startY } = dragRef.current;
+  const handleMouseMoveDocBoard = (e) => {
+    if (!activePostitDrag.current) return;
+    const { noteId, startX, startY, initX, initY } = activePostitDrag.current;
     const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
 
-    // If dragged more than 150px to the right, detach from document column into margin note
-    if (dx > 150) {
-      const targetBlock = blocks.find(b => b.id === blockId);
-      if (targetBlock) {
-        // Remove from structured document blocks
-        const newBlocks = blocks.filter(b => b.id !== blockId);
-        // Add to spatial floating notes
-        const newFloating = [
-          ...floatingNotes,
-          {
-            id: `fn_${Date.now()}`,
-            x: Math.round((e.clientX - 100) / 24) * 24,
-            y: Math.round((e.clientY - 80) / 28) * 28,
-            title: targetBlock.type === 'heading-1' ? targetBlock.text : 'Nota Desplazada',
-            text: targetBlock.text || 'Nota libre'
-          }
-        ];
-        updateBlocks(newBlocks);
-        updateFloatingNotes(newFloating);
-        dragRef.current = null;
-        setActiveSpatialDragId(null);
-      }
-    }
+    const snappedX = Math.max(24, Math.round((initX + dx) / 24) * 24);
+    const snappedY = Math.max(80, Math.round((initY + dy) / 28) * 28);
+
+    const next = floatingNotes.map(n => (n.id === noteId ? { ...n, x: snappedX, y: snappedY } : n));
+    updateFloatingNotes(next);
   };
 
-  const handleSpatialMouseUp = () => {
-    dragRef.current = null;
-    setActiveSpatialDragId(null);
+  const handleMouseUpDocBoard = () => {
+    activePostitDrag.current = null;
+    setActiveDraggingCardId(null);
   };
 
   const gridClass = gridMode === 'dots' ? 'bg-grid-dots' : gridMode === 'lines' ? 'bg-grid-lines' : 'bg-clean';
@@ -192,23 +162,19 @@ export function FreeformDocEditor({
   return (
     <div
       className={`freeform-doc-view ${gridClass}`}
-      onMouseMove={handleSpatialMouseMove}
-      onMouseUp={handleSpatialMouseUp}
+      onMouseMove={handleMouseMoveDocBoard}
+      onMouseUp={handleMouseUpDocBoard}
     >
-      {/* Top Header Controls */}
+      {/* Header Bar */}
       <header className="doc-top-header">
         <div className="doc-nav-buttons">
           <button className="btn-icon active" onClick={onTransitionToBoard}>
-            <ArrowUp size={14} />
-            <span className="font-mono">↑ Vista 1: Lienzo Libre</span>
-          </button>
-          <button className="btn-icon" onClick={onTransitionToPlanner}>
             <ArrowDown size={14} />
-            <span className="font-mono">↓ Vista 3: Planificador</span>
+            <span className="font-mono">↓ Volver al Lienzo Principal</span>
           </button>
         </div>
 
-        {/* Multi-Document Tabs Switcher */}
+        {/* Multi-Document Switcher Tabs */}
         <div className="doc-tabs-bar">
           {documents.map(doc => (
             <button
@@ -231,37 +197,75 @@ export function FreeformDocEditor({
               )}
             </button>
           ))}
-          <button className="doc-tab-add" onClick={onCreateDoc} title="Nueva Nota en Documento">
+          <button className="doc-tab-add" onClick={onCreateDoc} title="Nuevo Documento">
             <FilePlus size={14} />
           </button>
         </div>
 
-        {/* Grid Mode Controls */}
+        {/* Controls */}
         <div className="doc-grid-controls">
           <button
             className={`btn-icon ${gridMode === 'dots' ? 'active' : ''}`}
             onClick={() => onGridModeChange('dots')}
+            title="Puntos"
           >
             <Grid size={13} />
           </button>
           <button
             className={`btn-icon ${gridMode === 'lines' ? 'active' : ''}`}
             onClick={() => onGridModeChange('lines')}
+            title="Líneas"
           >
             <Layers size={13} />
           </button>
-          <button className="btn-icon active" onClick={handleAddFloatingNote} title="Añadir Nota Flotante al Margen">
+          <button className="btn-icon active" onClick={handleAddFloatingNote} title="Añadir Post-it al Lienzo">
             <StickyNote size={13} />
-            <span className="font-mono">+ Margen</span>
+            <span className="font-mono">+ Post-it</span>
           </button>
         </div>
       </header>
 
-      {/* Main Document Workspace */}
-      <div className="doc-workspace-container">
-        {/* Central Fluid Document Container */}
-        <div className="doc-main-paper">
-          {/* Document Header (Icon Emoji & Title) */}
+      {/* Main Document Board Canvas (No paper background frame) */}
+      <div className="doc-board-canvas">
+        {/* Floating Post-Its Placed Anywhere on Grid */}
+        {floatingNotes.map(fn => (
+          <div
+            key={fn.id}
+            className={`free-postit-card ${activeDraggingCardId === fn.id ? 'is-dragging' : ''}`}
+            style={{
+              left: `${fn.x}px`,
+              top: `${fn.y}px`
+            }}
+            onMouseDown={(e) => handleMouseDownPostIt(e, fn.id)}
+          >
+            <div className="postit-card-header">
+              <GripVertical size={13} className="postit-grip" />
+              <input
+                type="text"
+                className="postit-title-input font-title"
+                value={fn.title || ''}
+                onChange={(e) => handleUpdateFloatingNote(fn.id, { title: e.target.value })}
+                placeholder="Título..."
+              />
+              <button
+                className="postit-card-delete"
+                onClick={() => handleDeleteFloatingNote(fn.id)}
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+            <textarea
+              className="postit-card-textarea"
+              value={fn.text || ''}
+              onChange={(e) => handleUpdateFloatingNote(fn.id, { text: e.target.value })}
+              placeholder="Escribe aquí..."
+            />
+          </div>
+        ))}
+
+        {/* Central Organized Document Stream (Direct on Canvas Grid) */}
+        <div className="doc-central-stream">
+          {/* Header Title & Emoji */}
           <div className="doc-header-section">
             <div className="doc-emoji-picker">
               <span className="doc-current-emoji">{currentDoc.icon || '📝'}</span>
@@ -280,14 +284,14 @@ export function FreeformDocEditor({
 
             <input
               type="text"
-              className="doc-title-input"
+              className="doc-title-input font-title"
               placeholder="Título del Documento..."
               value={currentDoc.title || ''}
               onChange={(e) => onUpdateDoc({ ...currentDoc, title: e.target.value })}
             />
           </div>
 
-          {/* Fluid Notion-style Block Editor Stack */}
+          {/* Fluid Block Stack */}
           <div className="doc-blocks-stack">
             {blocks.map((block, idx) => (
               <FluentDocBlock
@@ -301,61 +305,20 @@ export function FreeformDocEditor({
                 onFocusBlock={(newIdx) => setFocusedBlockIndex(newIdx)}
                 onIndentBlock={handleIndentBlock}
                 onOutdentBlock={handleOutdentBlock}
-                onDragStartBlock={handleDragStartBlock}
+                onDragStartBlock={() => {}}
                 isFocused={focusedBlockIndex === idx}
               />
             ))}
           </div>
 
-          {/* Bottom Add Block Trigger */}
+          {/* Add block button */}
           <button
             className="doc-add-block-bottom font-mono"
             onClick={() => handleAddBlockBelow(blocks[blocks.length - 1]?.id)}
           >
             <Plus size={14} />
-            <span>Añadir bloque</span>
+            <span>Añadir línea / bloque</span>
           </button>
-        </div>
-
-        {/* Spatial Margin Canvas (Freeform Floating Notes) */}
-        <div className="doc-spatial-margin">
-          <div className="margin-header font-mono">
-            <span>MARGEN LIBRE — POST-ITS</span>
-            <span className="margin-hint">(Arrastra bloques aquí para independizarlos)</span>
-          </div>
-
-          {floatingNotes.map(fn => (
-            <div
-              key={fn.id}
-              className="floating-margin-card"
-              style={{
-                top: `${fn.y}px`,
-                left: `${fn.x}px`
-              }}
-            >
-              <div className="margin-card-header">
-                <input
-                  type="text"
-                  className="margin-card-title-input"
-                  value={fn.title || ''}
-                  onChange={(e) => handleUpdateFloatingNote(fn.id, { title: e.target.value })}
-                  placeholder="Título..."
-                />
-                <button
-                  className="margin-card-delete"
-                  onClick={() => handleDeleteFloatingNote(fn.id)}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-              <textarea
-                className="margin-card-textarea"
-                value={fn.text || ''}
-                onChange={(e) => handleUpdateFloatingNote(fn.id, { text: e.target.value })}
-                placeholder="Escribe en este bloque libre..."
-              />
-            </div>
-          ))}
         </div>
       </div>
     </div>
