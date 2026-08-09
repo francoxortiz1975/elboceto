@@ -208,13 +208,14 @@ h1, h2, h3, .font-title {
   position: absolute;
   width: max-content;
   min-width: 200px;
-  max-width: 850px;
+  max-width: none;
   user-select: text;
   z-index: 10;
   padding: 0 6px 0 20px;     /* Left padding for the left grip icon button */
   border-radius: 2px;
   border: 1px solid transparent;
 }
+
 
 
 
