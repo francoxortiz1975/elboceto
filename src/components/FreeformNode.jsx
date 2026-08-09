@@ -437,14 +437,20 @@ export function FreeformNode({
       const selectedStr = sel ? sel.toString().trim() : '';
       const inputVal = (e.target.value || '').trim();
 
-      // If full note container is selected (e.g. via Cmd+A), delete the whole note card!
+      // Case 1: Empty note or full note container selected (e.g. via Cmd+A)
+      if (inputVal === '' && blocks.length === 1) {
+        e.preventDefault();
+        onDelete(node.id);
+        return;
+      }
+
       if (sel && sel.anchorNode && containerRef.current && containerRef.current.contains(sel.anchorNode) && (selectedStr.length > inputVal.length || blocks.length === 1)) {
         e.preventDefault();
         onDelete(node.id);
         return;
       }
 
-      // If all text in current single block is selected
+      // Case 2: All text in current single block is selected
       if (selectedStr.length > 0 && selectedStr.length >= (e.target.value || '').length) {
         e.preventDefault();
         if (blocks.length === 1) {
@@ -457,15 +463,20 @@ export function FreeformNode({
         return;
       }
 
-      // Standard Backspace on empty block
-      if (blocks[idx].text === '' && blocks.length > 1) {
+      // Case 3: Backspace/Delete on empty block
+      if ((e.target.value || '') === '') {
         e.preventDefault();
-        const newBlocks = blocks.filter((_, i) => i !== idx);
-        updateBlocks(newBlocks);
-        setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
+        if (blocks.length === 1) {
+          onDelete(node.id);
+        } else {
+          const newBlocks = blocks.filter((_, i) => i !== idx);
+          updateBlocks(newBlocks);
+          setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
+        }
         return;
       }
     } else if (e.key === 'Escape') {
+
       setShowToolbar(false);
       setShowEventPopover(false);
     }
