@@ -19,7 +19,8 @@ import {
   Undo2,
   Redo2,
   CheckSquare,
-  FileText
+  FileText,
+  MapPin
 } from 'lucide-react';
 
 const STORAGE_KEY_NOTES = 'el_boceto_notes_v2';
@@ -152,17 +153,24 @@ export default function App() {
   };
 
 
-  // Persistent pan state only (zoom removed — always 1:1 for grid alignment)
+  // Persistent pan state & customizable homePin
   const [viewport, setViewport] = useState(() => {
+    const defaultHome = { x: 0, y: 140 };
     try {
       const saved = localStorage.getItem(STORAGE_KEY_VIEWPORT);
       if (saved) {
         const v = JSON.parse(saved);
-        return { pan: v.pan || { x: 0, y: 140 } };
+        return {
+          pan: v.pan || defaultHome,
+          homePin: v.homePin || defaultHome
+        };
       }
     } catch (e) {}
-    return { pan: { x: 0, y: 140 } };
+    return { pan: defaultHome, homePin: defaultHome };
   });
+
+  const [showPinConfirm, setShowPinConfirm] = useState(false);
+
 
   const [selectedNoteIds, setSelectedNoteIds] = useState([]);
   const selectedNoteId = selectedNoteIds[0] || null;
@@ -399,7 +407,16 @@ export default function App() {
     }
   };
 
-  const resetViewportPosition = () => setViewport({ pan: { x: 0, y: 140 } });
+  const handleGoToHomePin = () => {
+    const targetHome = viewport.homePin || { x: 0, y: 140 };
+    setViewport(prev => ({ ...prev, pan: targetHome }));
+  };
+
+  const handleConfirmSetHomePin = () => {
+    setViewport(prev => ({ ...prev, homePin: { ...prev.pan } }));
+    setShowPinConfirm(false);
+  };
+
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
@@ -488,9 +505,42 @@ export default function App() {
 
             <div style={{ width: '1px', height: '16px', background: 'rgba(24,24,27,0.12)', margin: '0 4px' }} />
 
-            <button className="btn-icon" onClick={resetViewportPosition} title="Reajustar Inicio de Lienzo">
-              <RotateCcw size={12} />
-            </button>
+            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <button
+                className="btn-icon"
+                onClick={handleGoToHomePin}
+                onDoubleClick={() => setShowPinConfirm(prev => !prev)}
+                title="Ir a Inicio (Doble clic para fijar posición actual como inicio)"
+              >
+                <MapPin size={13} />
+                <span className="font-mono">Inicio</span>
+              </button>
+              <button
+                className="btn-pin-subtle font-mono"
+                onClick={() => setShowPinConfirm(prev => !prev)}
+                title="Fijar vista actual como nueva posición de Inicio"
+              >
+                📍
+              </button>
+
+              {showPinConfirm && (
+                <div className="home-pin-popover">
+                  <div className="home-pin-title font-mono">📍 Posición Fija de Inicio</div>
+                  <div className="home-pin-desc">
+                    ¿Fijar la vista actual (`X: {viewport.pan?.x || 0}, Y: {viewport.pan?.y || 0}`) como tu nueva posición inicial predeterminada?
+                  </div>
+                  <div className="home-pin-actions">
+                    <button className="btn-pin-cancel font-mono" onClick={() => setShowPinConfirm(false)}>
+                      Cancelar
+                    </button>
+                    <button className="btn-pin-confirm font-mono" onClick={handleConfirmSetHomePin}>
+                      Fijar Posición
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
 
             <div style={{ width: '1px', height: '16px', background: 'rgba(24,24,27,0.12)', margin: '0 4px' }} />
 

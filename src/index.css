@@ -232,37 +232,130 @@ h1, h2, h3, .font-title {
   border-color: rgba(24, 24, 27, 0.3);
 }
 
-/* Drag handle — thin grab strip at the top of each note */
+/* Drag handle — thin grab strip at the top of each note, visible on hover/focus */
 .node-drag-handle {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 14px;
+  height: 16px;
   cursor: grab;
   z-index: 5;
   border-radius: 2px 2px 0 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  color: var(--text-muted);
+  transition: opacity 0.15s ease, background 0.15s ease;
 }
 
-.node-drag-handle::after {
-  content: '· · ·';
-  font-size: 0.55rem;
-  letter-spacing: 3px;
-  color: transparent;
-  transition: color 0.15s ease;
-  pointer-events: none;
+.freeform-node:hover .node-drag-handle,
+.freeform-node:focus-within .node-drag-handle,
+.freeform-node.selected .node-drag-handle {
+  opacity: 0.35;
 }
 
-.freeform-node:hover .node-drag-handle::after {
-  color: var(--text-subtle);
+.freeform-node .node-drag-handle:hover {
+  opacity: 0.8;
+  background: rgba(24, 24, 27, 0.04);
 }
 
 .node-drag-handle:active {
   cursor: grabbing;
 }
+
+.node-drag-icon {
+  opacity: 0.7;
+}
+
+/* Home Pin Popover & Button Controls */
+.btn-pin-subtle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 5px;
+  font-size: 0.7rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  margin-left: 2px;
+  transition: var(--transition-fast);
+}
+
+.btn-pin-subtle:hover {
+  background: var(--bg-hover);
+  color: var(--text-ink);
+}
+
+.home-pin-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  background: var(--bg-book);
+  border: var(--border-strong);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: var(--shadow-floating);
+  z-index: 10000;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.home-pin-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-ink);
+  margin-bottom: 6px;
+}
+
+.home-pin-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.home-pin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.btn-pin-cancel {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-pin-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-ink);
+}
+
+.btn-pin-confirm {
+  background: var(--text-ink);
+  color: var(--bg-book);
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-pin-confirm:hover {
+  opacity: 0.9;
+}
+
 
 /* Inline Context Toolbar (Appears ONLY on double click with top priority) */
 .inline-context-bar {
