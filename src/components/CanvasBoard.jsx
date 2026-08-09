@@ -17,7 +17,7 @@ export function CanvasBoard({
   gridMode,
   pan,
   onPanChange,
-  showCompleted
+  autoSortCompleted = true
 }) {
   const containerRef = useRef(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -253,7 +253,7 @@ export function CanvasBoard({
             onDelete={onDeleteNote}
             onOpenCalendarModal={onOpenCalendarModal}
             onDragStart={handleDragStartNote}
-            showCompleted={showCompleted}
+            autoSortCompleted={autoSortCompleted}
           />
         ))}
       </div>

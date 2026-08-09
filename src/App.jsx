@@ -225,7 +225,7 @@ export default function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [calendarModalNote, setCalendarModalNote] = useState(null);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [autoSortCompleted, setAutoSortCompleted] = useState(true);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   // Undo / Redo History Stacks
@@ -615,6 +615,22 @@ export default function App() {
                 </button>
               </div>
 
+              {/* Auto-ordenar Toggle */}
+              <div className="panel-section-title font-mono">TAREAS COMPLETADAS</div>
+              <button
+                className={`btn-icon ${autoSortCompleted ? 'active' : ''}`}
+                style={{ width: '100%', justifyContent: 'space-between', marginBottom: '12px' }}
+                onClick={() => setAutoSortCompleted(p => !p)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckSquare size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.75rem' }}>Auto-ordenar completadas</span>
+                </div>
+                <span className="font-mono" style={{ fontSize: '0.68rem', color: autoSortCompleted ? 'var(--text-ink)' : 'var(--text-muted)' }}>
+                  {autoSortCompleted ? 'ON' : 'OFF'}
+                </span>
+              </button>
+
               {/* Export & Import */}
               <div className="panel-section-title font-mono">COPIA DE SEGURIDAD</div>
 
@@ -677,7 +693,7 @@ export default function App() {
           gridMode={gridMode}
           pan={viewport.pan}
           onPanChange={(newPan) => setViewport(prev => ({ ...prev, pan: newPan }))}
-          showCompleted={showCompleted}
+          autoSortCompleted={autoSortCompleted}
         />
 
         {/* Subtle Transparent Spatial Navigation Triggers — Centered on X-axis */}

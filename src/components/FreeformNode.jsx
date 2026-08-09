@@ -213,7 +213,7 @@ export function FreeformNode({
   onDelete,
   onOpenCalendarModal,
   onDragStart,
-  showCompleted = false
+  autoSortCompleted = true
 }) {
   const [showToolbar, setShowToolbar] = useState(false);
   const [showEventPopover, setShowEventPopover] = useState(false);
@@ -964,7 +964,6 @@ export function FreeformNode({
 
           return blocks.map((b, idx) => {
             if (hiddenMap[idx]) return null;
-            if (!showCompleted && b.isCheck && b.completed) return null;
 
             const numberCount = blocks.slice(0, idx + 1).filter(item => item.isNumber).length;
             const inputClass = b.isHeading
@@ -990,8 +989,28 @@ export function FreeformNode({
                       className={`block-checkmark ${b.completed ? 'checked' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        const newBlocks = [...blocks];
-                        newBlocks[idx] = { ...b, completed: !b.completed };
+                        let newBlocks = [...blocks];
+                        const updated = { ...b, completed: !b.completed };
+                        newBlocks[idx] = updated;
+
+                        if (autoSortCompleted) {
+                          let groupStart = idx;
+                          while (groupStart > 0 && newBlocks[groupStart - 1].isCheck) {
+                            groupStart--;
+                          }
+                          let groupEnd = idx;
+                          while (groupEnd < newBlocks.length - 1 && newBlocks[groupEnd + 1].isCheck) {
+                            groupEnd++;
+                          }
+
+                          const group = newBlocks.slice(groupStart, groupEnd + 1);
+                          group.sort((itemA, itemB) => {
+                            if (itemA.completed === itemB.completed) return 0;
+                            return itemA.completed ? 1 : -1;
+                          });
+                          newBlocks.splice(groupStart, group.length, ...group);
+                        }
+
                         updateBlocks(newBlocks);
                       }}
                     >
