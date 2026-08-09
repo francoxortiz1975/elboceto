@@ -601,7 +601,8 @@ export function FreeformNode({
       {eventLabel && (
         <div style={{
           position: 'absolute',
-          top: '4px',
+          top: 0,
+          height: '28px',
           right: 'calc(100% + 8px)',
           display: 'flex',
           alignItems: 'center',
@@ -609,6 +610,7 @@ export function FreeformNode({
           pointerEvents: 'none',
           whiteSpace: 'nowrap'
         }}>
+
           <Clock size={10} style={{ color: 'var(--text-muted)' }} />
           <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
             {eventLabel}
