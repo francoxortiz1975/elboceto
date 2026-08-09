@@ -405,8 +405,15 @@ export function FreeformNode({
         e.stopPropagation();
         onSelect(node.id);
       }}
-      onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(node.id); }}
-      onDoubleClick={(e) => { e.stopPropagation(); onSelect(node.id); setShowToolbar(true); }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onSelect(node.id);
+        if (showToolbar) {
+          onDelete(node.id);
+        } else {
+          setShowToolbar(true);
+        }
+      }}
     >
       {/* Floating Toolbar */}
       {showToolbar && (
