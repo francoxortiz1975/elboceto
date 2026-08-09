@@ -642,22 +642,26 @@ export function FreeformNode({
     const selStart = el ? el.selectionStart || 0 : 0;
     const selEnd = el ? el.selectionEnd || 0 : 0;
 
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
       e.preventDefault();
-      try {
-        const sel = window.getSelection();
-        const range = document.createRange();
-        if (containerRef.current) {
-          range.selectNodeContents(containerRef.current);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      } catch (err) {}
+      const currentB = blocks[blockIdx];
+      const children = [...(currentB.children || [])];
+      const cur = children[childIdx];
+      const isObj = typeof cur === 'object' && cur !== null;
+      const text = isObj ? cur.text || '' : String(cur || '');
+      const completed = isObj ? !!cur.completed : false;
+      const isBold = isObj ? !cur.isBold : true;
+      children[childIdx] = { text, completed, isBold };
+
+      const newBlocks = [...blocks];
+      newBlocks[blockIdx] = { ...currentB, children };
+      updateBlocks(newBlocks);
       return;
     }
 
     const currentB = blocks[blockIdx];
     const children = [...(currentB.children || [])];
+
 
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -968,6 +972,7 @@ export function FreeformNode({
                       const isObj = typeof child === 'object' && child !== null;
                       const childText = isObj ? child.text || '' : String(child || '');
                       const isCompleted = isObj ? !!child.completed : false;
+                      const isChildBold = isObj ? !!child.isBold : false;
 
                       return (
                         <div key={cIdx} className="block-row">
@@ -979,7 +984,8 @@ export function FreeformNode({
                               const children = [...(b.children || [])];
                               const cur = children[cIdx];
                               const text = typeof cur === 'object' && cur !== null ? cur.text || '' : String(cur || '');
-                              children[cIdx] = { text, completed: !isCompleted };
+                              const isBold = typeof cur === 'object' && cur !== null ? !!cur.isBold : false;
+                              children[cIdx] = { text, completed: !isCompleted, isBold };
                               const newBlocks = [...blocks];
                               newBlocks[idx] = { ...b, children };
                               updateBlocks(newBlocks);
@@ -994,7 +1000,7 @@ export function FreeformNode({
                               if (el) adjustTextareaBounds(el);
                             }}
                             wrap="off"
-                            className={`block-text-input ${isCompleted ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
+                            className={`block-text-input ${isCompleted ? 'completed' : ''} ${isChildBold || b.isBold ? 'is-bold' : ''}`}
                             style={{ fontSize: '0.86rem' }}
                             value={childText}
                             rows={1}
@@ -1006,18 +1012,23 @@ export function FreeformNode({
                               const children = [...(b.children || [])];
                               const cur = children[cIdx];
                               const completed = typeof cur === 'object' && cur !== null ? !!cur.completed : false;
-                              children[cIdx] = { text: val, completed };
+                              const isBold = typeof cur === 'object' && cur !== null ? !!cur.isBold : false;
+                              children[cIdx] = { text: val, completed, isBold };
                               const newBlocks = [...blocks];
                               newBlocks[idx] = { ...b, children };
                               updateBlocks(newBlocks);
                             }}
-                            onFocus={(e) => adjustTextareaBounds(e.target)}
+                            onFocus={(e) => {
+                              adjustTextareaBounds(e.target);
+                              setActiveBlockIdx(idx);
+                            }}
                             onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
                             placeholder="Sub-tarea con checkmark..."
                           />
                         </div>
                       );
                     })}
+
                   </div>
                 )}
 
