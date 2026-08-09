@@ -428,12 +428,13 @@ h1, h2, h3, .font-title {
   padding: 0;
   resize: none;
   overflow: hidden;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre !important;
+  word-break: normal !important;
   field-sizing: content;
   user-select: text !important;
   -webkit-user-select: text !important;
 }
+
 
 
 
@@ -537,12 +538,13 @@ h1, h2, h3, .font-title {
   padding: 0;
   resize: none;
   overflow: hidden;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre !important;
+  word-break: normal !important;
   field-sizing: content;
   user-select: text !important;
   -webkit-user-select: text !important;
 }
+
 
 
 

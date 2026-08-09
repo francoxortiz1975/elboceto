@@ -629,6 +629,7 @@ export function FreeformNode({
                 el.style.height = `${el.scrollHeight}px`;
               }
             }}
+            wrap="off"
             className={`freeform-multiline-editor ${blocks[0]?.isHeading ? 'node-heading-input' : blocks[0]?.isSubheading ? 'node-subheading-input' : ''} ${blocks[0]?.isBold ? 'is-bold' : ''}`}
             value={blocks.map(b => b.text).join('\n')}
             rows={1}
@@ -709,6 +710,7 @@ export function FreeformNode({
                   )}
                   <textarea
                     ref={(el) => (inputRefs.current[`main_${idx}`] = el)}
+                    wrap="off"
                     className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
                     value={b.text}
                     rows={1}
@@ -735,9 +737,11 @@ export function FreeformNode({
                         <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
                         <textarea
                           ref={(el) => (inputRefs.current[`child_${idx}_${cIdx}`] = el)}
+                          wrap="off"
                           className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
                           style={{ fontSize: '0.86rem' }}
                           value={childText}
+
                           rows={1}
                           onMouseDown={handleListMouseDown}
                           onTouchStart={(e) => e.stopPropagation()}
