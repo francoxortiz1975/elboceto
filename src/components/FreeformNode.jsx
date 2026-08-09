@@ -773,47 +773,10 @@ export function FreeformNode({
         </div>
       )}
 
-      {/* Render Note Body Content */}
+      {/* Render Note Body Content — Standard Block-Based Editor */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
-        {!blocks.some(b => b.isCheck || b.isBullet || b.isNumber || b.isToggle) ? (
-          <textarea
-            ref={(el) => {
-              inputRefs.current['main_0'] = el;
-              if (el) adjustTextareaBounds(el);
-            }}
-            wrap="off"
-            className={`freeform-multiline-editor ${blocks[0]?.isHeading ? 'node-heading-input' : blocks[0]?.isSubheading ? 'node-subheading-input' : ''} ${blocks[0]?.isBold ? 'is-bold' : ''}`}
-            value={blocks.map(b => b.text).join('\n')}
-            rows={1}
-            onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              adjustTextareaBounds(e.target);
-              const raw = e.target.value;
-              const lines = raw.split('\n');
-              const newBlocks = lines.map((line, i) => {
-                const oldB = blocks[i] || {};
-                let isH = oldB.isHeading;
-                let isSub = oldB.isSubheading;
-                let cleanLine = line;
-                if (line.startsWith('## ')) { isSub = true; isH = false; cleanLine = line.replace(/^##\s*/, ''); }
-                else if (line.startsWith('# ')) { isH = true; isSub = false; cleanLine = line.replace(/^#\s*/, ''); }
-                return normalizeBlock({
-                  ...oldB,
-                  text: cleanLine,
-                  isHeading: isH,
-                  isSubheading: isSub
-                });
-              });
-              updateBlocks(newBlocks);
-            }}
-            onFocus={(e) => adjustTextareaBounds(e.target)}
-            onKeyDown={(e) => handleKeyDown(e, 0)}
-            placeholder="Escribe tu nota aquí..."
-          />
+        {blocks.map((b, idx) => {
 
-        ) : (
-          blocks.map((b, idx) => {
             const numberCount = blocks.slice(0, idx + 1).filter(item => item.isNumber).length;
             const inputClass = b.isHeading
               ? 'node-heading-input'
@@ -918,9 +881,10 @@ export function FreeformNode({
               </div>
             );
           })
-        )}
+        }
       </div>
     </div>
   );
 }
+
 
