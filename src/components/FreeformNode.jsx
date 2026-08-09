@@ -568,102 +568,153 @@ export function FreeformNode({
         </div>
       )}
 
-      {/* Render Blocks */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {blocks.map((b, idx) => {
-          const numberCount = blocks.slice(0, idx + 1).filter(item => item.isNumber).length;
-          const inputClass = b.isHeading
-            ? 'node-heading-input'
-            : b.isSubheading
-            ? 'node-subheading-input'
-            : 'block-text-input';
+      {/* Render Note Body Content */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
+        {!blocks.some(b => b.isCheck || b.isBullet || b.isNumber || b.isToggle) ? (
+          <textarea
+            ref={(el) => {
+              inputRefs.current['main_0'] = el;
+              if (el) {
+                el.style.height = 'auto';
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+            className={`freeform-multiline-editor ${blocks[0]?.isHeading ? 'node-heading-input' : blocks[0]?.isSubheading ? 'node-subheading-input' : ''} ${blocks[0]?.isBold ? 'is-bold' : ''}`}
+            value={blocks.map(b => b.text).join('\n')}
+            rows={1}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+              const raw = e.target.value;
+              const lines = raw.split('\n');
+              const newBlocks = lines.map((line, i) => {
+                const oldB = blocks[i] || {};
+                let isH = oldB.isHeading;
+                let isSub = oldB.isSubheading;
+                let cleanLine = line;
+                if (line.startsWith('## ')) { isSub = true; isH = false; cleanLine = line.replace(/^##\s*/, ''); }
+                else if (line.startsWith('# ')) { isH = true; isSub = false; cleanLine = line.replace(/^#\s*/, ''); }
+                return normalizeBlock({
+                  ...oldB,
+                  text: cleanLine,
+                  isHeading: isH,
+                  isSubheading: isSub
+                });
+              });
+              updateBlocks(newBlocks);
+            }}
+            onFocus={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            placeholder="Escribe tu nota aquí..."
+          />
+        ) : (
+          blocks.map((b, idx) => {
+            const numberCount = blocks.slice(0, idx + 1).filter(item => item.isNumber).length;
+            const inputClass = b.isHeading
+              ? 'node-heading-input'
+              : b.isSubheading
+              ? 'node-subheading-input'
+              : 'block-text-input';
 
-          if (!showCompleted && b.isCheck && b.completed) return null;
+            if (!showCompleted && b.isCheck && b.completed) return null;
 
-          return (
-            <div key={b.id || idx} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-              <div className="block-row">
-                {b.isCheck && (
-                  <button
-                    className={`block-checkmark ${b.completed ? 'checked' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const newBlocks = [...blocks];
-                      newBlocks[idx] = { ...b, completed: !b.completed };
-                      updateBlocks(newBlocks);
+            return (
+              <div key={b.id || idx} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                <div className="block-row">
+                  {b.isCheck && (
+                    <button
+                      className={`block-checkmark ${b.completed ? 'checked' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newBlocks = [...blocks];
+                        newBlocks[idx] = { ...b, completed: !b.completed };
+                        updateBlocks(newBlocks);
+                      }}
+                    >
+                      {b.completed && <Check size={11} strokeWidth={3} />}
+                    </button>
+                  )}
+                  {b.isBullet && (
+                    <span className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-ink)', marginTop: '2px', minWidth: '14px' }}>•</span>
+                  )}
+                  {b.isNumber && (
+                    <span className="numbered-badge">{numberCount}.</span>
+                  )}
+                  {b.isToggle && (
+                    <span
+                      className={`toggle-arrow ${b.isOpen ? 'open' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newBlocks = [...blocks];
+                        newBlocks[idx] = { ...b, isOpen: !b.isOpen };
+                        updateBlocks(newBlocks);
+                      }}
+                    >
+                      <ChevronRight size={14} />
+                    </span>
+                  )}
+                  <textarea
+                    ref={(el) => (inputRefs.current[`main_${idx}`] = el)}
+                    className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
+                    value={b.text}
+                    rows={1}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                      handleTextChange(idx, e.target.value);
                     }}
-                  >
-                    {b.completed && <Check size={11} strokeWidth={3} />}
-                  </button>
-                )}
-                {b.isBullet && (
-                  <span className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-ink)', marginTop: '2px', minWidth: '14px' }}>•</span>
-                )}
-                {b.isNumber && (
-                  <span className="numbered-badge">{numberCount}.</span>
-                )}
-                {b.isToggle && (
-                  <span
-                    className={`toggle-arrow ${b.isOpen ? 'open' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const newBlocks = [...blocks];
-                      newBlocks[idx] = { ...b, isOpen: !b.isOpen };
-                      updateBlocks(newBlocks);
+                    onFocus={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${e.target.scrollHeight}px`;
                     }}
-                  >
-                    <ChevronRight size={14} />
-                  </span>
-                )}
-                <div
-                  ref={(el) => {
-                    inputRefs.current[`main_${idx}`] = el;
-                    if (el && el.innerText !== b.text && document.activeElement !== el) {
-                      el.innerText = b.text || '';
-                    }
-                  }}
-                  contentEditable
-                  suppressContentEditableWarning
-                  className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
-                  data-placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
-                  onInput={(e) => handleTextChange(idx, e.currentTarget.innerText)}
-                  onKeyDown={(e) => handleKeyDown(e, idx)}
-                />
-              </div>
-
-              {b.isToggle && b.isOpen && (
-                <div style={{ paddingLeft: '22px', borderLeft: 'var(--border-hairline)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-                  {(b.children || []).map((childText, cIdx) => (
-                    <div key={cIdx} className="block-row">
-                      <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
-                      <div
-                        ref={(el) => {
-                          inputRefs.current[`child_${idx}_${cIdx}`] = el;
-                          if (el && el.innerText !== childText && document.activeElement !== el) {
-                            el.innerText = childText || '';
-                          }
-                        }}
-                        contentEditable
-                        suppressContentEditableWarning
-                        className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
-                        style={{ fontSize: '0.86rem' }}
-                        data-placeholder="Sub-elemento..."
-                        onInput={(e) => {
-                          const children = [...(b.children || [])];
-                          children[cIdx] = e.currentTarget.innerText;
-                          const newBlocks = [...blocks];
-                          newBlocks[idx] = { ...b, children };
-                          updateBlocks(newBlocks);
-                        }}
-                        onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
-                      />
-                    </div>
-                  ))}
+                    onKeyDown={(e) => handleKeyDown(e, idx)}
+                    placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
+                  />
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                {b.isToggle && b.isOpen && (
+                  <div style={{ paddingLeft: '22px', borderLeft: 'var(--border-hairline)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {(b.children || []).map((childText, cIdx) => (
+                      <div key={cIdx} className="block-row">
+                        <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
+                        <textarea
+                          ref={(el) => (inputRefs.current[`child_${idx}_${cIdx}`] = el)}
+                          className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
+                          style={{ fontSize: '0.86rem' }}
+                          value={childText}
+                          rows={1}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                            const children = [...(b.children || [])];
+                            children[cIdx] = e.target.value;
+                            const newBlocks = [...blocks];
+                            newBlocks[idx] = { ...b, children };
+                            updateBlocks(newBlocks);
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                          }}
+                          onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
+                          placeholder="Sub-elemento..."
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

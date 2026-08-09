@@ -412,8 +412,28 @@ h1, h2, h3, .font-title {
 }
 
 
+.freeform-multiline-editor {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-ink);
+  line-height: 1.5;
+  min-height: 28px;
+  padding: 2px 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
 /* Typography — headings and inputs with proper line-height and no clipping */
 .node-heading-input {
+
   width: 100%;
   background: transparent;
   border: none;
