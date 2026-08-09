@@ -209,7 +209,7 @@ h1, h2, h3, .font-title {
   max-width: 520px;
   user-select: text;
   z-index: 10;
-  padding: 14px 6px 0;     /* top: drag handle height; no bottom padding; sides: minimal */
+  padding: 0 6px;          /* no vertical padding — sits cleanly on grid */
   border-radius: 2px;
   border: 1px solid transparent;
 }
@@ -232,33 +232,31 @@ h1, h2, h3, .font-title {
   border-color: rgba(24, 24, 27, 0.3);
 }
 
-/* Drag handle — thin grab strip at the top of each note, visible on hover/focus */
+/* Drag handle — 100% transparent grab zone at the top edge of each note */
 .node-drag-handle {
   position: absolute;
-  top: 0;
+  top: -10px;
   left: 0;
   right: 0;
   height: 16px;
   cursor: grab;
   z-index: 5;
-  border-radius: 2px 2px 0 0;
+  background: transparent !important;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  color: var(--text-muted);
-  transition: opacity 0.15s ease, background 0.15s ease;
+  color: var(--text-subtle);
+  transition: opacity 0.15s ease;
 }
 
-.freeform-node:hover .node-drag-handle,
-.freeform-node:focus-within .node-drag-handle,
-.freeform-node.selected .node-drag-handle {
-  opacity: 0.35;
+.freeform-node:hover .node-drag-handle {
+  opacity: 0.4;
 }
 
 .freeform-node .node-drag-handle:hover {
-  opacity: 0.8;
-  background: rgba(24, 24, 27, 0.04);
+  opacity: 0.9;
+  background: transparent !important;
 }
 
 .node-drag-handle:active {
@@ -266,8 +264,9 @@ h1, h2, h3, .font-title {
 }
 
 .node-drag-icon {
-  opacity: 0.7;
+  opacity: 0.6;
 }
+
 
 /* Home Pin Popover & Button Controls */
 .btn-pin-subtle {
