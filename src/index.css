@@ -1375,4 +1375,123 @@ h1, h2, h3, .font-title {
   line-height: 1.5;
 }
 
+/* ─── Top-Left Brand Title & Top-Right Reactive Dock ─── */
+.brand-header-top-left {
+  position: fixed;
+  top: 16px;
+  left: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.brand-header-top-left .brand-title {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-ink);
+  letter-spacing: -0.02em;
+  background: rgba(247, 244, 238, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 6px 14px;
+  border-radius: 12px;
+  border: var(--border-hairline);
+  box-shadow: var(--shadow-floating);
+}
+
+.reactive-floating-dock {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(247, 244, 238, 0.92);
+  backdrop-filter: blur(12px);
+  padding: 5px 8px;
+  border-radius: 12px;
+  border: var(--border-hairline);
+  box-shadow: var(--shadow-floating);
+  pointer-events: auto;
+}
+
+.dock-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.dock-icon-btn:hover {
+  background: rgba(24, 24, 27, 0.06);
+}
+
+.dock-icon-btn.active {
+  background: var(--text-ink);
+  color: #FFFFFF;
+}
+
+.dock-pin-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: -2px;
+}
+
+.dock-pin-toggle:hover {
+  background: rgba(24, 24, 27, 0.08);
+  color: var(--text-ink);
+}
+
+.dock-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(24, 24, 27, 0.12);
+  margin: 0 3px;
+}
+
+.vertical-more-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 230px;
+  background: var(--bg-card);
+  border: var(--border-hairline);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow-floating);
+  z-index: 1100;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+.panel-section-title {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+
 

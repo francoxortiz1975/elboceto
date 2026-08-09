@@ -20,13 +20,16 @@ import {
   Redo2,
   CheckSquare,
   FileText,
-  MapPin
+  MapPin,
+  MoreVertical
 } from 'lucide-react';
 
 const STORAGE_KEY_NOTES = 'el_boceto_notes_v2';
 const STORAGE_KEY_PLANNER = 'el_boceto_planner_v1';
 const STORAGE_KEY_VIEWPORT = 'el_boceto_viewport_v1';
 const STORAGE_KEY_DOCUMENTS = 'el_boceto_documents_v2';
+const STORAGE_KEY_GRID_MODE = 'el_boceto_grid_mode_v1';
+
 
 const INITIAL_DOCUMENTS = [
   {
@@ -204,10 +207,24 @@ export default function App() {
     }
   }, []);
 
-  const [gridMode, setGridMode] = useState('dots');
+  const [gridMode, setGridMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_GRID_MODE);
+      if (saved) return saved;
+    } catch (e) {}
+    return 'dots';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_GRID_MODE, gridMode);
+    } catch (e) {}
+  }, [gridMode]);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [calendarModalNote, setCalendarModalNote] = useState(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   // Undo / Redo History Stacks
   const historyPast = useRef([]);
@@ -489,6 +506,162 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+      {/* Permanent Top-Left Brand Title */}
+      <div className="brand-header-top-left">
+        <span className="brand-title">el boceto</span>
+      </div>
+
+      {/* Permanent Top-Right Reactive Floating Dock */}
+      <div className="reactive-floating-dock">
+        {/* View Switcher Tabs */}
+        <button
+          className={`dock-icon-btn ${activeView === 'board' ? 'active' : ''}`}
+          onClick={() => setActiveView('board')}
+          title="Lienzo Principal"
+        >
+          <Plus size={13} />
+          <span className="font-mono">Lienzo</span>
+        </button>
+
+        <button
+          className={`dock-icon-btn ${activeView === 'notes' ? 'active' : ''}`}
+          onClick={() => setActiveView('notes')}
+          title="Tablero de Notas"
+        >
+          <FileText size={13} />
+          <span className="font-mono">Notas</span>
+        </button>
+
+        <button
+          className={`dock-icon-btn ${activeView === 'planner' ? 'active' : ''}`}
+          onClick={() => setActiveView('planner')}
+          title="Planificador Semanal"
+        >
+          <Calendar size={13} />
+          <span className="font-mono">Planificador</span>
+        </button>
+
+        <div className="dock-divider" />
+
+        {/* 1. Pin / Inicio Button with ▼ toggle popover */}
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+          <button
+            className="dock-icon-btn"
+            onClick={handleGoToHomePin}
+            title="Ir a Inicio"
+          >
+            <MapPin size={13} />
+            <span className="font-mono">Inicio</span>
+          </button>
+          <button
+            className="dock-pin-toggle font-mono"
+            onClick={(e) => { e.stopPropagation(); setShowPinConfirm(prev => !prev); }}
+            title="Opciones de posición de Inicio (▼)"
+          >
+            ▼
+          </button>
+
+          {showPinConfirm && (
+            <div className="home-pin-popover" style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)' }}>
+              <div className="home-pin-title font-mono">📍 Posición Fija de Inicio</div>
+              <div className="home-pin-desc">
+                ¿Actualizar posición de inicio (`X: {viewport.pan?.x || 0}, Y: {viewport.pan?.y || 0}`)?
+              </div>
+              <div className="home-pin-actions">
+                <button className="btn-pin-cancel font-mono" onClick={() => setShowPinConfirm(false)}>
+                  Cancelar
+                </button>
+                <button className="btn-pin-confirm font-mono" onClick={handleConfirmSetHomePin}>
+                  Fijar Posición
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="dock-divider" />
+
+        {/* 2. Undo & Redo */}
+        <button className="dock-icon-btn" onClick={handleUndo} title="Deshacer (Cmd+Z)">
+          <Undo2 size={13} />
+        </button>
+        <button className="dock-icon-btn" onClick={handleRedo} title="Rehacer (Cmd+Shift+Z)">
+          <Redo2 size={13} />
+        </button>
+
+        <div className="dock-divider" />
+
+        {/* Create Note Action */}
+        <button className="dock-icon-btn active" onClick={() => handleAddNote(180, 180, false)} title="Crear Nota">
+          <Plus size={13} />
+          <span className="font-mono">Escribir</span>
+        </button>
+
+        <div className="dock-divider" />
+
+        {/* 3. More Button (⋯) with Vertical Panel */}
+        <div style={{ position: 'relative' }}>
+          <button
+            className={`dock-icon-btn ${showMoreMenu ? 'active' : ''}`}
+            onClick={(e) => { e.stopPropagation(); setShowMoreMenu(prev => !prev); }}
+            title="Más Opciones"
+          >
+            <MoreVertical size={13} />
+          </button>
+
+          {showMoreMenu && (
+            <div className="vertical-more-panel" onClick={(e) => e.stopPropagation()}>
+              {/* Índice de Notas */}
+              <div className="panel-section-title font-mono">ÍNDICE DE NOTAS</div>
+              <button
+                className="btn-icon"
+                style={{ width: '100%', marginBottom: '12px' }}
+                onClick={() => { setIsSidebarOpen(true); setShowMoreMenu(false); }}
+              >
+                <BookOpen size={12} />
+                <span className="font-mono" style={{ fontSize: '0.75rem' }}>Ver Índice ({notes.length})</span>
+              </button>
+
+              {/* Puntos / Líneas */}
+              <div className="panel-section-title font-mono">ESTILO DE CUADRÍCULA</div>
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                <button
+                  className={`btn-icon ${gridMode === 'dots' ? 'active' : ''}`}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  onClick={() => setGridMode('dots')}
+                >
+                  <Grid size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.72rem' }}>Puntos</span>
+                </button>
+                <button
+                  className={`btn-icon ${gridMode === 'lines' ? 'active' : ''}`}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  onClick={() => setGridMode('lines')}
+                >
+                  <Layers size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.72rem' }}>Líneas</span>
+                </button>
+              </div>
+
+              {/* Export & Import */}
+              <div className="panel-section-title font-mono">COPIA DE SEGURIDAD</div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <button className="btn-icon" style={{ width: '100%' }} onClick={handleExportJSON}>
+                  <Download size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.75rem' }}>Exportar Copia (.json)</span>
+                </button>
+                <label className="btn-icon" style={{ width: '100%', margin: 0, cursor: 'pointer' }}>
+                  <Upload size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.75rem' }}>Importar Copia (.json)</span>
+                  <input type="file" accept=".json" onChange={handleImportJSON} style={{ display: 'none' }} />
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* View 1: Freeform Document Notes (ABOVE MAIN BOARD) */}
       <div
         style={{
@@ -509,7 +682,6 @@ export default function App() {
           onGridModeChange={setGridMode}
           onTransitionToBoard={() => setActiveView('board')}
         />
-
       </div>
 
       {/* View 2: Main Canvas Board (CENTER) */}
@@ -521,114 +693,6 @@ export default function App() {
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
-        <header className="top-header">
-          <div className="brand-pill">
-            <span className="brand-title">le brouillon</span>
-            <span className="minimal-badge">escritura libre</span>
-          </div>
-
-          <div className="floating-toolbar">
-            <button className="btn-icon active" onClick={() => handleAddNote(180, 180, false)}>
-              <Plus size={14} />
-              <span className="font-mono">Escribir</span>
-            </button>
-
-            <button className="btn-icon" onClick={() => handleAddNote(240, 240, true)} title="Añadir tarjeta Post-It">
-              <StickyNote size={13} />
-              <span className="font-mono">Post-it</span>
-            </button>
-
-            <div style={{ width: '1px', height: '16px', background: 'rgba(24,24,27,0.12)', margin: '0 4px' }} />
-
-            <button
-              className={`btn-icon ${gridMode === 'dots' ? 'active' : ''}`}
-              onClick={() => setGridMode('dots')}
-              title="Cuadrícula Puntos"
-            >
-              <Grid size={13} />
-              <span className="font-mono">Puntos</span>
-            </button>
-            <button
-              className={`btn-icon ${gridMode === 'lines' ? 'active' : ''}`}
-              onClick={() => setGridMode('lines')}
-              title="Líneas Cuaderno"
-            >
-              <Layers size={13} />
-              <span className="font-mono">Líneas</span>
-            </button>
-
-            <button className="btn-icon" onClick={handleUndo} title="Deshacer (Control+Z / Cmd+Z)">
-              <Undo2 size={13} />
-            </button>
-            <button className="btn-icon" onClick={handleRedo} title="Rehacer (Control+Shift+Z / Cmd+Shift+Z)">
-              <Redo2 size={13} />
-            </button>
-
-            <button
-              className={`btn-icon ${showCompleted ? 'active' : ''}`}
-              onClick={() => setShowCompleted(p => !p)}
-              title={showCompleted ? "Ocultar tareas completadas" : "Mostrar tareas completadas"}
-            >
-              <CheckSquare size={13} />
-              <span className="font-mono">{showCompleted ? 'Ver completadas' : 'Ocultar Done'}</span>
-            </button>
-
-            <div style={{ width: '1px', height: '16px', background: 'rgba(24,24,27,0.12)', margin: '0 4px' }} />
-
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-              <button
-                className="btn-icon"
-                onClick={handleGoToHomePin}
-                onDoubleClick={() => setShowPinConfirm(prev => !prev)}
-                title="Ir a Inicio (Doble clic para fijar posición actual como inicio)"
-              >
-                <MapPin size={13} />
-                <span className="font-mono">Inicio</span>
-              </button>
-              <button
-                className="btn-pin-subtle font-mono"
-                onClick={() => setShowPinConfirm(prev => !prev)}
-                title="Fijar vista actual como nueva posición de Inicio"
-              >
-                📍
-              </button>
-
-              {showPinConfirm && (
-                <div className="home-pin-popover">
-                  <div className="home-pin-title font-mono">📍 Posición Fija de Inicio</div>
-                  <div className="home-pin-desc">
-                    ¿Fijar la vista actual (`X: {viewport.pan?.x || 0}, Y: {viewport.pan?.y || 0}`) como tu nueva posición inicial predeterminada?
-                  </div>
-                  <div className="home-pin-actions">
-                    <button className="btn-pin-cancel font-mono" onClick={() => setShowPinConfirm(false)}>
-                      Cancelar
-                    </button>
-                    <button className="btn-pin-confirm font-mono" onClick={handleConfirmSetHomePin}>
-                      Fijar Posición
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-
-            <div style={{ width: '1px', height: '16px', background: 'rgba(24,24,27,0.12)', margin: '0 4px' }} />
-
-            <button className="btn-icon" onClick={() => setIsSidebarOpen(true)}>
-              <BookOpen size={13} />
-              <span className="font-mono">Índice ({notes.length})</span>
-            </button>
-
-            <button className="btn-icon" onClick={handleExportJSON} title="Exportar Copia de Seguridad">
-              <Download size={13} />
-            </button>
-            <label className="btn-icon" style={{ margin: 0, cursor: 'pointer' }} title="Importar Copia de Seguridad">
-              <Upload size={13} />
-              <input type="file" accept=".json" onChange={handleImportJSON} style={{ display: 'none' }} />
-            </label>
-          </div>
-        </header>
-
         {/* Main Canvas Board with Persistent Pan & Zoom */}
         <CanvasBoard
           notes={notes}
