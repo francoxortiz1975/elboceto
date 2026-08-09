@@ -527,13 +527,15 @@ export function FreeformNode({
 
       const updatedCurrentB = { ...currentB, text: headText };
       const newB = normalizeBlock({
+        id: 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         text: tailText,
         isCheck: currentB.isCheck,
         isNumber: currentB.isNumber,
         isBullet: currentB.isBullet,
-        isBold: currentB.isBold,
-        isToggle: false, isHeading: false, isSubheading: false
+        isBold: false, // Reset bold to normal text for next line!
+        isToggle: false, isHeading: false, isSubheading: false // Reset heading to normal text for next line!
       });
+
 
       const newBlocks = [...blocks];
       newBlocks[idx] = updatedCurrentB;
