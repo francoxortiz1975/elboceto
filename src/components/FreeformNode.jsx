@@ -433,50 +433,39 @@ export function FreeformNode({
     }
 
     if (e.key === 'Backspace' || e.key === 'Delete') {
+      const el = e.target;
+      const val = el ? el.value || '' : '';
+      const isAllSelectedInBlock = el && el.selectionStart === 0 && el.selectionEnd === val.length && val.length > 0;
+      const isEmptyBlock = val === '';
       const sel = window.getSelection();
-      const selectedStr = sel ? sel.toString().trim() : '';
-      const inputVal = (e.target.value || '').trim();
+      const selStr = sel ? sel.toString() : '';
+      const isEntireNodeSelected = containerRef.current && sel && sel.anchorNode && containerRef.current.contains(sel.anchorNode) && selStr.length > val.length;
 
-      // Case 1: Empty note or full note container selected (e.g. via Cmd+A)
-      if (inputVal === '' && blocks.length === 1) {
+      // Case 1: Full note container selected (e.g. via Cmd+A)
+      if (isEntireNodeSelected) {
         e.preventDefault();
         onDelete(node.id);
         return;
       }
 
-      if (sel && sel.anchorNode && containerRef.current && containerRef.current.contains(sel.anchorNode) && (selectedStr.length > inputVal.length || blocks.length === 1)) {
+      // Case 2: Single block note and ALL text selected or block empty
+      if (blocks.length === 1 && (isAllSelectedInBlock || isEmptyBlock)) {
         e.preventDefault();
         onDelete(node.id);
         return;
       }
 
-      // Case 2: All text in current single block is selected
-      if (selectedStr.length > 0 && selectedStr.length >= (e.target.value || '').length) {
+      // Case 3: Multi-block note and ALL text in THIS block selected or block empty
+      if (blocks.length > 1 && (isAllSelectedInBlock || isEmptyBlock)) {
         e.preventDefault();
-        if (blocks.length === 1) {
-          onDelete(node.id);
-        } else {
-          const newBlocks = blocks.filter((_, i) => i !== idx);
-          updateBlocks(newBlocks);
-          setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
-        }
+        const newBlocks = blocks.filter((_, i) => i !== idx);
+        updateBlocks(newBlocks);
+        setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
         return;
       }
 
-      // Case 3: Backspace/Delete on empty block
-      if ((e.target.value || '') === '') {
-        e.preventDefault();
-        if (blocks.length === 1) {
-          onDelete(node.id);
-        } else {
-          const newBlocks = blocks.filter((_, i) => i !== idx);
-          updateBlocks(newBlocks);
-          setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
-        }
-        return;
-      }
+      // Case 4: Partial text selection — let browser delete characters naturally!
     } else if (e.key === 'Escape') {
-
       setShowToolbar(false);
       setShowEventPopover(false);
     }
@@ -502,17 +491,21 @@ export function FreeformNode({
     const children = [...(currentB.children || [])];
 
     if (e.key === 'Backspace' || e.key === 'Delete') {
+      const el = e.target;
+      const val = el ? el.value || '' : '';
+      const isAllSelectedInBlock = el && el.selectionStart === 0 && el.selectionEnd === val.length && val.length > 0;
+      const isEmptyBlock = val === '';
       const sel = window.getSelection();
-      const selectedStr = sel ? sel.toString().trim() : '';
-      const inputVal = (e.target.value || '').trim();
+      const selStr = sel ? sel.toString() : '';
+      const isEntireNodeSelected = containerRef.current && sel && sel.anchorNode && containerRef.current.contains(sel.anchorNode) && selStr.length > val.length;
 
-      if (sel && sel.anchorNode && containerRef.current && containerRef.current.contains(sel.anchorNode) && selectedStr.length > inputVal.length) {
+      if (isEntireNodeSelected) {
         e.preventDefault();
         onDelete(node.id);
         return;
       }
 
-      if (selectedStr.length > 0 && selectedStr.length >= (e.target.value || '').length) {
+      if (isAllSelectedInBlock || isEmptyBlock) {
         e.preventDefault();
         children.splice(childIdx, 1);
         const newBlocks = [...blocks];
@@ -526,6 +519,7 @@ export function FreeformNode({
         return;
       }
     }
+
 
     if (e.key === 'Enter') {
       e.preventDefault();
