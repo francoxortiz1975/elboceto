@@ -399,8 +399,6 @@ export function FreeformNode({
         transform: `translate3d(${node.x}px, ${node.y}px, 0)`,
         zIndex: showToolbar || isSelected ? 1000 : 10
       }}
-      onMouseDown={(e) => onDragStart(e, node.id)}
-      onTouchStart={(e) => onDragStart(e, node.id)}
       onClick={(e) => {
         e.stopPropagation();
         onSelect(node.id);
@@ -415,6 +413,13 @@ export function FreeformNode({
         }
       }}
     >
+      {/* Drag Handle — only this strip can initiate a drag */}
+      <div
+        className="node-drag-handle"
+        onMouseDown={(e) => onDragStart(e, node.id)}
+        onTouchStart={(e) => onDragStart(e, node.id)}
+        title="Arrastra para mover"
+      />
       {/* Floating Toolbar */}
       {showToolbar && (
         <div

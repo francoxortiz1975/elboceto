@@ -151,9 +151,8 @@ export function CanvasBoard({
   };
 
   const handleDragStartNote = (e, noteId) => {
-    if (e.target.closest('button') || e.target.closest('.inline-context-bar') || e.target.closest('.toggle-arrow') || e.target.closest('.block-checkmark')) {
-      return;
-    }
+    if (!e.target.closest('.node-drag-handle')) return;
+
 
     e.stopPropagation();
 

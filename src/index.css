@@ -209,7 +209,7 @@ h1, h2, h3, .font-title {
   max-width: 520px;
   user-select: text;
   z-index: 10;
-  padding: 0 6px;          /* no vertical padding — first line sits on grid */
+  padding: 14px 6px 0;     /* top: drag handle height; no bottom padding; sides: minimal */
   border-radius: 2px;
   border: 1px solid transparent;
 }
@@ -230,6 +230,38 @@ h1, h2, h3, .font-title {
 .freeform-node.is-card:hover {
   box-shadow: var(--shadow-floating);
   border-color: rgba(24, 24, 27, 0.3);
+}
+
+/* Drag handle — thin grab strip at the top of each note */
+.node-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  cursor: grab;
+  z-index: 5;
+  border-radius: 2px 2px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.node-drag-handle::after {
+  content: '· · ·';
+  font-size: 0.55rem;
+  letter-spacing: 3px;
+  color: transparent;
+  transition: color 0.15s ease;
+  pointer-events: none;
+}
+
+.freeform-node:hover .node-drag-handle::after {
+  color: var(--text-subtle);
+}
+
+.node-drag-handle:active {
+  cursor: grabbing;
 }
 
 /* Inline Context Toolbar (Appears ONLY on double click with top priority) */
