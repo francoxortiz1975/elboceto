@@ -430,11 +430,41 @@ export function FreeformNode({
       newBlocks[idx - 1] = prevB;
       newBlocks.splice(idx, 1);
       updateBlocks(newBlocks);
-    } else if (e.key === 'Backspace' && blocks[idx].text === '' && blocks.length > 1) {
-      e.preventDefault();
-      const newBlocks = blocks.filter((_, i) => i !== idx);
-      updateBlocks(newBlocks);
-      setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
+    }
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      const sel = window.getSelection();
+      const selectedStr = sel ? sel.toString().trim() : '';
+      const inputVal = (e.target.value || '').trim();
+
+      // If full note container is selected (e.g. via Cmd+A), delete the whole note card!
+      if (sel && sel.anchorNode && containerRef.current && containerRef.current.contains(sel.anchorNode) && (selectedStr.length > inputVal.length || blocks.length === 1)) {
+        e.preventDefault();
+        onDelete(node.id);
+        return;
+      }
+
+      // If all text in current single block is selected
+      if (selectedStr.length > 0 && selectedStr.length >= (e.target.value || '').length) {
+        e.preventDefault();
+        if (blocks.length === 1) {
+          onDelete(node.id);
+        } else {
+          const newBlocks = blocks.filter((_, i) => i !== idx);
+          updateBlocks(newBlocks);
+          setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
+        }
+        return;
+      }
+
+      // Standard Backspace on empty block
+      if (blocks[idx].text === '' && blocks.length > 1) {
+        e.preventDefault();
+        const newBlocks = blocks.filter((_, i) => i !== idx);
+        updateBlocks(newBlocks);
+        setFocusedTarget({ type: 'main', index: Math.max(0, idx - 1) });
+        return;
+      }
     } else if (e.key === 'Escape') {
       setShowToolbar(false);
       setShowEventPopover(false);
@@ -459,6 +489,33 @@ export function FreeformNode({
     }
     const currentB = blocks[blockIdx];
     const children = [...(currentB.children || [])];
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      const sel = window.getSelection();
+      const selectedStr = sel ? sel.toString().trim() : '';
+      const inputVal = (e.target.value || '').trim();
+
+      if (sel && sel.anchorNode && containerRef.current && containerRef.current.contains(sel.anchorNode) && selectedStr.length > inputVal.length) {
+        e.preventDefault();
+        onDelete(node.id);
+        return;
+      }
+
+      if (selectedStr.length > 0 && selectedStr.length >= (e.target.value || '').length) {
+        e.preventDefault();
+        children.splice(childIdx, 1);
+        const newBlocks = [...blocks];
+        newBlocks[blockIdx] = { ...currentB, children };
+        updateBlocks(newBlocks);
+        if (children.length > 0) {
+          setFocusedTarget({ type: 'child', blockIdx, childIdx: Math.max(0, childIdx - 1) });
+        } else {
+          setFocusedTarget({ type: 'main', index: blockIdx });
+        }
+        return;
+      }
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
       children.splice(childIdx + 1, 0, '');
@@ -479,6 +536,7 @@ export function FreeformNode({
       }
     }
   };
+
 
   // Format date-only label for indicator (no clock icon, no time)
   const eventLabel = node.eventDate
