@@ -391,7 +391,96 @@ export function FreeformNode({
     updateBlocks(newBlocks);
   };
 
+  const handlePaste = (e, idx) => {
+    const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+    if (!text) return;
+
+    const lines = text.split(/\r?\n/);
+    if (lines.length <= 1) return; // Single line paste, let browser paste natively
+
+    e.preventDefault();
+    const el = e.target;
+    const currentVal = el ? el.value || '' : '';
+    const selStart = el ? el.selectionStart || 0 : 0;
+    const selEnd = el ? el.selectionEnd || 0 : 0;
+
+    const headText = currentVal.slice(0, selStart);
+    const tailText = currentVal.slice(selEnd);
+    const currentB = blocks[idx];
+    const newBlockList = [];
+
+    lines.forEach((rawLine, i) => {
+      let lineText = rawLine;
+      if (i === 0) {
+        lineText = headText + lineText;
+      }
+      if (i === lines.length - 1) {
+        lineText = lineText + tailText;
+      }
+
+      let isH = false;
+      let isSub = false;
+      let isCheck = false;
+      let isCompleted = false;
+      let isBullet = false;
+      let isNumber = false;
+      let cleanText = lineText;
+
+      if (cleanText.startsWith('## ')) {
+        isSub = true;
+        cleanText = cleanText.replace(/^##\s*/, '');
+      } else if (cleanText.startsWith('# ')) {
+        isH = true;
+        cleanText = cleanText.replace(/^#\s*/, '');
+      } else if (cleanText.startsWith('[] ') || cleanText.startsWith('[ ] ') || cleanText.startsWith('- [ ] ')) {
+        isCheck = true;
+        cleanText = cleanText.replace(/^(\[\]|\[ \]|-\s*\[ \])\s*/, '');
+      } else if (cleanText.startsWith('[x] ') || cleanText.startsWith('- [x] ')) {
+        isCheck = true;
+        isCompleted = true;
+        cleanText = cleanText.replace(/^(\[x\]|-\s*\[x\])\s*/, '');
+      } else if (/^\d+[\.]\s/.test(cleanText)) {
+        isNumber = true;
+        cleanText = cleanText.replace(/^\d+[\.]\s*/, '');
+      } else if (cleanText.startsWith('- ') || cleanText.startsWith('* ') || cleanText.startsWith('• ')) {
+        isBullet = true;
+        cleanText = cleanText.replace(/^(-\s*|\*\s*|•\s*)/, '');
+      } else if (i > 0 && currentB.isBullet) {
+        isBullet = true;
+      } else if (i > 0 && currentB.isCheck) {
+        isCheck = true;
+      }
+
+      newBlockList.push(normalizeBlock({
+        id: i === 0 ? currentB.id : 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4) + '_' + i,
+        text: cleanText,
+        isHeading: isH,
+        isSubheading: isSub,
+        isCheck,
+        completed: isCompleted,
+        isBullet,
+        isNumber,
+        isBold: !!currentB.isBold
+      }));
+    });
+
+    const newBlocks = [...blocks];
+    newBlocks.splice(idx, 1, ...newBlockList);
+    updateBlocks(newBlocks);
+
+    // Place caret cursor at the VERY END of the newly pasted text block
+    const lastPastedIdx = idx + newBlockList.length - 1;
+    const lastPastedBlock = newBlockList[newBlockList.length - 1];
+    const targetCaret = (lastPastedBlock.text || '').length - tailText.length;
+    setFocusedTarget({
+      type: 'main',
+      index: lastPastedIdx,
+      caretPos: Math.max(0, targetCaret)
+    });
+  };
+
   const handleToggleCardMode = () => onUpdate({ ...node, isCard: !node.isCard });
+
 
   const handleKeyDown = (e, idx) => {
     const el = e.target;
@@ -838,8 +927,10 @@ export function FreeformNode({
                     }}
                     onFocus={(e) => adjustTextareaBounds(e.target)}
                     onKeyDown={(e) => handleKeyDown(e, idx)}
+                    onPaste={(e) => handlePaste(e, idx)}
                     placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   />
+
                 </div>
 
 
