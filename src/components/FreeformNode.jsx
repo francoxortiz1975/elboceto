@@ -403,12 +403,9 @@ export function FreeformNode({
       onTouchStart={(e) => onDragStart(e, node.id)}
       onClick={(e) => {
         e.stopPropagation();
-        if (e.detail >= 3) {
-          onDelete(node.id);
-          return;
-        }
         onSelect(node.id);
       }}
+      onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(node.id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onSelect(node.id); setShowToolbar(true); }}
     >
       {/* Floating Toolbar */}
