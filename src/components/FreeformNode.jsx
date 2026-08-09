@@ -287,7 +287,46 @@ export function FreeformNode({
 
   const blocks = node.blocks.map(normalizeBlock);
 
+  const handleListMouseDown = (e) => {
+    e.stopPropagation();
+    const startEl = e.target;
+    if (!startEl) return;
+
+    const handleMouseMove = (moveEv) => {
+      const rect = startEl.getBoundingClientRect();
+      if (moveEv.clientY < rect.top || moveEv.clientY > rect.bottom || moveEv.clientX < rect.left || moveEv.clientX > rect.right) {
+        const hoverEl = document.elementFromPoint(moveEv.clientX, moveEv.clientY);
+        if (hoverEl && containerRef.current && containerRef.current.contains(hoverEl)) {
+          try {
+            const sel = window.getSelection();
+            const range = document.createRange();
+            if (moveEv.clientY > rect.bottom) {
+              range.setStart(startEl, 0);
+              range.setEnd(hoverEl, hoverEl.childNodes?.length || 0);
+            } else {
+              range.setStart(hoverEl, 0);
+              range.setEnd(startEl, startEl.value?.length || 0);
+            }
+            sel.removeAllRanges();
+            sel.addRange(range);
+          } catch (err) {
+            // Ignore range errors gracefully
+          }
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
   const updateBlocks = (newBlocks) => onUpdate({ ...node, blocks: newBlocks });
+
 
   const handleTextChange = (idx, rawText) => {
     const newBlocks = [...blocks];
@@ -662,7 +701,7 @@ export function FreeformNode({
                     className={`${inputClass} ${b.completed ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
                     value={b.text}
                     rows={1}
-                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseDown={handleListMouseDown}
                     onTouchStart={(e) => e.stopPropagation()}
                     onChange={(e) => {
                       e.target.style.height = 'auto';
@@ -689,8 +728,9 @@ export function FreeformNode({
                           style={{ fontSize: '0.86rem' }}
                           value={childText}
                           rows={1}
-                          onMouseDown={(e) => e.stopPropagation()}
+                          onMouseDown={handleListMouseDown}
                           onTouchStart={(e) => e.stopPropagation()}
+
                           onChange={(e) => {
                             e.target.style.height = 'auto';
                             e.target.style.height = `${e.target.scrollHeight}px`;
