@@ -205,14 +205,16 @@ h1, h2, h3, .font-title {
 /* Freeform Text Item & Post-it Card Styling */
 .freeform-node {
   position: absolute;
-  min-width: 220px;
-  max-width: 520px;
+  width: max-content;
+  min-width: 200px;
+  max-width: 540px;
   user-select: text;
   z-index: 10;
   padding: 0 6px 0 20px;     /* Left padding for the left grip icon button */
   border-radius: 2px;
   border: 1px solid transparent;
 }
+
 
 .freeform-node:hover,
 .freeform-node.selected {
@@ -479,7 +481,9 @@ input, textarea, [contenteditable] {
   overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
+  field-sizing: content;
 }
+
 
 .block-text-input.completed {
   text-decoration: line-through;
