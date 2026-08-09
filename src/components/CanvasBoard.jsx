@@ -186,9 +186,8 @@ export function CanvasBoard({
     };
   };
 
-  const handleContextMenuCanvas = (e) => {
+  const handleDoubleClickCanvas = (e) => {
     if (e.target.closest('.freeform-node') || e.target.closest('.top-header') || e.target.closest('.mobile-nav-bar')) return;
-    e.preventDefault();
     const rect = containerRef.current.getBoundingClientRect();
     const { clientX, clientY } = getCoords(e);
     const snapped = snapToGrid(clientX - rect.left - pan.x, clientY - rect.top - pan.y);
@@ -206,7 +205,7 @@ export function CanvasBoard({
       onMouseMove={handleMouseMoveCanvas}
       onMouseUp={handleMouseUpCanvas}
       onMouseLeave={handleMouseUpCanvas}
-      onContextMenu={handleContextMenuCanvas}
+      onDoubleClick={handleDoubleClickCanvas}
       onTouchStart={handleMouseDownCanvas}
       onTouchMove={handleMouseMoveCanvas}
       onTouchEnd={handleMouseUpCanvas}

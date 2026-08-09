@@ -126,8 +126,8 @@ export function FreeformDocEditor({
     updateBlocks(next);
   };
 
-  // Two-finger click (contextmenu) on canvas to create a new block at that grid position
-  const handleContextMenuCanvas = (e) => {
+  // Double Click Canvas anywhere to create a new block at exact double-clicked grid coordinates
+  const handleDoubleClickCanvas = (e) => {
     if (
       e.target.closest('.fluent-doc-block') ||
       e.target.closest('.free-postit-card') ||
@@ -136,7 +136,6 @@ export function FreeformDocEditor({
     ) {
       return;
     }
-    e.preventDefault();
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -313,7 +312,7 @@ export function FreeformDocEditor({
       </header>
 
       {/* Main Document Board Canvas (Direct on Canvas Grid) */}
-      <div className="doc-board-canvas" ref={canvasRef} onContextMenu={handleContextMenuCanvas}>
+      <div className="doc-board-canvas" ref={canvasRef} onDoubleClick={handleDoubleClickCanvas}>
         {/* Floating Post-Its Anywhere */}
         {floatingNotes.map(fn => (
           <div
