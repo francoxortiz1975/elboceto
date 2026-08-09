@@ -4,7 +4,7 @@ import { SidebarList } from './components/SidebarList';
 import { GoogleCalendarModal } from './components/GoogleCalendarModal';
 import { WeeklyPlanner } from './components/WeeklyPlanner';
 import { LeftEdgePanel } from './components/LeftEdgePanel';
-import { FreeformDocEditor } from './components/FreeformDocEditor';
+import { DocumentBoardView } from './components/DocumentBoardView';
 import {
   Plus,
   BookOpen,
@@ -26,24 +26,27 @@ import {
 const STORAGE_KEY_NOTES = 'el_boceto_notes_v2';
 const STORAGE_KEY_PLANNER = 'el_boceto_planner_v1';
 const STORAGE_KEY_VIEWPORT = 'el_boceto_viewport_v1';
-const STORAGE_KEY_DOCUMENTS = 'el_boceto_documents_v1';
+const STORAGE_KEY_DOCUMENTS = 'el_boceto_documents_v2';
 
 const INITIAL_DOCUMENTS = [
   {
     id: 'doc_1',
-    title: 'Notas de Desarrollo y Ideas',
+    title: 'Notas de Desarrollo e Ideas',
     icon: '📝',
-    blocks: [
-      { id: 'b1', type: 'heading-1', text: 'Notas en Documento Libre' },
-      { id: 'b2', type: 'callout', text: 'Escribe de forma fluida como en Notion o arrastra bloques libremente al margen.', color: 'amber' },
-      { id: 'b3', type: 'paragraph', text: 'Presiona Enter para crear párrafos, Tab para sangrar o "/" para desplegar el menú de bloques.' },
-      { id: 'b4', type: 'heading-2', text: 'Lista de Objetivos' },
-      { id: 'b5', type: 'check', text: 'Organizar ideas en vista de documento fluida', completed: true },
-      { id: 'b6', type: 'check', text: 'Arrastrar bloques libres al margen derecho', completed: false }
+    notes: [
+      {
+        id: 'doc_note_1',
+        x: 48,
+        y: 56,
+        isCard: false,
+        blocks: [
+          { id: 'db1', isHeading: true, text: 'Notas de Desarrollo e Ideas' },
+          { id: 'db2', isCheck: true, text: 'Tablero individual de nota organizada', completed: true },
+          { id: 'db3', isCheck: true, text: 'Crear nuevas notas desde la barra superior', completed: false }
+        ]
+      }
     ],
-    floatingNotes: [
-      { id: 'fn1', x: 20, y: 140, title: 'Recordatorio', text: 'Puedes deslizar hacia arriba para el Lienzo o hacia abajo para el Planificador.' }
-    ]
+    viewport: { pan: { x: 0, y: 140 } }
   }
 ];
 
@@ -123,19 +126,35 @@ export default function App() {
   const [activeDocId, setActiveDocId] = useState(() => documents[0]?.id || 'doc_1');
 
   const handleCreateDoc = () => {
+    const docId = `doc_${Date.now()}`;
+    const titleNoteId = `note_title_${Date.now()}`;
+    const titleBlockId = `b_title_${Date.now()}`;
+
     const newDoc = {
-      id: `doc_${Date.now()}`,
-      title: 'Nuevo Documento',
+      id: docId,
+      title: 'Insertar Título...',
       icon: '📝',
-      blocks: [
-        { id: `b_${Date.now()}`, type: 'heading-1', text: 'Nuevo Documento' },
-        { id: `b_${Date.now() + 1}`, type: 'paragraph', text: 'Empieza a escribir aquí...' }
+      notes: [
+        {
+          id: titleNoteId,
+          x: 48,
+          y: 56,
+          isCard: false,
+          blocks: [
+            {
+              id: titleBlockId,
+              text: 'Insertar Título...',
+              isHeading: true
+            }
+          ]
+        }
       ],
-      floatingNotes: []
+      viewport: { pan: { x: 0, y: 140 } }
     };
     setDocuments(prev => [...prev, newDoc]);
-    setActiveDocId(newDoc.id);
+    setActiveDocId(docId);
   };
+
 
   const handleUpdateDoc = (updatedDoc) => {
     setDocuments(prev => prev.map(d => (d.id === updatedDoc.id ? updatedDoc : d)));
@@ -479,7 +498,7 @@ export default function App() {
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
-        <FreeformDocEditor
+        <DocumentBoardView
           documents={documents}
           activeDocId={activeDocId}
           onSelectDoc={setActiveDocId}
@@ -490,6 +509,7 @@ export default function App() {
           onGridModeChange={setGridMode}
           onTransitionToBoard={() => setActiveView('board')}
         />
+
       </div>
 
       {/* View 2: Main Canvas Board (CENTER) */}
