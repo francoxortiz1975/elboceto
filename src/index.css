@@ -219,9 +219,15 @@ h1, h2, h3, .font-title {
 
 
 
-.freeform-node:hover,
-.freeform-node.selected {
+.freeform-node:hover {
   border-color: transparent;
+}
+
+.freeform-node.selected {
+  outline: 2px solid rgba(59, 130, 246, 0.7);
+  outline-offset: 2px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.05);
 }
 
 /* Post-it Card mode variant */
@@ -232,10 +238,18 @@ h1, h2, h3, .font-title {
   padding: 12px 16px 12px 24px;
 }
 
+.freeform-node.is-card.selected {
+  outline: 2px solid rgba(59, 130, 246, 0.75);
+  outline-offset: 2px;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+}
+
 .freeform-node.is-card:hover {
   box-shadow: var(--shadow-floating);
   border-color: rgba(24, 24, 27, 0.3);
 }
+
 
 /* Left Grip Handle — centered vertically on Y axis */
 .node-left-grip {
@@ -257,9 +271,15 @@ h1, h2, h3, .font-title {
 
 .freeform-node:hover .node-left-grip,
 .freeform-node:focus-within .node-left-grip,
+.freeform-node:hover .node-left-grip,
 .freeform-node.selected .node-left-grip {
-  opacity: 0.6;
+  opacity: 1;
 }
+
+.freeform-node.selected .node-left-grip {
+  color: #3b82f6;
+}
+
 
 .node-left-grip:hover {
   opacity: 1;
