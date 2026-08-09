@@ -409,15 +409,31 @@ export function FreeformNode({
     } else if (prop === 'isSubheading') {
       b.isSubheading = !b.isSubheading;
       if (b.isSubheading) b.isHeading = false;
+    } else if (prop === 'isToggle') {
+      const wasToggle = b.isToggle;
+      b.isToggle = !b.isToggle;
+      if (wasToggle && !b.isToggle) {
+        b.isOpen = true;
+        const parentIndent = b.indent || 0;
+        let childIdx = idx + 1;
+        while (childIdx < newBlocks.length && (newBlocks[childIdx].indent || 0) > parentIndent) {
+          newBlocks[childIdx] = {
+            ...newBlocks[childIdx],
+            indent: parentIndent
+          };
+          childIdx++;
+        }
+      }
     } else {
       b[prop] = !b[prop];
     }
-    if (prop === 'isToggle' && b.isToggle && !b.children.length) {
+    if (prop === 'isToggle' && b.isToggle && !b.children?.length) {
       b.children = ['']; b.isOpen = true;
     }
     newBlocks[idx] = b;
     updateBlocks(newBlocks);
   };
+
 
   const handlePaste = (e, idx) => {
     const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
@@ -851,12 +867,25 @@ export function FreeformNode({
                 <button className={`btn-icon ${curBlock.isNumber ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isNumber'); }} title="Número">
                   <ListOrdered size={12} />
                 </button>
-                <button className={`btn-icon ${curBlock.isToggle ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isToggle'); }} title="Toggle">
+                <button
+                  className={`btn-icon ${curBlock.isToggle ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!(curBlock.indent > 0)) toggleProperty(curIdx, 'isToggle');
+                  }}
+                  disabled={curBlock.indent > 0}
+                  style={{
+                    opacity: curBlock.indent > 0 ? 0.35 : 1,
+                    cursor: curBlock.indent > 0 ? 'not-allowed' : 'pointer'
+                  }}
+                  title={curBlock.indent > 0 ? 'Sub-elementos no pueden ser toggle' : 'Toggle (>)'}
+                >
                   <ListCollapse size={12} />
                 </button>
               </>
             );
           })()}
+
 
           <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
 
