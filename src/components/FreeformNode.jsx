@@ -338,36 +338,39 @@ export function FreeformNode({
 
 
   const handleTextChange = (idx, rawText) => {
+    // Strip any newlines (\r, \n) inserted into single-row textarea during Enter/paste events
+    const cleanText = (rawText || '').replace(/[\r\n]/g, '');
     const newBlocks = [...blocks];
-    let b = { ...newBlocks[idx], text: rawText };
+    let b = { ...newBlocks[idx], text: cleanText };
 
-    if (rawText.startsWith('## ')) {
+    if (cleanText.startsWith('## ')) {
       b.isSubheading = true; b.isHeading = false;
-      b.text = rawText.replace(/^##\s*/, '');
-    } else if (rawText.startsWith('# ')) {
+      b.text = cleanText.replace(/^##\s*/, '');
+    } else if (cleanText.startsWith('# ')) {
       b.isHeading = true; b.isSubheading = false;
-      b.text = rawText.replace(/^#\s*/, '');
-    } else if (rawText.startsWith('[] ') || rawText.startsWith('[ ] ') || rawText.startsWith('- [ ] ')) {
+      b.text = cleanText.replace(/^#\s*/, '');
+    } else if (cleanText.startsWith('[] ') || cleanText.startsWith('[ ] ') || cleanText.startsWith('- [ ] ')) {
       b.isCheck = true;
-      b.text = rawText.replace(/^(\[\]|\[ \]|-\s*\[ \])\s*/, '');
-    } else if (rawText.startsWith('[x] ') || rawText.startsWith('- [x] ')) {
+      b.text = cleanText.replace(/^(\[\]|\[ \]|-\s*\[ \])\s*/, '');
+    } else if (cleanText.startsWith('[x] ') || cleanText.startsWith('- [x] ')) {
       b.isCheck = true; b.completed = true;
-      b.text = rawText.replace(/^(\[x\]|-\s*\[x\])\s*/, '');
-    } else if (/^\d+[\.]\s/.test(rawText)) {
+      b.text = cleanText.replace(/^(\[x\]|-\s*\[x\])\s*/, '');
+    } else if (/^\d+[\.]\s/.test(cleanText)) {
       b.isNumber = true;
-      b.text = rawText.replace(/^\d+[\.]\s*/, '');
-    } else if (rawText.startsWith('- ') || rawText.startsWith('* ') || rawText.startsWith('• ')) {
+      b.text = cleanText.replace(/^\d+[\.]\s*/, '');
+    } else if (cleanText.startsWith('- ') || cleanText.startsWith('* ') || cleanText.startsWith('• ')) {
       b.isBullet = true;
-      b.text = rawText.replace(/^(-\s*|\*\s*|•\s*)/, '');
-    } else if (rawText.startsWith('> ')) {
+      b.text = cleanText.replace(/^(-\s*|\*\s*|•\s*)/, '');
+    } else if (cleanText.startsWith('> ')) {
       b.isToggle = true; b.isOpen = true;
       if (!b.children.length) b.children = [''];
-      b.text = rawText.replace(/^>\s*/, '');
+      b.text = cleanText.replace(/^>\s*/, '');
     }
 
     newBlocks[idx] = b;
     updateBlocks(newBlocks);
   };
+
 
   const toggleProperty = (idx, prop) => {
     const newBlocks = [...blocks];
