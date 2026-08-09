@@ -277,7 +277,6 @@ export function FreeformNode({
     isSubheading: !!b.isSubheading || b.type === 'subheading',
     isBold: !!b.isBold,
     isCheck: !!b.isCheck || b.type === 'check',
-    isNumber: !!b.isNumber || b.type === 'number',
     isBullet: !!b.isBullet || b.type === 'bullet',
     isToggle: !!b.isToggle || b.type === 'toggle',
     completed: !!b.completed,
@@ -300,15 +299,11 @@ export function FreeformNode({
           try {
             const sel = window.getSelection();
             const range = document.createRange();
-            if (moveEv.clientY > rect.bottom) {
-              range.setStart(startEl, 0);
-              range.setEnd(hoverEl, hoverEl.childNodes?.length || 0);
-            } else {
-              range.setStart(hoverEl, 0);
-              range.setEnd(startEl, startEl.value?.length || 0);
+            if (containerRef.current) {
+              range.selectNodeContents(containerRef.current);
+              sel.removeAllRanges();
+              sel.addRange(range);
             }
-            sel.removeAllRanges();
-            sel.addRange(range);
           } catch (err) {
             // Ignore range errors gracefully
           }
@@ -326,7 +321,6 @@ export function FreeformNode({
   };
 
   const updateBlocks = (newBlocks) => onUpdate({ ...node, blocks: newBlocks });
-
 
   const handleTextChange = (idx, rawText) => {
     const newBlocks = [...blocks];
@@ -382,6 +376,21 @@ export function FreeformNode({
   const handleToggleCardMode = () => onUpdate({ ...node, isCard: !node.isCard });
 
   const handleKeyDown = (e, idx) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      try {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        if (containerRef.current) {
+          range.selectNodeContents(containerRef.current);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      } catch (err) {
+        // Fallback
+      }
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
       e.preventDefault();
       toggleProperty(idx, 'isBold');
