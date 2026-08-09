@@ -249,7 +249,12 @@ export function FreeformNode({
       else if (b.isNumber) line = `1. ${line}`;
 
       if (b.isToggle && b.children?.length) {
-        const subLines = b.children.map(c => `  - ${c}`).join('\n');
+        const subLines = b.children.map(c => {
+          const isObj = typeof c === 'object' && c !== null;
+          const txt = isObj ? c.text || '' : String(c || '');
+          const done = isObj ? !!c.completed : false;
+          return `  [${done ? 'x' : ' '}] ${txt}`;
+        }).join('\n');
         line += '\n' + subLines;
       }
       return line;
@@ -259,6 +264,7 @@ export function FreeformNode({
     setCopiedToast(true);
     setTimeout(() => setCopiedToast(false), 2000);
   };
+
 
 
   // Close toolbar when clicking outside
@@ -940,40 +946,64 @@ export function FreeformNode({
 
 
                 {b.isToggle && b.isOpen && (
-                  <div style={{ paddingLeft: '22px', borderLeft: 'var(--border-hairline)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-                    {(b.children || []).map((childText, cIdx) => (
-                      <div key={cIdx} className="block-row">
-                        <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>•</span>
-                        <textarea
-                          ref={(el) => {
-                            inputRefs.current[`child_${idx}_${cIdx}`] = el;
-                            if (el) adjustTextareaBounds(el);
-                          }}
-                          wrap="off"
-                          className={`block-text-input ${b.isBold ? 'is-bold' : ''}`}
-                          style={{ fontSize: '0.86rem' }}
-                          value={childText}
+                  <div style={{ paddingLeft: '20px', borderLeft: 'var(--border-hairline)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {(b.children || []).map((child, cIdx) => {
+                      const isObj = typeof child === 'object' && child !== null;
+                      const childText = isObj ? child.text || '' : String(child || '');
+                      const isCompleted = isObj ? !!child.completed : false;
 
-                          rows={1}
-                          onMouseDown={handleListMouseDown}
-                          onTouchStart={(e) => e.stopPropagation()}
+                      return (
+                        <div key={cIdx} className="block-row">
+                          <button
+                            className={`block-checkmark ${isCompleted ? 'checked' : ''}`}
+                            style={{ marginTop: '5px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const children = [...(b.children || [])];
+                              const cur = children[cIdx];
+                              const text = typeof cur === 'object' && cur !== null ? cur.text || '' : String(cur || '');
+                              children[cIdx] = { text, completed: !isCompleted };
+                              const newBlocks = [...blocks];
+                              newBlocks[idx] = { ...b, children };
+                              updateBlocks(newBlocks);
+                            }}
+                          >
+                            {isCompleted && <Check size={11} strokeWidth={3} />}
+                          </button>
 
-                          onChange={(e) => {
-                            adjustTextareaBounds(e.target);
-                            const children = [...(b.children || [])];
-                            children[cIdx] = e.target.value;
-                            const newBlocks = [...blocks];
-                            newBlocks[idx] = { ...b, children };
-                            updateBlocks(newBlocks);
-                          }}
-                          onFocus={(e) => adjustTextareaBounds(e.target)}
-                          onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
-                          placeholder="Sub-elemento..."
-                        />
-                      </div>
-                    ))}
+                          <textarea
+                            ref={(el) => {
+                              inputRefs.current[`child_${idx}_${cIdx}`] = el;
+                              if (el) adjustTextareaBounds(el);
+                            }}
+                            wrap="off"
+                            className={`block-text-input ${isCompleted ? 'completed' : ''} ${b.isBold ? 'is-bold' : ''}`}
+                            style={{ fontSize: '0.86rem' }}
+                            value={childText}
+                            rows={1}
+                            onMouseDown={handleListMouseDown}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              adjustTextareaBounds(e.target);
+                              const val = e.target.value.replace(/[\r\n]/g, '');
+                              const children = [...(b.children || [])];
+                              const cur = children[cIdx];
+                              const completed = typeof cur === 'object' && cur !== null ? !!cur.completed : false;
+                              children[cIdx] = { text: val, completed };
+                              const newBlocks = [...blocks];
+                              newBlocks[idx] = { ...b, children };
+                              updateBlocks(newBlocks);
+                            }}
+                            onFocus={(e) => adjustTextareaBounds(e.target)}
+                            onKeyDown={(e) => handleChildKeyDown(e, idx, cIdx)}
+                            placeholder="Sub-tarea con checkmark..."
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+
               </div>
             );
           })
