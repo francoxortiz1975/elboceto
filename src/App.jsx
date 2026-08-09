@@ -313,6 +313,18 @@ export default function App() {
     return () => window.removeEventListener('wheel', handleWheel);
   }, [activeView]);
 
+  // Disable Safari / macOS trackpad horizontal swipe history back/forward navigation
+  useEffect(() => {
+    const preventSafariHorizontalSwipe = (e) => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('wheel', preventSafariHorizontalSwipe, { passive: false });
+    return () => window.removeEventListener('wheel', preventSafariHorizontalSwipe);
+  }, []);
+
+
 
 
   const handleAddNote = (x = 140, y = 160, isCard = false) => {
