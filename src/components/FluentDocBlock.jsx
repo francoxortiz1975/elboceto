@@ -157,8 +157,9 @@ export function FluentDocBlock({
     }
   };
 
-  const handleDoubleClickBlock = (e) => {
+  const handleContextMenuBlock = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     setShowToolbar(true);
   };
 
@@ -201,7 +202,7 @@ export function FluentDocBlock({
         left: block.x ? `${block.x}px` : undefined,
         position: block.x !== undefined ? 'absolute' : 'relative'
       }}
-      onDoubleClick={handleDoubleClickBlock}
+      onContextMenu={handleContextMenuBlock}
     >
       {/* Drag handle */}
       <div
