@@ -470,9 +470,8 @@ export function WeeklyPlanner({
                 <div
                   key={day.key}
                   ref={el => colRefs.current[day.key] = el}
-                  style={{ position: 'relative', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'rgba(24,24,27,0.018)' : 'var(--bg-book)', cursor: 'crosshair' }}
-                  onClick={(e) => {
-                    if (e.target === colRefs.current[day.key] || e.target.classList?.contains('hour-guide-line')) {
+                                    onClick={(e) => {
+                    if (isMobile && (e.target === colRefs.current[day.key] || e.target.classList?.contains('hour-guide-line'))) {
                       const colEl = colRefs.current[day.key];
                       if (!colEl) return;
                       const rect = colEl.getBoundingClientRect();
@@ -480,10 +479,12 @@ export function WeeklyPlanner({
                     }
                   }}
                   onDoubleClick={(e) => {
-                    const colEl = colRefs.current[day.key];
-                    if (!colEl) return;
-                    const rect = colEl.getBoundingClientRect();
-                    addTimeTask(day, e.clientY - rect.top);
+                    if (!isMobile && (e.target === colRefs.current[day.key] || e.target.classList?.contains('hour-guide-line'))) {
+                      const colEl = colRefs.current[day.key];
+                      if (!colEl) return;
+                      const rect = colEl.getBoundingClientRect();
+                      addTimeTask(day, e.clientY - rect.top);
+                    }
                   }}
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => handleColDrop(e, day)}
@@ -496,6 +497,7 @@ export function WeeklyPlanner({
                     return (
                       <div
                         key={h}
+                        className="hour-guide-line"
                         style={{
                           position: 'absolute',
                           top: `${yPct}%`,
@@ -525,11 +527,29 @@ export function WeeklyPlanner({
                     const yPct       = ((startMin - DAY_START_MIN) / DAY_TOTAL_MIN) * 100;
                     const heightPct  = (durationMin / DAY_TOTAL_MIN) * 100;
                     const endStr     = minutesToTimeStr(startMin + durationMin);
+
+                    const handleOpenModalForTask = (e) => {
+                      if (e) e.stopPropagation();
+                      if (onOpenCalendarModal) {
+                        const targetNote = (boardNotes || []).find(n => n.id === task.noteId || `board_${n.id}` === task.id) || {
+                          id: task.id,
+                          title: task.text || 'Evento',
+                          eventDate: task.dayIso,
+                          eventTime: task.timeSlot,
+                          eventDurationMin: task.durationMin || 60,
+                          isEvent: task.isEvent,
+                          blocks: [{ id: 'b_1', text: task.text || 'Evento' }]
+                        };
+                        onOpenCalendarModal(targetNote);
+                      }
+                    };
+
                     return (
                       <div
                         key={task.id}
                         onMouseDown={(e) => startDragMove(e, task, day.key)}
                         onTouchStart={(e) => startDragMove(e, task, day.key)}
+                        onDoubleClick={handleOpenModalForTask}
                         style={{
                           position: 'absolute',
                           top: `${yPct}%`,
@@ -549,7 +569,7 @@ export function WeeklyPlanner({
                           zIndex: task.isEvent ? 5 : 4,
                           display: 'flex',
                           flexDirection: 'column',
-                          justifyContent: 'center',
+                          justify: 'center',
                           gap: '2px',
                           userSelect: 'none'
                         }}
@@ -581,6 +601,14 @@ export function WeeklyPlanner({
                             />
                             <div style={{ display: 'flex', gap: '2px', flexShrink: 0, alignItems: 'center' }}>
                               <button
+                                style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={handleOpenModalForTask}
+                                title="Configurar / Sincronizar Calendario"
+                              >
+                                <Calendar size={10} />
+                              </button>
+                              <button
                                 className={`block-checkmark ${task.completed ? 'checked' : ''}`}
                                 style={{ width: '12px', height: '12px' }}
                                 onMouseDown={e => e.stopPropagation()}
@@ -605,6 +633,14 @@ export function WeeklyPlanner({
                                 {task.timeSlot} — {endStr}
                               </span>
                               <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                <button
+                                  style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onClick={handleOpenModalForTask}
+                                  title="Configurar / Sincronizar Calendario"
+                                >
+                                  <Calendar size={10} />
+                                </button>
                                 <button
                                   className={`block-checkmark ${task.completed ? 'checked' : ''}`}
                                   style={{ width: '12px', height: '12px' }}
