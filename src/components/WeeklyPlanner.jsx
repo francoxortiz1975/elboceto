@@ -59,6 +59,15 @@ export function WeeklyPlanner({
   const [localWeekOffset, setLocalWeekOffset] = useState(0);
   const weekOffset = propWeekOffset !== undefined ? propWeekOffset : localWeekOffset;
   const setWeekOffset = onWeekOffsetChange || setLocalWeekOffset;
+  const [dayPairIndex, setDayPairIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const colRefs     = useRef({});
   const dragState   = useRef(null);
   const weekDaysRef = useRef([]);
@@ -85,6 +94,11 @@ export function WeeklyPlanner({
 
   const weekDays = getWeekDates();
   weekDaysRef.current = weekDays; // keep ref in sync every render
+
+  const visibleDays = isMobile
+    ? (dayPairIndex === 3 ? [weekDays[6]] : [weekDays[dayPairIndex * 2], weekDays[dayPairIndex * 2 + 1]])
+    : weekDays;
+
   const currentWeekLabel = `${weekDays[0].formattedDate} — ${weekDays[6].formattedDate}`;
 
   // Tasks for a day (planner tasks + board notes with eventDate)
@@ -347,14 +361,64 @@ export function WeeklyPlanner({
         </div>
       </div>
 
+      {/* Mobile 2-Day View Pair Selector Header */}
+      {isMobile && (
+        <div className="mobile-2day-header">
+          <div className="mobile-pair-pills">
+            <button
+              className={`mobile-pair-pill ${dayPairIndex === 0 ? 'active' : ''}`}
+              onClick={() => setDayPairIndex(0)}
+            >
+              Lun - Mar
+            </button>
+            <button
+              className={`mobile-pair-pill ${dayPairIndex === 1 ? 'active' : ''}`}
+              onClick={() => setDayPairIndex(1)}
+            >
+              Mié - Jue
+            </button>
+            <button
+              className={`mobile-pair-pill ${dayPairIndex === 2 ? 'active' : ''}`}
+              onClick={() => setDayPairIndex(2)}
+            >
+              Vie - Sáb
+            </button>
+            <button
+              className={`mobile-pair-pill ${dayPairIndex === 3 ? 'active' : ''}`}
+              onClick={() => setDayPairIndex(3)}
+            >
+              Dom
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              className="btn-icon"
+              disabled={dayPairIndex === 0}
+              style={{ opacity: dayPairIndex === 0 ? 0.4 : 1 }}
+              onClick={() => setDayPairIndex(p => Math.max(0, p - 1))}
+            >
+              <ChevronLeft size={13} />
+            </button>
+            <button
+              className="btn-icon"
+              disabled={dayPairIndex === 3}
+              style={{ opacity: dayPairIndex === 3 ? 0.4 : 1 }}
+              onClick={() => setDayPairIndex(p => Math.min(3, p + 1))}
+            >
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Planner Grid */}
       <div className="planner-grid-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="planner-grid-inner" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: '100%' }}>
 
           {/* Day headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0 }}>
             <div />
-            {weekDays.map(day => (
+            {visibleDays.map(day => (
               <div key={day.key} style={{ padding: '8px 10px', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'var(--bg-active)' : 'rgba(24,24,27,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <span className="font-title" style={{ fontSize: '1.1rem', fontStyle: 'italic', fontWeight: day.isToday ? 600 : 400 }}>{day.label}</span>
                 <span className="font-mono" style={{ fontSize: '0.68rem', color: day.isToday ? 'var(--text-ink)' : 'var(--text-muted)' }}>{day.formattedDate}</span>
@@ -364,7 +428,7 @@ export function WeeklyPlanner({
 
           {/* Scrollable time grid */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '48px repeat(7, 1fr)', height: '700px', position: 'relative' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', height: '700px', position: 'relative' }}>
 
             {/* Time gutter */}
             <div style={{ borderRight: 'var(--border-hairline)', position: 'relative', background: 'rgba(247,244,238,0.6)' }}>
@@ -382,7 +446,7 @@ export function WeeklyPlanner({
             </div>
 
             {/* Day columns */}
-            {weekDays.map((day) => {
+            {visibleDays.map((day) => {
               const tasks = getTasksForDay(day);
               return (
                 <div

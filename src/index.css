@@ -1633,7 +1633,45 @@ h1, h2, h3, .font-title {
     width: 20px;
     height: 20px;
   }
+
+  /* 2-Day Mobile Planner Day Pair Pills & Header */
+  .mobile-2day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(247, 244, 238, 0.98);
+    border-bottom: var(--border-hairline);
+    gap: 8px;
+  }
+
+  .mobile-pair-pills {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 2px 0;
+  }
+
+  .mobile-pair-pill {
+    padding: 4px 8px;
+    border-radius: 14px;
+    border: 1px solid rgba(24, 24, 27, 0.1);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-pair-pill.active {
+    background: var(--text-ink);
+    color: var(--bg-paper);
+    border-color: var(--text-ink);
+  }
 }
+
 
 
 
