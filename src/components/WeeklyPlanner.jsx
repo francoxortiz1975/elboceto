@@ -52,6 +52,7 @@ export function WeeklyPlanner({
   plannerTasks,
   onUpdatePlannerTasks,
   onUpdateBoardNotes,
+  onOpenCalendarModal,
   onTransitionToBoard,
   weekOffset: propWeekOffset,
   onWeekOffsetChange
@@ -470,8 +471,9 @@ export function WeeklyPlanner({
                 <div
                   key={day.key}
                   ref={el => colRefs.current[day.key] = el}
-                                    onClick={(e) => {
-                    if (isMobile && (e.target === colRefs.current[day.key] || e.target.classList?.contains('hour-guide-line'))) {
+                  style={{ position: 'relative', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'rgba(24,24,27,0.018)' : 'var(--bg-book)', cursor: 'crosshair' }}
+                  onClick={(e) => {
+                    if (isMobile && !e.target.closest('.planner-task-card')) {
                       const colEl = colRefs.current[day.key];
                       if (!colEl) return;
                       const rect = colEl.getBoundingClientRect();
@@ -479,7 +481,7 @@ export function WeeklyPlanner({
                     }
                   }}
                   onDoubleClick={(e) => {
-                    if (!isMobile && (e.target === colRefs.current[day.key] || e.target.classList?.contains('hour-guide-line'))) {
+                    if (!isMobile && !e.target.closest('.planner-task-card')) {
                       const colEl = colRefs.current[day.key];
                       if (!colEl) return;
                       const rect = colEl.getBoundingClientRect();
@@ -547,6 +549,7 @@ export function WeeklyPlanner({
                     return (
                       <div
                         key={task.id}
+                        className="planner-task-card"
                         onMouseDown={(e) => startDragMove(e, task, day.key)}
                         onTouchStart={(e) => startDragMove(e, task, day.key)}
                         onDoubleClick={handleOpenModalForTask}
