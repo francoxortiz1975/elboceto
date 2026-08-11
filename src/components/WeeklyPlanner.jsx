@@ -536,57 +536,112 @@ export function WeeklyPlanner({
                           left: '2px',
                           right: '2px',
                           height: `${heightPct}%`,
-                          minHeight: '20px',
+                          minHeight: '26px',
                           background: task.isEvent ? 'var(--text-ink)' : (task.completed ? 'rgba(24,24,27,0.04)' : 'var(--bg-note)'),
                           color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
                           border: task.isEvent ? '1px solid rgba(24,24,27,0.9)' : 'var(--border-hairline)',
                           borderLeft: task.isEvent ? '3px solid #F7F4EE' : `2px solid rgba(24,24,27,${task.completed ? 0.15 : 0.4})`,
-                          borderRadius: '2px',
+                          borderRadius: '4px',
                           boxShadow: 'var(--shadow-subtle)',
-                          padding: '3px 5px',
+                          padding: '3px 6px 10px 6px',
                           overflow: 'hidden',
                           cursor: 'grab',
                           zIndex: task.isEvent ? 5 : 4,
                           display: 'flex',
                           flexDirection: 'column',
-                          justifyContent: 'space-between',
+                          justifyContent: 'center',
+                          gap: '2px',
                           userSelect: 'none'
                         }}
                       >
-                        {/* Top row: time + actions */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', flexShrink: 0 }}>
-                          <span className="font-mono" style={{ fontSize: '0.58rem', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                            {task.timeSlot} — {endStr}
-                          </span>
-                          <div style={{ display: 'flex', gap: '1px' }}>
-                            <button
-                              className={`block-checkmark ${task.completed ? 'checked' : ''}`}
-                              style={{ width: '12px', height: '12px', flexShrink: 0 }}
+                        {durationMin <= 60 ? (
+                          /* Compact 1-row layout for <=60m tasks */
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', flex: 1 }}>
+                            <span className="font-mono" style={{ fontSize: '0.62rem', opacity: 0.75, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              {task.timeSlot}
+                            </span>
+                            <input
+                              type="text"
+                              className="block-text-input"
+                              style={{
+                                fontSize: '0.78rem',
+                                flex: 1,
+                                minWidth: 0,
+                                cursor: 'text',
+                                textDecoration: task.completed ? 'line-through' : 'none',
+                                color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
+                                padding: 0,
+                                margin: 0,
+                                lineHeight: 1.2
+                              }}
+                              value={task.text}
                               onMouseDown={e => e.stopPropagation()}
-                              onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completed: !task.completed }); }}
-                            >
-                              {task.completed && <Check size={8} strokeWidth={3} />}
-                            </button>
-                            <button
-                              style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', lineHeight: 1, padding: '0 1px' }}
-                              onMouseDown={e => e.stopPropagation()}
-                              onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                            >
-                              <Trash2 size={10} />
-                            </button>
+                              onChange={e => updateTask(task.id, { text: e.target.value })}
+                              placeholder="Evento..."
+                            />
+                            <div style={{ display: 'flex', gap: '2px', flexShrink: 0, alignItems: 'center' }}>
+                              <button
+                                className={`block-checkmark ${task.completed ? 'checked' : ''}`}
+                                style={{ width: '12px', height: '12px' }}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completed: !task.completed }); }}
+                              >
+                                {task.completed && <Check size={8} strokeWidth={3} />}
+                              </button>
+                              <button
+                                style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          /* Standard 2-row layout for >60m tasks */
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', flexShrink: 0 }}>
+                              <span className="font-mono" style={{ fontSize: '0.6rem', opacity: 0.75, whiteSpace: 'nowrap' }}>
+                                {task.timeSlot} — {endStr}
+                              </span>
+                              <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                <button
+                                  className={`block-checkmark ${task.completed ? 'checked' : ''}`}
+                                  style={{ width: '12px', height: '12px' }}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completed: !task.completed }); }}
+                                >
+                                  {task.completed && <Check size={8} strokeWidth={3} />}
+                                </button>
+                                <button
+                                  style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                >
+                                  <Trash2 size={10} />
+                                </button>
+                              </div>
+                            </div>
 
-                        {/* Event title */}
-                        <input
-                          type="text"
-                          className="block-text-input"
-                          style={{ fontSize: '0.78rem', flex: 1, cursor: 'text', textDecoration: task.completed ? 'line-through' : 'none', color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)') }}
-                          value={task.text}
-                          onMouseDown={e => e.stopPropagation()}
-                          onChange={e => updateTask(task.id, { text: e.target.value })}
-                          placeholder="Evento..."
-                        />
+                            <input
+                              type="text"
+                              className="block-text-input"
+                              style={{
+                                fontSize: '0.78rem',
+                                flex: 1,
+                                cursor: 'text',
+                                textDecoration: task.completed ? 'line-through' : 'none',
+                                color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
+                                padding: 0,
+                                margin: 0
+                              }}
+                              value={task.text}
+                              onMouseDown={e => e.stopPropagation()}
+                              onChange={e => updateTask(task.id, { text: e.target.value })}
+                              placeholder="Evento..."
+                            />
+                          </>
+                        )}
 
                         {/* Bottom resize handle */}
                         <div
@@ -597,10 +652,10 @@ export function WeeklyPlanner({
                             bottom: 0,
                             left: 0,
                             right: 0,
-                            height: '12px',
+                            height: '10px',
                             cursor: 'ns-resize',
                             background: 'transparent',
-                            borderBottom: '3px solid rgba(24,24,27,0.25)',
+                            borderBottom: '2px solid rgba(24,24,27,0.2)',
                             touchAction: 'none'
                           }}
                         />
