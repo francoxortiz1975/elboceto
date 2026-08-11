@@ -4,7 +4,7 @@ import {
   Plus,
   Calendar,
   BookOpen,
-  MapPin
+  Pin
 } from 'lucide-react';
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
@@ -79,7 +79,7 @@ export function MobileAppLayout({
                 onClick={handleGoToHomePin}
                 title="Ir a Posición de Inicio"
               >
-                <span>📍</span>
+                <Pin size={12} />
                 <span className="font-mono">Fijar</span>
               </button>
               <button

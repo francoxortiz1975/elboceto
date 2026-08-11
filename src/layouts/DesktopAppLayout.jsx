@@ -11,7 +11,7 @@ import {
   Redo2,
   CheckSquare,
   FileText,
-  MapPin,
+  Pin,
   MoreVertical,
   ChevronUp,
   ChevronDown,
@@ -190,7 +190,7 @@ export function DesktopAppLayout({
             onClick={handleGoToHomePin}
             title="Ir a Posición de Inicio"
           >
-            <span>📍</span>
+            <Pin size={13} />
             <span className="font-mono">Fijar</span>
           </button>
           <button
