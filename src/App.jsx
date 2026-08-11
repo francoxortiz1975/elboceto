@@ -23,7 +23,9 @@ import {
   MapPin,
   MoreVertical,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const STORAGE_KEY_NOTES = 'el_boceto_notes_v2';
@@ -227,6 +229,18 @@ export default function App() {
   const [calendarModalNote, setCalendarModalNote] = useState(null);
   const [autoSortCompleted, setAutoSortCompleted] = useState(true);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const currentWeekLabel = React.useMemo(() => {
+    const now = new Date();
+    const distanceToMon = (now.getDay() + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - distanceToMon + weekOffset * 7);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const formatDayMonth = (d) => `${d.getDate()} ${d.toLocaleString('es-ES', { month: 'short' })}`;
+    return `Semana del ${formatDayMonth(monday)} al ${formatDayMonth(sunday)}`;
+  }, [weekOffset]);
 
   // Undo / Redo History Stacks
   const historyPast = useRef([]);
@@ -605,6 +619,42 @@ export default function App() {
           </>
         )}
 
+        {/* Week Switcher Controls in Planner View */}
+        {activeView === 'planner' && (
+          <>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+              <button
+                className="dock-icon-btn"
+                onClick={() => setWeekOffset(p => p - 1)}
+                title="Semana Anterior"
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <span className="font-mono" style={{ fontSize: '0.75rem', padding: '0 4px', whiteSpace: 'nowrap' }}>
+                {currentWeekLabel}
+              </span>
+              <button
+                className="dock-icon-btn"
+                onClick={() => setWeekOffset(p => p + 1)}
+                title="Semana Siguiente"
+              >
+                <ChevronRight size={13} />
+              </button>
+              {weekOffset !== 0 && (
+                <button
+                  className="dock-icon-btn active font-mono"
+                  style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                  onClick={() => setWeekOffset(0)}
+                  title="Ir a Semana Actual"
+                >
+                  Hoy
+                </button>
+              )}
+            </div>
+            <div className="dock-divider" />
+          </>
+        )}
+
         {/* 1. Pin / Inicio Button with ▼ toggle popover */}
         <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
           <button
@@ -846,6 +896,8 @@ export default function App() {
           onUpdateBoardNotes={handleUpdateNote}
           onOpenCalendarModal={setCalendarModalNote}
           onTransitionToBoard={() => setActiveView('board')}
+          weekOffset={weekOffset}
+          onWeekOffsetChange={setWeekOffset}
         />
       </div>
 

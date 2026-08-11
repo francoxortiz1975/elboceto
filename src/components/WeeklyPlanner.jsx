@@ -52,9 +52,13 @@ export function WeeklyPlanner({
   plannerTasks,
   onUpdatePlannerTasks,
   onUpdateBoardNotes,
-  onTransitionToBoard
+  onTransitionToBoard,
+  weekOffset: propWeekOffset,
+  onWeekOffsetChange
 }) {
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [localWeekOffset, setLocalWeekOffset] = useState(0);
+  const weekOffset = propWeekOffset !== undefined ? propWeekOffset : localWeekOffset;
+  const setWeekOffset = onWeekOffsetChange || setLocalWeekOffset;
   const colRefs     = useRef({});
   const dragState   = useRef(null);
   const weekDaysRef = useRef([]);
@@ -308,8 +312,26 @@ export function WeeklyPlanner({
 
       {/* Header */}
       <div style={{ padding: '14px 24px', borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <span className="brand-title" style={{ fontSize: '1.4rem' }}>Planificador Semanal</span>
+
+          {/* Week Switcher Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button className="btn-icon" onClick={() => setWeekOffset(p => p - 1)} title="Semana anterior">
+              <ChevronLeft size={14} />
+            </button>
+            <span className="font-mono" style={{ fontSize: '0.85rem', minWidth: '150px', textAlign: 'center' }}>
+              {currentWeekLabel}
+            </span>
+            <button className="btn-icon" onClick={() => setWeekOffset(p => p + 1)} title="Semana siguiente">
+              <ChevronRight size={14} />
+            </button>
+            {weekOffset !== 0 && (
+              <button className="btn-icon active" onClick={() => setWeekOffset(0)} style={{ fontSize: '0.7rem' }}>
+                Hoy
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Subtle Transparent Spatial Navigation Trigger — Centered on X-axis */}
@@ -322,12 +344,6 @@ export function WeeklyPlanner({
             <ChevronUp size={14} />
             <span className="nav-label font-mono">Lienzo</span>
           </button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button className="btn-icon" onClick={() => setWeekOffset(p => p - 1)}><ChevronLeft size={14} /></button>
-          <span className="font-mono" style={{ fontSize: '0.85rem', minWidth: '160px', textAlign: 'center' }}>{currentWeekLabel}</span>
-          <button className="btn-icon" onClick={() => setWeekOffset(p => p + 1)}><ChevronRight size={14} /></button>
-          {weekOffset !== 0 && <button className="btn-icon" onClick={() => setWeekOffset(0)} style={{ fontSize: '0.7rem' }}>Hoy</button>}
         </div>
       </div>
 
