@@ -25,7 +25,8 @@ export function DocumentBoardView({
   onDeleteDoc,
   gridMode,
   onGridModeChange,
-  onTransitionToBoard
+  onTransitionToBoard,
+  onMouseMoveSurface
 }) {
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0] || {
     id: 'doc_default',
@@ -141,6 +142,7 @@ export function DocumentBoardView({
         pan={pan}
         onPanChange={setPan}
         showCompleted={showCompleted}
+        onMouseMoveSurface={onMouseMoveSurface}
       />
 
       {/* Subtle Transparent Spatial Navigation Trigger to Main Canvas Board — Centered on X-axis */}

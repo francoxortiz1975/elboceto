@@ -523,8 +523,34 @@ export function FreeformNode({
     });
   };
 
-  const handleToggleCardMode = () => onUpdate({ ...node, isCard: !node.isCard });
+  const handleCopyBlock = (e, idx) => {
+    const el = e.target;
+    const val = el ? el.value || '' : '';
+    const selStart = el ? el.selectionStart || 0 : 0;
+    const selEnd = el ? el.selectionEnd || 0 : 0;
+    const currentB = blocks[idx];
 
+    // If user highlighted a partial substring of text in input, let native copy handle it
+    if (selEnd > selStart && (selEnd - selStart < val.length)) {
+      return;
+    }
+
+    // Format block with markdown tags for seamless paste
+    let line = currentB.text || '';
+    if (currentB.isHeading) line = `# ${line}`;
+    else if (currentB.isSubheading) line = `## ${line}`;
+    else if (currentB.isCheck) line = `[${currentB.completed ? 'x' : ' '}] ${line}`;
+    else if (currentB.isBullet) line = `- ${line}`;
+    else if (currentB.isNumber) line = `1. ${line}`;
+
+    const indentSpaces = '  '.repeat(currentB.indent || 0);
+    const formattedText = `${indentSpaces}${line}`;
+
+    if (e.clipboardData) {
+      e.clipboardData.setData('text/plain', formattedText);
+      e.preventDefault();
+    }
+  };
 
   const handleKeyDown = (e, idx) => {
     const el = e.target;
@@ -1056,6 +1082,7 @@ export function FreeformNode({
                       setActiveBlockIdx(idx);
                     }}
                     onKeyDown={(e) => handleKeyDown(e, idx)}
+                    onCopy={(e) => handleCopyBlock(e, idx)}
                     onPaste={(e) => handlePaste(e, idx)}
                     placeholder={b.isHeading ? 'Título...' : b.isSubheading ? 'Subtítulo...' : 'Escribe...'}
                   />

@@ -17,7 +17,8 @@ export function CanvasBoard({
   gridMode,
   pan,
   onPanChange,
-  autoSortCompleted = true
+  autoSortCompleted = true,
+  onMouseMoveSurface
 }) {
   const containerRef = useRef(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -77,6 +78,10 @@ export function CanvasBoard({
     const rect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
     const surfaceX = clientX - rect.left - pan.x;
     const surfaceY = clientY - rect.top - pan.y;
+
+    if (onMouseMoveSurface) {
+      onMouseMoveSurface({ x: surfaceX, y: surfaceY });
+    }
 
     // 1. Marquee selection drag
     if (selectionBox && selectionBox.active) {

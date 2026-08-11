@@ -346,6 +346,11 @@ function parseTextToBlocks(rawText) {
   });
 }
 
+  const lastMouseSurfacePos = useRef(null);
+  const handleMouseMoveSurface = (pos) => {
+    lastMouseSurfacePos.current = pos;
+  };
+
   // Global Keyboard Listener for Undo (Cmd+Z), Redo (Cmd+Shift+Z / Cmd+Y), and Copy/Paste Note Cards (Cmd+C / Cmd+V)
   useEffect(() => {
     const pasteBlocksToActiveBoard = (pastedText) => {
@@ -358,10 +363,19 @@ function parseTextToBlocks(rawText) {
         ? ((documents.find(d => d.id === activeDocId) || documents[0])?.viewport?.pan || { x: 0, y: 140 })
         : (viewport.pan || { x: 0, y: 140 });
 
+      let targetX, targetY;
+      if (lastMouseSurfacePos.current && typeof lastMouseSurfacePos.current.x === 'number') {
+        targetX = Math.max(48, Math.round(lastMouseSurfacePos.current.x / 24) * 24);
+        targetY = Math.max(56, Math.round(lastMouseSurfacePos.current.y / 28) * 28);
+      } else {
+        targetX = Math.max(48, Math.round((-activePan.x + 200) / 24) * 24);
+        targetY = Math.max(56, Math.round((-activePan.y + 180) / 28) * 28);
+      }
+
       const newNote = {
         id: newId,
-        x: Math.max(48, -activePan.x + 180),
-        y: Math.max(56, -activePan.y + 160),
+        x: targetX,
+        y: targetY,
         isCard: false,
         date: 'Hoy',
         calendarSynced: false,
@@ -420,6 +434,19 @@ function parseTextToBlocks(rawText) {
         navigator.clipboard.writeText(textContent);
       } else if (isCtrlOrCmd && key === 'v' && !isEditingText) {
         e.preventDefault();
+        const activePan = activeView === 'notes'
+          ? ((documents.find(d => d.id === activeDocId) || documents[0])?.viewport?.pan || { x: 0, y: 140 })
+          : (viewport.pan || { x: 0, y: 140 });
+
+        let baseTargetX, baseTargetY;
+        if (lastMouseSurfacePos.current && typeof lastMouseSurfacePos.current.x === 'number') {
+          baseTargetX = Math.max(48, Math.round(lastMouseSurfacePos.current.x / 24) * 24);
+          baseTargetY = Math.max(56, Math.round(lastMouseSurfacePos.current.y / 28) * 28);
+        } else {
+          baseTargetX = Math.max(48, Math.round((-activePan.x + 200) / 24) * 24);
+          baseTargetY = Math.max(56, Math.round((-activePan.y + 180) / 28) * 28);
+        }
+
         if (copiedNoteCards.current.length > 0) {
           pushSnapshot();
           const newPastedIds = [];
@@ -429,8 +456,8 @@ function parseTextToBlocks(rawText) {
             return {
               ...JSON.parse(JSON.stringify(n)),
               id: newId,
-              x: n.x + 24,
-              y: n.y + 28
+              x: baseTargetX + (idx * 24),
+              y: baseTargetY + (idx * 28)
             };
           });
 
@@ -936,6 +963,7 @@ function parseTextToBlocks(rawText) {
           gridMode={gridMode}
           onGridModeChange={setGridMode}
           onTransitionToBoard={() => setActiveView('board')}
+          onMouseMoveSurface={handleMouseMoveSurface}
         />
       </div>
 
@@ -961,6 +989,7 @@ function parseTextToBlocks(rawText) {
           pan={viewport.pan}
           onPanChange={(newPan) => setViewport(prev => ({ ...prev, pan: newPan }))}
           autoSortCompleted={autoSortCompleted}
+          onMouseMoveSurface={handleMouseMoveSurface}
         />
 
         {/* Subtle Transparent Spatial Navigation Triggers — Centered on X-axis */}
