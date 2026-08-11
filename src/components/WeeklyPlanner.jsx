@@ -419,9 +419,22 @@ export function WeeklyPlanner({
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0 }}>
             <div />
             {visibleDays.map(day => (
-              <div key={day.key} style={{ padding: '8px 10px', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'var(--bg-active)' : 'rgba(24,24,27,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span className="font-title" style={{ fontSize: '1.1rem', fontStyle: 'italic', fontWeight: day.isToday ? 600 : 400 }}>{day.label}</span>
-                <span className="font-mono" style={{ fontSize: '0.68rem', color: day.isToday ? 'var(--text-ink)' : 'var(--text-muted)' }}>{day.formattedDate}</span>
+              <div key={day.key} style={{ padding: '6px 8px', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'var(--bg-active)' : 'rgba(24,24,27,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                  <span className="font-title" style={{ fontSize: '1.05rem', fontStyle: 'italic', fontWeight: day.isToday ? 600 : 400 }}>{day.label}</span>
+                  <span className="font-mono" style={{ fontSize: '0.65rem', color: day.isToday ? 'var(--text-ink)' : 'var(--text-muted)' }}>{day.formattedDate}</span>
+                </div>
+                <button
+                  className="btn-icon active"
+                  style={{ padding: '2px 6px', fontSize: '0.62rem', borderRadius: '10px' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addTimeTask(day, 120);
+                  }}
+                  title="Añadir Evento"
+                >
+                  + Evento
+                </button>
               </div>
             ))}
           </div>
@@ -453,6 +466,14 @@ export function WeeklyPlanner({
                   key={day.key}
                   ref={el => colRefs.current[day.key] = el}
                   style={{ position: 'relative', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'rgba(24,24,27,0.018)' : 'var(--bg-book)', cursor: 'crosshair' }}
+                  onClick={(e) => {
+                    if (e.target === colRefs.current[day.key] || e.target.classList?.contains('hour-guide-line')) {
+                      const colEl = colRefs.current[day.key];
+                      if (!colEl) return;
+                      const rect = colEl.getBoundingClientRect();
+                      addTimeTask(day, e.clientY - rect.top);
+                    }
+                  }}
                   onDoubleClick={(e) => {
                     const colEl = colRefs.current[day.key];
                     if (!colEl) return;
