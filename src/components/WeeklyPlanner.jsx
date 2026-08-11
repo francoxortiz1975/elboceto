@@ -185,14 +185,15 @@ export function WeeklyPlanner({
   const startDragMove = (e, task, dayKey) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
     e.stopPropagation();
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     const colEl = colRefs.current[dayKey];
     if (!colEl) return;
     const colHeight = colEl.getBoundingClientRect().height;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     dragState.current = {
       type: 'move',
       taskId: task.id,
-      startY: e.clientY,
+      startY: clientY,
       origStartMin: timeStrToMinutes(task.timeSlot),
       origDurationMin: task.durationMin || 60,
       dayKey,
@@ -206,14 +207,15 @@ export function WeeklyPlanner({
 
   const startDragResize = (e, task, dayKey) => {
     e.stopPropagation();
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     const colEl = colRefs.current[dayKey];
     if (!colEl) return;
     const colHeight = colEl.getBoundingClientRect().height;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     dragState.current = {
       type: 'resize',
       taskId: task.id,
-      startY: e.clientY,
+      startY: clientY,
       origStartMin: timeStrToMinutes(task.timeSlot),
       origDurationMin: task.durationMin || 60,
       dayKey,
@@ -221,6 +223,8 @@ export function WeeklyPlanner({
     };
     window.addEventListener('mousemove', handleDragMoveRef.current);
     window.addEventListener('mouseup',   stopDragRef.current);
+    window.addEventListener('touchmove', handleDragMoveRef.current, { passive: false });
+    window.addEventListener('touchend',  stopDragRef.current);
   };
 
   const updateTaskRef = useRef(updateTask);
@@ -230,6 +234,7 @@ export function WeeklyPlanner({
   handleDragMoveRef.current = (e) => {
     const ds = dragState.current;
     if (!ds) return;
+    if (e.cancelable) e.preventDefault();
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const deltaY   = clientY - ds.startY;
@@ -586,15 +591,17 @@ export function WeeklyPlanner({
                         {/* Bottom resize handle */}
                         <div
                           onMouseDown={(e) => startDragResize(e, task, day.key)}
+                          onTouchStart={(e) => startDragResize(e, task, day.key)}
                           style={{
                             position: 'absolute',
                             bottom: 0,
                             left: 0,
                             right: 0,
-                            height: '6px',
+                            height: '12px',
                             cursor: 'ns-resize',
                             background: 'transparent',
-                            borderBottom: '2px solid rgba(24,24,27,0.18)'
+                            borderBottom: '3px solid rgba(24,24,27,0.25)',
+                            touchAction: 'none'
                           }}
                         />
                       </div>
