@@ -84,25 +84,25 @@ export function MobileAppLayout({
               </button>
               <button
                 className="dock-pin-toggle font-mono"
-                style={{ borderRadius: '0 14px 14px 0', padding: '4px 6px', fontSize: '0.62rem' }}
+                style={{ borderRadius: '0 14px 14px 0', padding: '4px 6px', fontSize: '0.65rem' }}
                 onClick={(e) => { e.stopPropagation(); setShowPinConfirm(prev => !prev); }}
-                title="Fijar posición de Inicio (▼)"
+                title="Fijar posición de Inicio"
               >
-                ▼
+                Fijar
               </button>
 
               {showPinConfirm && (
                 <div className="home-pin-popover" style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)', zIndex: 1200 }}>
-                  <div className="home-pin-title font-mono">📍 Posición Fija de Inicio</div>
+                  <div className="home-pin-title font-mono">📍 Posición de Inicio</div>
                   <div className="home-pin-desc">
-                    ¿Fijar posición actual como inicio (`X: {activeView === 'notes' ? (currentDoc?.viewport?.pan?.x || 0) : (viewport.pan?.x || 0)}, Y: {activeView === 'notes' ? (currentDoc?.viewport?.pan?.y || 0) : (viewport.pan?.y || 0)}`)?
+                    ¿Fijar posición actual como inicio?
                   </div>
                   <div className="home-pin-actions">
                     <button className="btn-pin-cancel font-mono" onClick={() => setShowPinConfirm(false)}>
                       Cancelar
                     </button>
                     <button className="btn-pin-confirm font-mono" onClick={handleConfirmSetHomePin}>
-                      Fijar Posición
+                      Fijar
                     </button>
                   </div>
                 </div>
