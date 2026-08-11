@@ -1538,6 +1538,104 @@ h1, h2, h3, .font-title {
   margin-left: 4px;
 }
 
+/* ─── Mobile View & Touch Optimization (iOS & Android) ─── */
+@media (max-width: 768px) {
+  /* Prevent bounce & overscroll interference */
+  body, html, #root {
+    touch-action: manipulation;
+    overscroll-behavior: none;
+  }
+
+  .canvas-viewport {
+    touch-action: none;
+  }
+
+  /* Compact Brand Title on Mobile */
+  .brand-header-top-left {
+    top: 10px;
+    left: 12px;
+    padding: 4px 10px;
+    font-size: 0.85rem;
+  }
+
+  /* Responsive Floating Dock on Mobile */
+  .reactive-floating-dock {
+    top: 10px;
+    right: 12px;
+    padding: 3px 6px;
+    gap: 2px;
+    max-width: calc(100vw - 120px);
+  }
+
+  .dock-icon-btn {
+    padding: 6px 8px;
+  }
+
+  .dock-icon-btn span.font-mono {
+    display: none;
+  }
+
+  /* Touch-friendly Spatial Navigation Triggers */
+  .subtle-spatial-nav {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    opacity: 0.85;
+    background: rgba(247, 244, 238, 0.85);
+  }
+
+  /* Always show spatial label on touch devices */
+  .subtle-spatial-nav .nav-label {
+    max-width: 100px;
+    opacity: 1;
+    margin-left: 4px;
+  }
+
+  /* Mobile Bottom Navigation Bar */
+  .mobile-nav-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(247, 244, 238, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: var(--border-hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1200;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .mobile-nav-bar .btn-icon {
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 12px;
+    font-size: 0.68rem;
+    border-radius: 8px;
+    color: var(--text-muted);
+  }
+
+  .mobile-nav-bar .btn-icon.active {
+    color: var(--text-ink);
+    background: rgba(24, 24, 27, 0.08);
+  }
+
+  /* Touch Drag Handles & Minimum Touch Target Hitboxes */
+  .node-left-grip, .node-drag-handle {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .block-checkmark {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+
 
 
 

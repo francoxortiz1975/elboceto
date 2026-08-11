@@ -1017,21 +1017,21 @@ function parseTextToBlocks(rawText) {
 
         {/* Mobile Nav Bar */}
         <div className="mobile-nav-bar">
-          <button className="btn-icon" onClick={() => setActiveView('notes')}>
+          <button className={`btn-icon ${activeView === 'notes' ? 'active' : ''}`} onClick={() => setActiveView('notes')}>
             <FileText size={14} />
-            <span>Notas</span>
+            <span className="font-mono">Notas</span>
           </button>
-          <button className="btn-icon active" onClick={() => setActiveView('board')}>
+          <button className={`btn-icon ${activeView === 'board' ? 'active' : ''}`} onClick={() => setActiveView('board')}>
             <Plus size={14} />
-            <span>Lienzo</span>
+            <span className="font-mono">Lienzo</span>
           </button>
-          <button className="btn-icon" onClick={() => setActiveView('planner')}>
+          <button className={`btn-icon ${activeView === 'planner' ? 'active' : ''}`} onClick={() => setActiveView('planner')}>
             <Calendar size={14} />
-            <span>Planificador</span>
+            <span className="font-mono">Planificador</span>
           </button>
           <button className="btn-icon" onClick={() => setIsSidebarOpen(true)}>
             <BookOpen size={14} />
-            <span>Índice</span>
+            <span className="font-mono">Índice</span>
           </button>
         </div>
       </div>
