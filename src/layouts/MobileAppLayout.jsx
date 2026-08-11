@@ -74,7 +74,7 @@ export function MobileAppLayout({
       </header>
 
       {/* Main Viewport Container */}
-      <div style={{ position: 'absolute', top: '48px', bottom: '56px', left: 0, right: 0, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: '48px', bottom: '80px', left: 0, right: 0, overflow: 'hidden' }}>
         {activeView === 'notes' && (
           <DocumentBoardView
             documents={documents}

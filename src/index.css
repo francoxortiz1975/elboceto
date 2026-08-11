@@ -1590,37 +1590,49 @@ h1, h2, h3, .font-title {
     margin-left: 4px;
   }
 
-  /* Mobile Bottom Navigation Bar */
+  /* Mobile Bottom Navigation Bar (Centered Floating Dock) */
   .mobile-nav-bar {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 56px;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: rgba(247, 244, 238, 0.92);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-top: var(--border-hairline);
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(380px, calc(100vw - 32px));
+    height: 54px;
+    padding: 4px;
+    background: rgba(247, 244, 238, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(24, 24, 27, 0.12);
+    border-radius: 28px;
     display: flex;
     align-items: center;
     justify-content: space-around;
     z-index: 1200;
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-floating);
+    user-select: none;
   }
 
   .mobile-nav-bar .btn-icon {
+    flex: 1;
+    display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 2px;
-    padding: 6px 12px;
+    padding: 6px 4px;
     font-size: 0.68rem;
-    border-radius: 8px;
+    border-radius: 20px;
     color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.18s ease;
   }
 
   .mobile-nav-bar .btn-icon.active {
     color: var(--text-ink);
     background: rgba(24, 24, 27, 0.08);
+    font-weight: 600;
   }
 
   /* Touch Drag Handles & Minimum Touch Target Hitboxes */
