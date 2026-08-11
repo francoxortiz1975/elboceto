@@ -132,19 +132,19 @@ export function MobileAppLayout({
         </button>
 
         <button
+          className={`btn-icon ${activeView === 'board' ? 'active' : ''}`}
+          onClick={() => setActiveView('board')}
+        >
+          <Plus size={16} />
+          <span className="font-mono">Lienzo</span>
+        </button>
+
+        <button
           className={`btn-icon ${activeView === 'planner' ? 'active' : ''}`}
           onClick={() => setActiveView('planner')}
         >
           <Calendar size={16} />
           <span className="font-mono">Planificador</span>
-        </button>
-
-        <button
-          className="btn-icon"
-          onClick={() => setIsSidebarOpen(true)}
-        >
-          <BookOpen size={16} />
-          <span className="font-mono">Índice</span>
         </button>
       </div>
     </div>
