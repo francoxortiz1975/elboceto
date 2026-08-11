@@ -188,17 +188,17 @@ export function DesktopAppLayout({
           <button
             className="dock-icon-btn"
             onClick={handleGoToHomePin}
-            title="Ir a Inicio"
+            title="Ir a Posición de Inicio"
           >
             <MapPin size={13} />
-            <span className="font-mono">Inicio</span>
+            <span className="font-mono">Fijar</span>
           </button>
           <button
             className="dock-pin-toggle font-mono"
             onClick={(e) => { e.stopPropagation(); setShowPinConfirm(prev => !prev); }}
             title="Fijar posición de Inicio"
           >
-            Fijar
+            ▼
           </button>
 
           {showPinConfirm && (

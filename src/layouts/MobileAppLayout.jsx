@@ -80,15 +80,15 @@ export function MobileAppLayout({
                 title="Ir a Posición de Inicio"
               >
                 <MapPin size={12} />
-                <span className="font-mono">Inicio</span>
+                <span className="font-mono">Fijar</span>
               </button>
               <button
                 className="dock-pin-toggle font-mono"
-                style={{ borderRadius: '0 14px 14px 0', padding: '4px 6px', fontSize: '0.65rem' }}
+                style={{ borderRadius: '0 14px 14px 0', padding: '4px 6px', fontSize: '0.62rem' }}
                 onClick={(e) => { e.stopPropagation(); setShowPinConfirm(prev => !prev); }}
                 title="Fijar posición de Inicio"
               >
-                Fijar
+                ▼
               </button>
 
               {showPinConfirm && (
