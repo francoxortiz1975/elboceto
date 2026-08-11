@@ -3,7 +3,8 @@ import {
   FileText,
   Plus,
   Calendar,
-  BookOpen
+  BookOpen,
+  MapPin
 } from 'lucide-react';
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
@@ -35,8 +36,14 @@ export function MobileAppLayout({
   weekOffset,
   setWeekOffset,
   setIsSidebarOpen,
-  onMouseMoveSurface
+  onMouseMoveSurface,
+  handleGoToHomePin,
+  handleConfirmSetHomePin,
+  showPinConfirm,
+  setShowPinConfirm
 }) {
+  const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
+
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: 'var(--bg-book)' }}>
       {/* Mobile Top Header */}
@@ -46,7 +53,7 @@ export function MobileAppLayout({
         left: 0,
         right: 0,
         height: '48px',
-        padding: '0 16px',
+        padding: '0 12px',
         background: 'rgba(247, 244, 238, 0.95)',
         backdropFilter: 'blur(12px)',
         borderBottom: 'var(--border-hairline)',
@@ -55,22 +62,64 @@ export function MobileAppLayout({
         justifyContent: 'space-between',
         zIndex: 1100
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className="brand-title" style={{ fontSize: '1.1rem' }}>el boceto</span>
-          <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="brand-title" style={{ fontSize: '1.05rem' }}>el boceto</span>
+          <span className="font-mono" style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {activeView === 'notes' ? 'Notas' : activeView === 'planner' ? 'Planificador' : 'Lienzo'}
           </span>
         </div>
 
-        <button
-          className="btn-icon active"
-          style={{ borderRadius: '16px', padding: '4px 10px', fontSize: '0.72rem' }}
-          onClick={() => handleAddNote(180, 180, false)}
-          title="Crear Nota"
-        >
-          <Plus size={12} />
-          <span className="font-mono">Nota</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Inicio (Home Pin) Button for Notes and Lienzo */}
+          {(activeView === 'notes' || activeView === 'board') && (
+            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <button
+                className="btn-icon"
+                style={{ borderRadius: '14px 0 0 14px', padding: '4px 8px', fontSize: '0.7rem' }}
+                onClick={handleGoToHomePin}
+                title="Ir a Posición de Inicio"
+              >
+                <MapPin size={12} />
+                <span className="font-mono">Inicio</span>
+              </button>
+              <button
+                className="dock-pin-toggle font-mono"
+                style={{ borderRadius: '0 14px 14px 0', padding: '4px 6px', fontSize: '0.62rem' }}
+                onClick={(e) => { e.stopPropagation(); setShowPinConfirm(prev => !prev); }}
+                title="Fijar posición de Inicio (▼)"
+              >
+                ▼
+              </button>
+
+              {showPinConfirm && (
+                <div className="home-pin-popover" style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)', zIndex: 1200 }}>
+                  <div className="home-pin-title font-mono">📍 Posición Fija de Inicio</div>
+                  <div className="home-pin-desc">
+                    ¿Fijar posición actual como inicio (`X: {activeView === 'notes' ? (currentDoc?.viewport?.pan?.x || 0) : (viewport.pan?.x || 0)}, Y: {activeView === 'notes' ? (currentDoc?.viewport?.pan?.y || 0) : (viewport.pan?.y || 0)}`)?
+                  </div>
+                  <div className="home-pin-actions">
+                    <button className="btn-pin-cancel font-mono" onClick={() => setShowPinConfirm(false)}>
+                      Cancelar
+                    </button>
+                    <button className="btn-pin-confirm font-mono" onClick={handleConfirmSetHomePin}>
+                      Fijar Posición
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            className="btn-icon active"
+            style={{ borderRadius: '14px', padding: '4px 8px', fontSize: '0.7rem' }}
+            onClick={() => handleAddNote(180, 180, false)}
+            title="Crear Nota"
+          >
+            <Plus size={12} />
+            <span className="font-mono">Nota</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Viewport Container */}

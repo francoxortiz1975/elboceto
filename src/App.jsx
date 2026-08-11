@@ -733,6 +733,10 @@ function parseTextToBlocks(rawText) {
           setWeekOffset={setWeekOffset}
           setIsSidebarOpen={setIsSidebarOpen}
           onMouseMoveSurface={handleMouseMoveSurface}
+          handleGoToHomePin={handleGoToHomePin}
+          handleConfirmSetHomePin={handleConfirmSetHomePin}
+          showPinConfirm={showPinConfirm}
+          setShowPinConfirm={setShowPinConfirm}
         />
       ) : (
         <DesktopAppLayout
