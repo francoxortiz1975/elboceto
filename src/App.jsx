@@ -287,8 +287,101 @@ export default function App() {
 
   const copiedNoteCards = useRef([]);
 
+function parseTextToBlocks(rawText) {
+  if (!rawText || typeof rawText !== 'string') return [];
+  const lines = rawText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length === 0) return [];
+
+  return lines.map((line, i) => {
+    let text = line;
+    let indent = 0;
+    const leadingSpaces = line.match(/^(\s+)/);
+    if (leadingSpaces) {
+      indent = Math.min(4, Math.floor(leadingSpaces[1].length / 2));
+      text = line.trim();
+    } else {
+      text = line.trim();
+    }
+
+    let isHeading = false;
+    let isSubheading = false;
+    let isCheck = false;
+    let completed = false;
+    let isBullet = false;
+    let isNumber = false;
+
+    if (text.startsWith('## ')) {
+      isSubheading = true;
+      text = text.substring(3);
+    } else if (text.startsWith('# ')) {
+      isHeading = true;
+      text = text.substring(2);
+    } else if (text.startsWith('[x] ') || text.startsWith('[X] ') || text.startsWith('- [x] ') || text.startsWith('- [X] ')) {
+      isCheck = true;
+      completed = true;
+      text = text.replace(/^(\[x\]|\[X\]|-\s*\[x\]|-\s*\[X\])\s*/, '');
+    } else if (text.startsWith('[ ] ') || text.startsWith('[] ') || text.startsWith('- [ ] ') || text.startsWith('- [] ')) {
+      isCheck = true;
+      completed = false;
+      text = text.replace(/^(\[ \]|\[\]|-\s*\[ \]|-\s*\[\])\s*/, '');
+    } else if (text.startsWith('- ') || text.startsWith('* ') || text.startsWith('• ')) {
+      isBullet = true;
+      text = text.replace(/^(-\s*|\*\s*|•\s*)/, '');
+    } else if (/^\d+\.\s/.test(text)) {
+      isNumber = true;
+      text = text.replace(/^\d+\.\s*/, '');
+    }
+
+    return {
+      id: 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4) + '_' + i,
+      text,
+      isHeading,
+      isSubheading,
+      isCheck,
+      completed,
+      isBullet,
+      isNumber,
+      indent
+    };
+  });
+}
+
   // Global Keyboard Listener for Undo (Cmd+Z), Redo (Cmd+Shift+Z / Cmd+Y), and Copy/Paste Note Cards (Cmd+C / Cmd+V)
   useEffect(() => {
+    const pasteBlocksToActiveBoard = (pastedText) => {
+      if (!pastedText || !pastedText.trim()) return;
+      pushSnapshot();
+      const parsedBlocks = parseTextToBlocks(pastedText);
+      const newId = 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+
+      const activePan = activeView === 'notes'
+        ? ((documents.find(d => d.id === activeDocId) || documents[0])?.viewport?.pan || { x: 0, y: 140 })
+        : (viewport.pan || { x: 0, y: 140 });
+
+      const newNote = {
+        id: newId,
+        x: Math.max(48, -activePan.x + 180),
+        y: Math.max(56, -activePan.y + 160),
+        isCard: false,
+        date: 'Hoy',
+        calendarSynced: false,
+        blocks: parsedBlocks
+      };
+
+      if (activeView === 'notes') {
+        const curDoc = documents.find(d => d.id === activeDocId) || documents[0];
+        if (curDoc) {
+          handleUpdateDoc({
+            ...curDoc,
+            notes: [...(curDoc.notes || []), newNote]
+          });
+        }
+      } else {
+        setNotes(prev => [...prev, newNote]);
+        setSelectedNoteIds([newId]);
+      }
+    };
+
     const handleKeyDown = (e) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
@@ -325,22 +418,41 @@ export default function App() {
           }).join('\n');
         }).join('\n\n---\n\n');
         navigator.clipboard.writeText(textContent);
-      } else if (isCtrlOrCmd && key === 'v' && !isEditingText && copiedNoteCards.current.length > 0) {
+      } else if (isCtrlOrCmd && key === 'v' && !isEditingText) {
         e.preventDefault();
-        pushSnapshot();
-        const newPastedIds = [];
-        const pastedNotes = copiedNoteCards.current.map(n => {
-          const newId = 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-          newPastedIds.push(newId);
-          return {
-            ...JSON.parse(JSON.stringify(n)),
-            id: newId,
-            x: n.x + 24,
-            y: n.y + 28
-          };
-        });
-        setNotes(prev => [...prev, ...pastedNotes]);
-        setSelectedNoteIds(newPastedIds);
+        if (copiedNoteCards.current.length > 0) {
+          pushSnapshot();
+          const newPastedIds = [];
+          const pastedNotes = copiedNoteCards.current.map((n, idx) => {
+            const newId = 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4) + '_' + idx;
+            newPastedIds.push(newId);
+            return {
+              ...JSON.parse(JSON.stringify(n)),
+              id: newId,
+              x: n.x + 24,
+              y: n.y + 28
+            };
+          });
+
+          if (activeView === 'notes') {
+            const curDoc = documents.find(d => d.id === activeDocId) || documents[0];
+            if (curDoc) {
+              handleUpdateDoc({
+                ...curDoc,
+                notes: [...(curDoc.notes || []), ...pastedNotes]
+              });
+            }
+          } else {
+            setNotes(prev => [...prev, ...pastedNotes]);
+            setSelectedNoteIds(newPastedIds);
+          }
+        } else if (navigator.clipboard && navigator.clipboard.readText) {
+          navigator.clipboard.readText().then(text => {
+            if (text) pasteBlocksToActiveBoard(text);
+          }).catch(err => {
+            console.warn('Clipboard access denied:', err);
+          });
+        }
       } else if ((key === 'backspace' || key === 'delete') && !isEditingText && selectedNoteIds.length > 0) {
         e.preventDefault();
         pushSnapshot();
@@ -349,10 +461,25 @@ export default function App() {
       }
     };
 
+    const handlePasteEvent = (e) => {
+      const activeEl = document.activeElement;
+      const isEditingText = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+      if (isEditingText) return;
+
+      const pastedText = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+      if (pastedText && pastedText.trim()) {
+        e.preventDefault();
+        pasteBlocksToActiveBoard(pastedText);
+      }
+    };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNoteIds, notes, handleUndo, handleRedo, pushSnapshot]);
+    window.addEventListener('paste', handlePasteEvent);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('paste', handlePasteEvent);
+    };
+  }, [selectedNoteIds, notes, activeView, activeDocId, documents, viewport, handleUndo, handleRedo, pushSnapshot]);
 
 
   // Persistence Effects
