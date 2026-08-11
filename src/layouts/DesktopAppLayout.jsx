@@ -190,7 +190,7 @@ export function DesktopAppLayout({
             onClick={handleGoToHomePin}
             title="Ir a Posición de Inicio"
           >
-            <MapPin size={13} />
+            <span>📍</span>
             <span className="font-mono">Fijar</span>
           </button>
           <button

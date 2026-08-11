@@ -79,7 +79,7 @@ export function MobileAppLayout({
                 onClick={handleGoToHomePin}
                 title="Ir a Posición de Inicio"
               >
-                <MapPin size={12} />
+                <span>📍</span>
                 <span className="font-mono">Fijar</span>
               </button>
               <button
