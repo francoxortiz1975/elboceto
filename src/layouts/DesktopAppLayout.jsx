@@ -22,6 +22,7 @@ import {
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
+import { AuthButton } from '../components/AuthButton';
 
 export function DesktopAppLayout({
   activeView,
@@ -218,6 +219,10 @@ export function DesktopAppLayout({
             </div>
           )}
         </div>
+
+        <div className="dock-divider" />
+
+        <AuthButton />
 
         <div className="dock-divider" />
 

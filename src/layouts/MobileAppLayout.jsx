@@ -9,6 +9,7 @@ import {
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { MobileBoardView } from '../components/MobileBoardView';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
+import { AuthButton } from '../components/AuthButton';
 
 export function MobileAppLayout({
   activeView,
@@ -119,6 +120,8 @@ export function MobileAppLayout({
             <Plus size={12} />
             <span className="font-mono">Nota</span>
           </button>
+
+          <AuthButton />
         </div>
       </header>
 

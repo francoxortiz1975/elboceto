@@ -7,6 +7,8 @@ import { LeftEdgePanel } from './components/LeftEdgePanel';
 import { DocumentBoardView } from './components/DocumentBoardView';
 import { MobileAppLayout } from './layouts/MobileAppLayout';
 import { DesktopAppLayout } from './layouts/DesktopAppLayout';
+import { useAuth } from './context/AuthContext';
+import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSync';
 import {
   Plus,
   BookOpen,
@@ -552,6 +554,56 @@ function parseTextToBlocks(rawText) {
       console.error('Error saving viewport:', e);
     }
   }, [viewport]);
+
+  // ── Cloud sync (Supabase) ──────────────────────────────────────────────
+  // Local-first: everything above works identically with no session. Once a
+  // user is signed in, reconcile once (cloud wins if it already has data,
+  // otherwise push current local state as the initial cloud copy), then keep
+  // syncing local edits to the cloud on a short debounce.
+  const { user } = useAuth();
+  const reconcileStartedForRef = useRef(null);
+  const [reconciledUserId, setReconciledUserId] = useState(null);
+
+  useEffect(() => {
+    if (!user) {
+      reconcileStartedForRef.current = null;
+      setReconciledUserId(null);
+      return;
+    }
+    if (reconcileStartedForRef.current === user.id) return;
+    reconcileStartedForRef.current = user.id;
+
+    (async () => {
+      try {
+        const cloudHasData = await hasCloudData(user.id);
+        if (cloudHasData) {
+          const cloud = await pullCloudToLocal(user.id);
+          setNotes(cloud.notes);
+          setDocuments(cloud.documents);
+          setPlannerTasks(cloud.plannerTasks);
+          setGridMode(cloud.gridMode);
+          setViewport(cloud.viewport);
+        } else {
+          await syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
+        }
+        setReconciledUserId(user.id);
+      } catch (e) {
+        console.error('Error reconciling cloud data:', e);
+      }
+    })();
+  }, [user]);
+
+  const syncTimeoutRef = useRef(null);
+  useEffect(() => {
+    if (!user || reconciledUserId !== user.id) return;
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(() => {
+      syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport }).catch(e => {
+        console.error('Error syncing to cloud:', e);
+      });
+    }, 1500);
+    return () => clearTimeout(syncTimeoutRef.current);
+  }, [notes, documents, plannerTasks, gridMode, viewport, user, reconciledUserId]);
 
   // Handle Wheel Scroll transitions between View 1 (Notes), View 2 (Board), View 3 (Planner)
   const lastTransitionTime = useRef(0);
