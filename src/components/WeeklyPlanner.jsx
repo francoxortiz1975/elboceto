@@ -356,16 +356,18 @@ export function WeeklyPlanner({
         </div>
 
         {/* Subtle Transparent Spatial Navigation Trigger — Centered on X-axis */}
-        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
-          <button
-            className="subtle-spatial-nav"
-            onClick={onTransitionToBoard}
-            title="Ir al Lienzo Principal"
-          >
-            <ChevronUp size={14} />
-            <span className="nav-label font-mono">Lienzo</span>
-          </button>
-        </div>
+        {!isMobile && (
+          <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
+            <button
+              className="subtle-spatial-nav"
+              onClick={onTransitionToBoard}
+              title="Ir al Lienzo Principal"
+            >
+              <ChevronUp size={14} />
+              <span className="nav-label font-mono">Lienzo</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Mobile 2-Day View Pair Selector Header */}

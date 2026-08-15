@@ -7,7 +7,7 @@ import {
   Pin
 } from 'lucide-react';
 import { DocumentBoardView } from '../components/DocumentBoardView';
-import { CanvasBoard } from '../components/CanvasBoard';
+import { MobileBoardView } from '../components/MobileBoardView';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
 
 export function MobileAppLayout({
@@ -140,19 +140,12 @@ export function MobileAppLayout({
         )}
 
         {activeView === 'board' && (
-          <CanvasBoard
+          <MobileBoardView
             notes={notes}
-            selectedNoteIds={selectedNoteIds}
-            onSelectNotes={handleSelectNotes}
             onUpdateNote={handleUpdateNote}
             onDeleteNote={handleDeleteNote}
             onOpenCalendarModal={setCalendarModalNote}
-            onDoubleTapCanvas={(x, y) => handleAddNote(x, y, false)}
-            gridMode={gridMode}
-            pan={viewport.pan}
-            onPanChange={(newPan) => setViewport(prev => ({ ...prev, pan: newPan }))}
             autoSortCompleted={autoSortCompleted}
-            onMouseMoveSurface={onMouseMoveSurface}
           />
         )}
 

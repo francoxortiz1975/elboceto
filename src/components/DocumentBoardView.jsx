@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CanvasBoard } from './CanvasBoard';
+import { MobileBoardView } from './MobileBoardView';
 import {
   Plus,
   StickyNote,
@@ -51,6 +52,13 @@ export function DocumentBoardView({
   const [showDocDropdown, setShowDocDropdown] = useState(false);
   const [showPinConfirm, setShowPinConfirm] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Viewport pan state per document
   const pan = currentDoc.viewport?.pan || { x: 0, y: 140 };
@@ -129,33 +137,43 @@ export function DocumentBoardView({
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-      {/* Identical Infinite Canvas Board */}
-      <CanvasBoard
-        notes={notes}
-        selectedNoteIds={selectedNoteIds}
-        onSelectNotes={setSelectedNoteIds}
-        onUpdateNote={handleUpdateNote}
-        onDeleteNote={handleDeleteNote}
-        onOpenCalendarModal={() => {}}
-        onDoubleTapCanvas={(x, y) => handleAddNote(x, y, false)}
-        gridMode={gridMode}
-        pan={pan}
-        onPanChange={setPan}
-        showCompleted={showCompleted}
-        onMouseMoveSurface={onMouseMoveSurface}
-      />
+      {isMobile ? (
+        <MobileBoardView
+          notes={notes}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          onOpenCalendarModal={() => {}}
+        />
+      ) : (
+        <CanvasBoard
+          notes={notes}
+          selectedNoteIds={selectedNoteIds}
+          onSelectNotes={setSelectedNoteIds}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          onOpenCalendarModal={() => {}}
+          onDoubleTapCanvas={(x, y) => handleAddNote(x, y, false)}
+          gridMode={gridMode}
+          pan={pan}
+          onPanChange={setPan}
+          showCompleted={showCompleted}
+          onMouseMoveSurface={onMouseMoveSurface}
+        />
+      )}
 
       {/* Subtle Transparent Spatial Navigation Trigger to Main Canvas Board — Centered on X-axis */}
-      <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
-        <button
-          className="subtle-spatial-nav"
-          onClick={onTransitionToBoard}
-          title="Ir al Lienzo Principal"
-        >
-          <ChevronDown size={14} />
-          <span className="nav-label font-mono">Lienzo</span>
-        </button>
-      </div>
+      {!isMobile && (
+        <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
+          <button
+            className="subtle-spatial-nav"
+            onClick={onTransitionToBoard}
+            title="Ir al Lienzo Principal"
+          >
+            <ChevronDown size={14} />
+            <span className="nav-label font-mono">Lienzo</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

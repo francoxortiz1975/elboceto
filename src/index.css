@@ -319,6 +319,37 @@ h3,
   -webkit-user-select: none !important;
 }
 
+/* Mobile vertical feed — flow-mode note (opt-out of absolute canvas positioning) */
+.freeform-node.freeform-node-flow {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 10px 14px;
+  margin: 0 0 14px 0;
+  box-sizing: border-box;
+}
+
+.mobile-board-feed {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Extra top padding so the first card's floating toolbar (which renders above the card) isn't clipped by the scroll container */
+  padding: 48px 12px 24px 12px;
+  box-sizing: border-box;
+}
+
+.mobile-board-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60%;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
 
 
 
@@ -767,6 +798,13 @@ h3,
 
   .freeform-node {
     max-width: 300px;
+  }
+
+  /* Prevent the floating block toolbar from overflowing off-screen (e.g. hiding the Delete button) on narrow viewports */
+  .inline-context-bar {
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .mobile-nav-bar {

@@ -213,7 +213,8 @@ export function FreeformNode({
   onDelete,
   onOpenCalendarModal,
   onDragStart,
-  autoSortCompleted = true
+  autoSortCompleted = true,
+  positioned = true
 }) {
   const [showToolbar, setShowToolbar] = useState(false);
   const [showEventPopover, setShowEventPopover] = useState(false);
@@ -279,6 +280,10 @@ export function FreeformNode({
     navigator.clipboard.writeText(textContent);
     setCopiedToast(true);
     setTimeout(() => setCopiedToast(false), 2000);
+  };
+
+  const handleToggleCardMode = () => {
+    onUpdate({ ...node, isCard: !node.isCard });
   };
 
 
@@ -806,9 +811,9 @@ export function FreeformNode({
   return (
     <div
       ref={containerRef}
-      className={`freeform-node ${node.isCard ? 'is-card' : ''} ${isSelected ? 'selected' : ''} ${node.isEvent ? 'is-event-node' : ''}`}
+      className={`freeform-node ${positioned ? '' : 'freeform-node-flow'} ${node.isCard ? 'is-card' : ''} ${isSelected ? 'selected' : ''} ${node.isEvent ? 'is-event-node' : ''}`}
       style={{
-        transform: `translate3d(${node.x}px, ${node.y}px, 0)`,
+        transform: positioned ? `translate3d(${node.x}px, ${node.y}px, 0)` : undefined,
         zIndex: showToolbar || isSelected ? 1000 : 10
       }}
       onMouseDown={(e) => e.stopPropagation()}
@@ -826,14 +831,16 @@ export function FreeformNode({
     >
 
       {/* Left Grip Handle — matching Document Notes view */}
-      <div
-        className="node-left-grip"
-        onMouseDown={(e) => onDragStart(e, node.id)}
-        onTouchStart={(e) => onDragStart(e, node.id)}
-        title="Mantén presionado para mover"
-      >
-        <GripVertical size={14} />
-      </div>
+      {positioned && (
+        <div
+          className="node-left-grip"
+          onMouseDown={(e) => onDragStart(e, node.id)}
+          onTouchStart={(e) => onDragStart(e, node.id)}
+          title="Mantén presionado para mover"
+        >
+          <GripVertical size={14} />
+        </div>
+      )}
       {/* Floating Toolbar */}
       {showToolbar && (
         <div
