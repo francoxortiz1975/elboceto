@@ -6,7 +6,8 @@ import {
   Check,
   ArrowUp,
   Trash2,
-  ChevronUp
+  ChevronUp,
+  Calendar
 } from 'lucide-react';
 
 const DAYS_ES = [
