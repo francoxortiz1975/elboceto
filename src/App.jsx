@@ -559,11 +559,11 @@ function parseTextToBlocks(rawText) {
   // Local-first: everything above works identically with no session. Once a
   // user is signed in, reconcile once (cloud wins if it already has data,
   // otherwise push current local state as the initial cloud copy). After
-  // that, saving to the cloud is an explicit user action (handleSaveToCloud,
-  // wired to a "Guardar" button) rather than continuous background sync —
-  // simpler and avoids races between multiple devices/tabs syncing at once.
+  // that, edits sync to the cloud automatically on a short debounce, and
+  // Guardar/Cargar remain available for explicit manual control.
   const { user } = useAuth();
   const reconcileStartedForRef = useRef(null);
+  const [reconciledUserId, setReconciledUserId] = useState(null);
 
   const applyCloudState = (cloud) => {
     setNotes(cloud.notes);
@@ -576,6 +576,7 @@ function parseTextToBlocks(rawText) {
   useEffect(() => {
     if (!user) {
       reconcileStartedForRef.current = null;
+      setReconciledUserId(null);
       return;
     }
     if (reconcileStartedForRef.current === user.id) return;
@@ -589,18 +590,35 @@ function parseTextToBlocks(rawText) {
         } else {
           await syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
         }
+        setReconciledUserId(user.id);
       } catch (e) {
         console.error('Error reconciling cloud data:', e);
       }
     })();
   }, [user]);
 
-  // Explicit, user-triggered sync in both directions (no automatic background
-  // sync — see comment above on why).
+  // Explicit sync in both directions, for the Guardar/Cargar buttons.
   const handleSaveToCloud = useCallback(() => {
     if (!user) return Promise.reject(new Error('No hay sesión iniciada'));
     return syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
   }, [user, notes, documents, plannerTasks, gridMode, viewport]);
+
+  // Automatic background sync, once the initial reconcile above has settled
+  // (avoids racing a fresh pull with an auto-push of stale pre-reconcile
+  // state). Safe now: reconcileTable never wipes cloud rows from a
+  // suspiciously-empty local list, and ids are stored as text (matching the
+  // app's own client-generated ids) instead of uuid.
+  const autoSyncTimeoutRef = useRef(null);
+  useEffect(() => {
+    if (!user || reconciledUserId !== user.id) return;
+    if (autoSyncTimeoutRef.current) clearTimeout(autoSyncTimeoutRef.current);
+    autoSyncTimeoutRef.current = setTimeout(() => {
+      syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport }).catch(e => {
+        console.error('Error en sincronización automática:', e);
+      });
+    }, 1500);
+    return () => clearTimeout(autoSyncTimeoutRef.current);
+  }, [notes, documents, plannerTasks, gridMode, viewport, user, reconciledUserId]);
 
   const handleLoadFromCloud = useCallback(async () => {
     if (!user) throw new Error('No hay sesión iniciada');
