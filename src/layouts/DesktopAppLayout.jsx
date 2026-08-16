@@ -24,6 +24,7 @@ import { CanvasBoard } from '../components/CanvasBoard';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
+import { LoadButton } from '../components/LoadButton';
 
 export function DesktopAppLayout({
   activeView,
@@ -66,7 +67,8 @@ export function DesktopAppLayout({
   handleImportJSON,
   setIsSidebarOpen,
   onMouseMoveSurface,
-  onSaveToCloud
+  onSaveToCloud,
+  onLoadFromCloud
 }) {
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
 
@@ -226,6 +228,7 @@ export function DesktopAppLayout({
 
         <AuthButton />
         <SaveButton onSave={onSaveToCloud} />
+        <LoadButton onLoad={onLoadFromCloud} />
 
         <div className="dock-divider" />
 

@@ -565,6 +565,14 @@ function parseTextToBlocks(rawText) {
   const { user } = useAuth();
   const reconcileStartedForRef = useRef(null);
 
+  const applyCloudState = (cloud) => {
+    setNotes(cloud.notes);
+    setDocuments(cloud.documents);
+    setPlannerTasks(cloud.plannerTasks);
+    setGridMode(cloud.gridMode);
+    setViewport(cloud.viewport);
+  };
+
   useEffect(() => {
     if (!user) {
       reconcileStartedForRef.current = null;
@@ -577,12 +585,7 @@ function parseTextToBlocks(rawText) {
       try {
         const cloudHasData = await hasCloudData(user.id);
         if (cloudHasData) {
-          const cloud = await pullCloudToLocal(user.id);
-          setNotes(cloud.notes);
-          setDocuments(cloud.documents);
-          setPlannerTasks(cloud.plannerTasks);
-          setGridMode(cloud.gridMode);
-          setViewport(cloud.viewport);
+          applyCloudState(await pullCloudToLocal(user.id));
         } else {
           await syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
         }
@@ -592,10 +595,17 @@ function parseTextToBlocks(rawText) {
     })();
   }, [user]);
 
+  // Explicit, user-triggered sync in both directions (no automatic background
+  // sync — see comment above on why).
   const handleSaveToCloud = useCallback(() => {
     if (!user) return Promise.reject(new Error('No hay sesión iniciada'));
     return syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
   }, [user, notes, documents, plannerTasks, gridMode, viewport]);
+
+  const handleLoadFromCloud = useCallback(async () => {
+    if (!user) throw new Error('No hay sesión iniciada');
+    applyCloudState(await pullCloudToLocal(user.id));
+  }, [user]);
 
   // Handle Wheel Scroll transitions between View 1 (Notes), View 2 (Board), View 3 (Planner)
   const lastTransitionTime = useRef(0);
@@ -782,6 +792,7 @@ function parseTextToBlocks(rawText) {
           showPinConfirm={showPinConfirm}
           setShowPinConfirm={setShowPinConfirm}
           onSaveToCloud={handleSaveToCloud}
+          onLoadFromCloud={handleLoadFromCloud}
         />
       ) : (
         <DesktopAppLayout
@@ -826,6 +837,7 @@ function parseTextToBlocks(rawText) {
           setIsSidebarOpen={setIsSidebarOpen}
           onMouseMoveSurface={handleMouseMoveSurface}
           onSaveToCloud={handleSaveToCloud}
+          onLoadFromCloud={handleLoadFromCloud}
         />
       )}
 

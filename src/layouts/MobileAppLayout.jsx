@@ -11,6 +11,7 @@ import { MobileBoardView } from '../components/MobileBoardView';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
+import { LoadButton } from '../components/LoadButton';
 
 export function MobileAppLayout({
   activeView,
@@ -43,7 +44,8 @@ export function MobileAppLayout({
   handleConfirmSetHomePin,
   showPinConfirm,
   setShowPinConfirm,
-  onSaveToCloud
+  onSaveToCloud,
+  onLoadFromCloud
 }) {
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
 
@@ -125,6 +127,7 @@ export function MobileAppLayout({
 
           <AuthButton />
           <SaveButton onSave={onSaveToCloud} />
+          <LoadButton onLoad={onLoadFromCloud} />
         </div>
       </header>
 
