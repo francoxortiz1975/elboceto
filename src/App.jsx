@@ -558,16 +558,16 @@ function parseTextToBlocks(rawText) {
   // ── Cloud sync (Supabase) ──────────────────────────────────────────────
   // Local-first: everything above works identically with no session. Once a
   // user is signed in, reconcile once (cloud wins if it already has data,
-  // otherwise push current local state as the initial cloud copy), then keep
-  // syncing local edits to the cloud on a short debounce.
+  // otherwise push current local state as the initial cloud copy). After
+  // that, saving to the cloud is an explicit user action (handleSaveToCloud,
+  // wired to a "Guardar" button) rather than continuous background sync —
+  // simpler and avoids races between multiple devices/tabs syncing at once.
   const { user } = useAuth();
   const reconcileStartedForRef = useRef(null);
-  const [reconciledUserId, setReconciledUserId] = useState(null);
 
   useEffect(() => {
     if (!user) {
       reconcileStartedForRef.current = null;
-      setReconciledUserId(null);
       return;
     }
     if (reconcileStartedForRef.current === user.id) return;
@@ -586,24 +586,16 @@ function parseTextToBlocks(rawText) {
         } else {
           await syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
         }
-        setReconciledUserId(user.id);
       } catch (e) {
         console.error('Error reconciling cloud data:', e);
       }
     })();
   }, [user]);
 
-  const syncTimeoutRef = useRef(null);
-  useEffect(() => {
-    if (!user || reconciledUserId !== user.id) return;
-    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(() => {
-      syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport }).catch(e => {
-        console.error('Error syncing to cloud:', e);
-      });
-    }, 1500);
-    return () => clearTimeout(syncTimeoutRef.current);
-  }, [notes, documents, plannerTasks, gridMode, viewport, user, reconciledUserId]);
+  const handleSaveToCloud = useCallback(() => {
+    if (!user) return Promise.reject(new Error('No hay sesión iniciada'));
+    return syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
+  }, [user, notes, documents, plannerTasks, gridMode, viewport]);
 
   // Handle Wheel Scroll transitions between View 1 (Notes), View 2 (Board), View 3 (Planner)
   const lastTransitionTime = useRef(0);
@@ -789,6 +781,7 @@ function parseTextToBlocks(rawText) {
           handleConfirmSetHomePin={handleConfirmSetHomePin}
           showPinConfirm={showPinConfirm}
           setShowPinConfirm={setShowPinConfirm}
+          onSaveToCloud={handleSaveToCloud}
         />
       ) : (
         <DesktopAppLayout
@@ -832,6 +825,7 @@ function parseTextToBlocks(rawText) {
           handleImportJSON={handleImportJSON}
           setIsSidebarOpen={setIsSidebarOpen}
           onMouseMoveSurface={handleMouseMoveSurface}
+          onSaveToCloud={handleSaveToCloud}
         />
       )}
 

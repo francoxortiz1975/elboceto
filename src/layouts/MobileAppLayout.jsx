@@ -10,6 +10,7 @@ import { DocumentBoardView } from '../components/DocumentBoardView';
 import { MobileBoardView } from '../components/MobileBoardView';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
 import { AuthButton } from '../components/AuthButton';
+import { SaveButton } from '../components/SaveButton';
 
 export function MobileAppLayout({
   activeView,
@@ -41,7 +42,8 @@ export function MobileAppLayout({
   handleGoToHomePin,
   handleConfirmSetHomePin,
   showPinConfirm,
-  setShowPinConfirm
+  setShowPinConfirm,
+  onSaveToCloud
 }) {
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
 
@@ -122,6 +124,7 @@ export function MobileAppLayout({
           </button>
 
           <AuthButton />
+          <SaveButton onSave={onSaveToCloud} />
         </div>
       </header>
 
