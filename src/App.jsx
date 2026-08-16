@@ -574,6 +574,40 @@ function parseTextToBlocks(rawText) {
     setViewport(cloud.viewport);
   };
 
+  // Realtime echoes a device's own writes back to it (no origin filtering).
+  // Track exactly what we last pushed per item, in the same shape the
+  // Realtime payload arrives in, so the echo can be recognized and ignored
+  // instead of overwriting local edits made after the push went out.
+  const noteSignature = (n) => JSON.stringify({
+    id: n.id, x: n.x, y: n.y, isCard: !!n.isCard, isEvent: !!n.isEvent,
+    eventDate: n.eventDate || undefined, eventTime: n.eventTime || undefined,
+    eventDurationMin: n.eventDurationMin || undefined, calendarSynced: !!n.calendarSynced,
+    blocks: n.blocks || []
+  });
+  const documentSignature = (d) => {
+    const pan = d.viewport?.pan || { x: 0, y: 140 };
+    const homePin = d.viewport?.homePin || pan;
+    return JSON.stringify({
+      id: d.id, title: d.title, icon: d.icon,
+      viewport: { pan: { x: pan.x, y: pan.y }, homePin: { x: homePin.x, y: homePin.y } }
+    });
+  };
+  const taskSignature = (t) => JSON.stringify({
+    id: t.id, noteId: t.noteId || undefined, text: t.text || '', completed: !!t.completed,
+    dayKey: t.dayKey, dayIso: t.dayIso || undefined, timeSlot: t.timeSlot, durationMin: t.durationMin || 60
+  });
+
+  const pushedContentRef = useRef({});
+  const markPushed = ({ notes: pushedNotes, documents: pushedDocs, plannerTasks: pushedTasks }) => {
+    const map = pushedContentRef.current;
+    (pushedNotes || []).forEach(n => { map[`note:${n.id}`] = noteSignature(n); });
+    (pushedDocs || []).forEach(d => {
+      map[`doc:${d.id}`] = documentSignature(d);
+      (d.notes || []).forEach(n => { map[`note:${n.id}`] = noteSignature(n); });
+    });
+    (pushedTasks || []).forEach(t => { map[`task:${t.id}`] = taskSignature(t); });
+  };
+
   useEffect(() => {
     if (!user) {
       reconcileStartedForRef.current = null;
@@ -589,6 +623,7 @@ function parseTextToBlocks(rawText) {
         if (cloudHasData) {
           applyCloudState(await pullCloudToLocal(user.id));
         } else {
+          markPushed({ notes, documents, plannerTasks });
           await syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
         }
         setReconciledUserId(user.id);
@@ -601,6 +636,7 @@ function parseTextToBlocks(rawText) {
   // Explicit sync in both directions, for the Guardar/Cargar buttons.
   const handleSaveToCloud = useCallback(() => {
     if (!user) return Promise.reject(new Error('No hay sesión iniciada'));
+    markPushed({ notes, documents, plannerTasks });
     return syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport });
   }, [user, notes, documents, plannerTasks, gridMode, viewport]);
 
@@ -614,6 +650,7 @@ function parseTextToBlocks(rawText) {
     if (!user || reconciledUserId !== user.id) return;
     if (autoSyncTimeoutRef.current) clearTimeout(autoSyncTimeoutRef.current);
     autoSyncTimeoutRef.current = setTimeout(() => {
+      markPushed({ notes, documents, plannerTasks });
       syncLocalToCloud(user.id, { notes, documents, plannerTasks, gridMode, viewport }).catch(e => {
         console.error('Error en sincronización automática:', e);
       });
@@ -633,7 +670,19 @@ function parseTextToBlocks(rawText) {
   };
   const removeById = (arr, id) => arr.filter(x => x.id !== id);
 
+  // Returns true (and clears the tracked entry) if `item` matches exactly
+  // what we last pushed for it — i.e. this is our own write echoing back,
+  // not a genuine external change, so the caller should skip applying it.
+  const isOwnEcho = (key, item, signatureFn) => {
+    const expected = pushedContentRef.current[key];
+    if (expected === undefined) return false;
+    const matches = expected === signatureFn(item);
+    if (matches) delete pushedContentRef.current[key];
+    return matches;
+  };
+
   const handleNoteChange = useCallback(({ eventType, item, documentId, id }) => {
+    if (eventType !== 'DELETE' && isOwnEcho(`note:${item.id}`, item, noteSignature)) return;
     if (documentId) {
       setDocuments(prev => prev.map(doc => {
         if (doc.id !== documentId) return doc;
@@ -648,6 +697,7 @@ function parseTextToBlocks(rawText) {
   }, []);
 
   const handleDocumentChange = useCallback(({ eventType, item, id }) => {
+    if (eventType !== 'DELETE' && isOwnEcho(`doc:${item.id}`, item, documentSignature)) return;
     setDocuments(prev => {
       if (eventType === 'DELETE') return prev.filter(d => d.id !== id);
       const idx = prev.findIndex(d => d.id === item.id);
@@ -659,6 +709,7 @@ function parseTextToBlocks(rawText) {
   }, []);
 
   const handleTaskChange = useCallback(({ eventType, item, id }) => {
+    if (eventType !== 'DELETE' && isOwnEcho(`task:${item.id}`, item, taskSignature)) return;
     setPlannerTasks(prev => eventType === 'DELETE' ? removeById(prev, id) : upsertById(prev, item));
   }, []);
 
