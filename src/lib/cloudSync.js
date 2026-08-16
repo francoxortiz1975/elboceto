@@ -48,6 +48,17 @@ export async function pullCloudToLocal(userId) {
 }
 
 async function reconcileTable({ table, userId, rows, extraFilter }) {
+  if (rows.length > 0) {
+    await supabase.from(table).upsert(rows);
+  }
+
+  // Safety: never let a suspiciously-empty local list wipe out existing cloud
+  // rows. A local array only ever becomes empty from a genuine one-by-one
+  // deletion (which should reconcile fine against a non-empty list) or from
+  // a bug/race leaving local state empty — in the latter case we must not
+  // treat that as "the user deleted everything".
+  if (rows.length === 0) return;
+
   let query = supabase.from(table).select('id').eq('user_id', userId);
   if (extraFilter) query = extraFilter(query);
   const { data: existing } = await query;
@@ -56,9 +67,6 @@ async function reconcileTable({ table, userId, rows, extraFilter }) {
   const localIds = new Set(rows.map(r => r.id));
   const toDelete = [...existingIds].filter(id => !localIds.has(id));
 
-  if (rows.length > 0) {
-    await supabase.from(table).upsert(rows);
-  }
   if (toDelete.length > 0) {
     await supabase.from(table).delete().in('id', toDelete);
   }
