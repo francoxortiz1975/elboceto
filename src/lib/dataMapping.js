@@ -52,11 +52,16 @@ export function documentToRow(doc, userId) {
 }
 
 export function rowToDocument(row, notesForDoc) {
+  return { ...rowToDocumentMeta(row), notes: notesForDoc };
+}
+
+// Document fields only, no `notes` — for merging a realtime document change
+// into an existing local document without clobbering its notes array.
+export function rowToDocumentMeta(row) {
   return {
     id: row.id,
     title: row.title,
     icon: row.icon,
-    notes: notesForDoc,
     viewport: {
       pan: { x: row.viewport_pan_x, y: row.viewport_pan_y },
       homePin: { x: row.viewport_home_pin_x, y: row.viewport_home_pin_y }

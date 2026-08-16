@@ -9,6 +9,7 @@ import { MobileAppLayout } from './layouts/MobileAppLayout';
 import { DesktopAppLayout } from './layouts/DesktopAppLayout';
 import { useAuth } from './context/AuthContext';
 import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSync';
+import { subscribeToCloudChanges } from './lib/realtimeSync';
 import {
   Plus,
   BookOpen,
@@ -619,6 +620,57 @@ function parseTextToBlocks(rawText) {
     }, 1500);
     return () => clearTimeout(autoSyncTimeoutRef.current);
   }, [notes, documents, plannerTasks, gridMode, viewport, user, reconciledUserId]);
+
+  // Live cross-device sync: merge one changed row at a time into local state
+  // (never replace a whole array) so a bad/partial payload can only ever
+  // affect the single item it describes, not wipe anything else out.
+  const upsertById = (arr, item) => {
+    const idx = arr.findIndex(x => x.id === item.id);
+    if (idx === -1) return [...arr, item];
+    const next = [...arr];
+    next[idx] = item;
+    return next;
+  };
+  const removeById = (arr, id) => arr.filter(x => x.id !== id);
+
+  const handleNoteChange = useCallback(({ eventType, item, documentId, id }) => {
+    if (documentId) {
+      setDocuments(prev => prev.map(doc => {
+        if (doc.id !== documentId) return doc;
+        const notes = eventType === 'DELETE'
+          ? removeById(doc.notes || [], id)
+          : upsertById(doc.notes || [], item);
+        return { ...doc, notes };
+      }));
+    } else {
+      setNotes(prev => eventType === 'DELETE' ? removeById(prev, id) : upsertById(prev, item));
+    }
+  }, []);
+
+  const handleDocumentChange = useCallback(({ eventType, item, id }) => {
+    setDocuments(prev => {
+      if (eventType === 'DELETE') return prev.filter(d => d.id !== id);
+      const idx = prev.findIndex(d => d.id === item.id);
+      if (idx === -1) return [...prev, { ...item, notes: [] }];
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...item };
+      return next;
+    });
+  }, []);
+
+  const handleTaskChange = useCallback(({ eventType, item, id }) => {
+    setPlannerTasks(prev => eventType === 'DELETE' ? removeById(prev, id) : upsertById(prev, item));
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToCloudChanges(user.id, {
+      onNoteChange: handleNoteChange,
+      onDocumentChange: handleDocumentChange,
+      onTaskChange: handleTaskChange
+    });
+    return unsubscribe;
+  }, [user, handleNoteChange, handleDocumentChange, handleTaskChange]);
 
   const handleLoadFromCloud = useCallback(async () => {
     if (!user) throw new Error('No hay sesión iniciada');
