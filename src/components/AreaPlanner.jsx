@@ -270,7 +270,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
   };
 
   const gridTemplate = 'var(--ap-rail) '
-    + cols.map((c) => (c.kind === 'rest' ? 'minmax(150px, 0.75fr)' : c.kind === 'day' ? 'minmax(280px, 820px)' : 'minmax(180px, 1fr)')).join(' ')
+    + cols.map((c) => (c.kind === 'rest' ? '130px' : c.kind === 'day' ? 'minmax(280px, 820px)' : '160px')).join(' ')
     + (areaMode ? ' 104px' : '');
 
   return (
