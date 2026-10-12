@@ -2,7 +2,6 @@
 .ap-root {
   --ap-now: #B4532A;
   --ap-now-wash: rgba(180, 83, 42, 0.07);
-  --ap-rail: 92px;
   position: absolute;
   inset: 0;
   display: flex;
@@ -35,7 +34,8 @@
 .ap-btn:hover { background: var(--bg-hover); }
 
 .ap-wrap { flex: 1; min-height: 0; overflow: auto; border: var(--border-strong); border-radius: var(--radius-md); background: var(--bg-note); position: relative; user-select: none; }
-.ap-board { display: grid; min-width: max-content; }
+.ap-board { display: grid; width: 100%; }
+.ap-board > * { min-width: 0; }
 
 .ap-hcell, .ap-addcol { position: sticky; top: 0; z-index: 3; background: var(--bg-note); border-bottom: var(--border-strong); border-right: var(--border-hairline); padding: 10px 12px 8px; }
 .ap-hcell.corner { left: 0; z-index: 5; font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); display: flex; align-items: flex-end; }
@@ -47,7 +47,8 @@
 .ap-hcell.pseudo .ap-aname i { background: transparent; border: 1.5px dashed var(--text-subtle); }
 .ap-hcell.pseudo.day .ap-aname i { border: 0; background: conic-gradient(#6E8B5B 0 17%, #4F6FA8 0 34%, #9A6B2F 0 51%, #2F8A86 0 68%, #8A5A9E 0 84%, #A8546A 0); }
 .ap-addcol { display: grid; place-items: center; }
-.ap-addcol button { font: 500 0.72rem var(--font-body); color: var(--text-muted); background: none; border: 1px dashed var(--text-subtle); border-radius: var(--radius-md); padding: 5px 9px; cursor: pointer; white-space: nowrap; }
+.ap-addcol { padding: 8px 4px; }
+.ap-addcol button { font: 500 0.9rem var(--font-body); line-height: 1; padding: 4px 8px; color: var(--text-muted); background: none; border: 1px dashed var(--text-subtle); border-radius: var(--radius-md); padding: 5px 9px; cursor: pointer; white-space: nowrap; }
 .ap-addcol button:hover { color: var(--text-ink); border-color: var(--text-ink); }
 
 .ap-band { grid-column: 1 / -1; background: var(--bg-book); border-top: var(--border-strong); border-bottom: var(--border-hairline); }

@@ -269,9 +269,15 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
     addItem(row, col.id);
   };
 
-  const gridTemplate = 'var(--ap-rail) '
-    + cols.map((c) => (c.kind === 'rest' ? '130px' : c.kind === 'day' ? 'minmax(280px, 820px)' : '160px')).join(' ')
-    + (areaMode ? ' 104px' : '');
+  // Columns share the full width equally, so every area is visible without
+  // sideways scrolling; they only scroll once they would drop under their minimum.
+  const RAIL_PX = 84;
+  const ADD_PX = 44;
+  const colMin = (c) => (c.kind === 'rest' ? 110 : c.kind === 'day' ? 280 : 128);
+  const gridTemplate = `${RAIL_PX}px `
+    + cols.map((c) => (c.kind === 'rest' ? 'minmax(110px, 0.6fr)' : c.kind === 'day' ? 'minmax(280px, 820px)' : 'minmax(128px, 1fr)')).join(' ')
+    + (areaMode ? ` ${ADD_PX}px` : '');
+  const boardMinWidth = RAIL_PX + cols.reduce((sum, c) => sum + colMin(c), 0) + (areaMode ? ADD_PX : 0);
 
   return (
     <div className={`ap-root${compact ? ' compact' : ''}`}>
@@ -309,7 +315,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
       </div>
 
       <div className="ap-wrap" ref={wrapRef}>
-        <div className="ap-board" style={{ gridTemplateColumns: gridTemplate }}>
+        <div className="ap-board" style={{ gridTemplateColumns: gridTemplate, minWidth: boardMinWidth }}>
           <div className="ap-hcell corner">{areaMode ? 'Tiempo ↓ / Área →' : 'Tiempo ↓'}</div>
           {cols.map((col) => {
             if (col.kind !== 'area') {
@@ -350,7 +356,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
             );
           })}
           {areaMode && (
-            <div className="ap-addcol"><button onClick={addArea}>+ Área</button></div>
+            <div className="ap-addcol"><button onClick={addArea} title="Añadir área" aria-label="Añadir área">+</button></div>
           )}
 
           {sections.map((sec) => (
