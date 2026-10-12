@@ -22,6 +22,7 @@ import {
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
+import { AreaPlanner } from '../components/AreaPlanner';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -49,6 +50,8 @@ export function DesktopAppLayout({
   autoSortCompleted,
   setAutoSortCompleted,
   plannerTasks,
+  areaPlan,
+  setAreaPlan,
   handleUpdatePlannerTasks,
   weekOffset,
   setWeekOffset,
@@ -71,6 +74,11 @@ export function DesktopAppLayout({
   onLoadFromCloud
 }) {
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
+
+  // Views are stacked vertically; each sits at its distance from the active one.
+  const VIEW_ORDER = ['notes', 'board', 'planner', 'areas'];
+  const viewOffset = (view) =>
+    `translateY(${(VIEW_ORDER.indexOf(view) - VIEW_ORDER.indexOf(activeView)) * 100}vh)`;
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
@@ -334,7 +342,7 @@ export function DesktopAppLayout({
         style={{
           position: 'absolute',
           inset: 0,
-          transform: activeView === 'notes' ? 'translateY(0)' : activeView === 'board' ? 'translateY(-100vh)' : 'translateY(-200vh)',
+          transform: viewOffset('notes'),
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
@@ -357,7 +365,7 @@ export function DesktopAppLayout({
         style={{
           position: 'absolute',
           inset: 0,
-          transform: activeView === 'board' ? 'translateY(0)' : activeView === 'notes' ? 'translateY(100vh)' : 'translateY(-100vh)',
+          transform: viewOffset('board'),
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
@@ -389,7 +397,7 @@ export function DesktopAppLayout({
           </button>
         </div>
 
-        <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
+        <div style={{ position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', gap: '12px' }}>
           <button
             className="subtle-spatial-nav"
             onClick={() => setActiveView('planner')}
@@ -397,6 +405,14 @@ export function DesktopAppLayout({
           >
             <ChevronDown size={14} />
             <span className="nav-label font-mono">Planificador</span>
+          </button>
+          <button
+            className="subtle-spatial-nav"
+            onClick={() => setActiveView('areas')}
+            title="Ir a Plan por áreas"
+          >
+            <ChevronDown size={14} />
+            <span className="nav-label font-mono">Áreas</span>
           </button>
         </div>
       </div>
@@ -406,7 +422,7 @@ export function DesktopAppLayout({
         style={{
           position: 'absolute',
           inset: 0,
-          transform: activeView === 'planner' ? 'translateY(0)' : activeView === 'board' ? 'translateY(100vh)' : 'translateY(200vh)',
+          transform: viewOffset('planner'),
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
@@ -419,6 +435,22 @@ export function DesktopAppLayout({
           onTransitionToBoard={() => setActiveView('board')}
           weekOffset={weekOffset}
           onWeekOffsetChange={setWeekOffset}
+        />
+      </div>
+
+      {/* View 4: Plan por áreas (BELOW WEEKLY PLANNER) */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transform: viewOffset('areas'),
+          transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        <AreaPlanner
+          plan={areaPlan}
+          onChange={setAreaPlan}
+          onBack={() => setActiveView('board')}
         />
       </div>
     </div>

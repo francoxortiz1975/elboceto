@@ -10,6 +10,7 @@ import { DesktopAppLayout } from './layouts/DesktopAppLayout';
 import { useAuth } from './context/AuthContext';
 import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSync';
 import { subscribeToCloudChanges } from './lib/realtimeSync';
+import { loadAreaPlan, saveAreaPlan } from './lib/areaPlan';
 import {
   Plus,
   BookOpen,
@@ -123,6 +124,10 @@ export default function App() {
     }
     return INITIAL_PLANNER_TASKS;
   });
+
+  // Area planner ("Plan por áreas"): local-first, persisted in localStorage.
+  const [areaPlan, setAreaPlan] = useState(loadAreaPlan);
+  useEffect(() => { saveAreaPlan(areaPlan); }, [areaPlan]);
 
   // Freeform Document Notes state
   const [documents, setDocuments] = useState(() => {
@@ -817,7 +822,7 @@ function parseTextToBlocks(rawText) {
   };
 
   const handleExportJSON = () => {
-    const backupData = { notes, plannerTasks, viewport };
+    const backupData = { notes, plannerTasks, viewport, areaPlan };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
@@ -839,6 +844,7 @@ function parseTextToBlocks(rawText) {
           } else if (imported.notes) {
             setNotes(imported.notes);
             if (imported.plannerTasks) setPlannerTasks(imported.plannerTasks);
+            if (imported.areaPlan && Array.isArray(imported.areaPlan.areas)) setAreaPlan(imported.areaPlan);
             if (imported.viewport) setViewport(imported.viewport);
           }
         } catch (err) {
@@ -903,6 +909,8 @@ function parseTextToBlocks(rawText) {
           setViewport={setViewport}
           autoSortCompleted={autoSortCompleted}
           plannerTasks={plannerTasks}
+          areaPlan={areaPlan}
+          setAreaPlan={setAreaPlan}
           handleUpdatePlannerTasks={handleUpdatePlannerTasks}
           weekOffset={weekOffset}
           setWeekOffset={setWeekOffset}
@@ -939,6 +947,8 @@ function parseTextToBlocks(rawText) {
           autoSortCompleted={autoSortCompleted}
           setAutoSortCompleted={setAutoSortCompleted}
           plannerTasks={plannerTasks}
+          areaPlan={areaPlan}
+          setAreaPlan={setAreaPlan}
           handleUpdatePlannerTasks={handleUpdatePlannerTasks}
           weekOffset={weekOffset}
           setWeekOffset={setWeekOffset}

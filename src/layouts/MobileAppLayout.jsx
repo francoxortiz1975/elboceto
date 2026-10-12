@@ -4,11 +4,13 @@ import {
   Plus,
   Calendar,
   BookOpen,
+  Layers,
   Pin
 } from 'lucide-react';
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { MobileBoardView } from '../components/MobileBoardView';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
+import { AreaPlanner } from '../components/AreaPlanner';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -35,6 +37,8 @@ export function MobileAppLayout({
   setViewport,
   autoSortCompleted,
   plannerTasks,
+  areaPlan,
+  setAreaPlan,
   handleUpdatePlannerTasks,
   weekOffset,
   setWeekOffset,
@@ -70,7 +74,7 @@ export function MobileAppLayout({
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span className="brand-title" style={{ fontSize: '1.05rem' }}>el boceto</span>
           <span className="font-mono" style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {activeView === 'notes' ? 'Notas' : activeView === 'planner' ? 'Planificador' : 'Lienzo'}
+            {activeView === 'notes' ? 'Notas' : activeView === 'planner' ? 'Planificador' : activeView === 'areas' ? 'Áreas' : 'Lienzo'}
           </span>
         </div>
 
@@ -170,6 +174,10 @@ export function MobileAppLayout({
             onWeekOffsetChange={setWeekOffset}
           />
         )}
+
+        {activeView === 'areas' && (
+          <AreaPlanner plan={areaPlan} onChange={setAreaPlan} compact />
+        )}
       </div>
 
       {/* Mobile Bottom Tab Bar */}
@@ -196,6 +204,14 @@ export function MobileAppLayout({
         >
           <Calendar size={16} />
           <span className="font-mono">Planificador</span>
+        </button>
+
+        <button
+          className={`btn-icon ${activeView === 'areas' ? 'active' : ''}`}
+          onClick={() => setActiveView('areas')}
+        >
+          <Layers size={16} />
+          <span className="font-mono">Áreas</span>
         </button>
       </div>
     </div>

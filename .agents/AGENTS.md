@@ -27,6 +27,7 @@ EL_BOCETO/
 │       ├── FreeformNode.jsx        # Freeform note container: Card vs text mode, context menu bar, block management
 │       ├── NoteBlock.jsx           # Individual block editor: Keyboard shortcuts (TAB, Enter, Backspace), block types
 │       ├── WeeklyPlanner.jsx       # Weekly calendar grid view & task scheduler
+│       ├── AreaPlanner.jsx         # "Plan por áreas": time (30-min grid today → days → backlog) × life-area columns, day/area lenses
 │       ├── LeftEdgePanel.jsx       # Slide-out sidebar: View switching, grid modes (dots/lines/clean), filter, export
 │       ├── SidebarList.jsx         # Alternative list view of notes
 │       ├── GoogleCalendarModal.jsx # Google Calendar sync modal interface
@@ -48,6 +49,7 @@ EL_BOCETO/
   - `el_boceto_notes_v2`
   - `el_boceto_planner_v1`
   - `el_boceto_viewport_v1`
+  - `el_boceto_area_plan_v1` (Plan por áreas; local-only, see `src/lib/areaPlan.js`)
 - **History (Undo/Redo)**: Notes mutations push snapshots into an undo history stack.
 
 ### Grid System (`src/components/CanvasBoard.jsx`)
