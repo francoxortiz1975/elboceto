@@ -8,7 +8,8 @@
 // so the board rotates by itself at midnight.
 
 export const AREA_COLORS = ['#6E8B5B', '#4F6FA8', '#9A6B2F', '#8A5A9E', '#2F8A86', '#A8546A', '#6B6B6B'];
-export const SLOT_STEP = 30;
+export const SLOT_STEP = 30; // one grid row
+export const SNAP = 15; // finest block precision (minutes)
 export const DAY_FROM = 7 * 60;
 export const DAY_TO = 24 * 60;
 export const BANDS = [
@@ -39,8 +40,10 @@ export const dayLabel = (iso) => {
   return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
 };
 export const fmtMin = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
-export const durLabel = (blocks) => {
-  const m = blocks * SLOT_STEP;
+// Block length in minutes. Legacy items stored `d` in 30-min units.
+export const durOf = (it) => it.dur || (it.d ? it.d * SLOT_STEP : 60);
+export const rowStart = (min) => Math.floor(min / SLOT_STEP) * SLOT_STEP;
+export const durLabel = (m) => {
   const h = Math.floor(m / 60);
   const r = m % 60;
   return h ? `${h}h${r ? pad(r) : ''}` : `${r} min`;
@@ -68,7 +71,7 @@ export function effectiveSlot(item, today) {
 export function computeLanes(entries, today) {
   const blocks = entries
     .filter((e) => e.eff.day === today && typeof e.eff.at === 'number')
-    .map((e) => ({ id: e.it.id, a: e.eff.at, b: e.eff.at + (e.it.d || 2) * SLOT_STEP }))
+    .map((e) => ({ id: e.it.id, a: e.eff.at, b: e.eff.at + durOf(e.it) }))
     .sort((x, y) => x.a - y.a || y.b - x.b);
 
   const result = {};

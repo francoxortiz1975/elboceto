@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronUp } from 'lucide-react';
 import {
-  AREA_COLORS, SLOTS, BANDS, SLOT_STEP, DAY_TO,
-  uid, isoOf, addDays, dayLabel, fmtMin, durLabel, effectiveSlot, computeLanes
+  AREA_COLORS, SLOTS, BANDS, SLOT_STEP, SNAP, DAY_TO,
+  uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
 } from '../lib/areaPlan';
 import './AreaPlanner.css';
 
-const LAST_BLOCK_START = DAY_TO - SLOT_STEP;
+const LAST_BLOCK_START = DAY_TO - SNAP;
+// One grid row (30 min) is ROW_PX tall; the same value feeds the --row CSS
+// variable, so block geometry can never drift from the rows it sits on.
+const ROW_PX = 36;
+const PX_PER_MIN = ROW_PX / SLOT_STEP;
 const isTimed = (e, today) => e.eff.day === today && typeof e.eff.at === 'number';
 
 function autoSize(el) {
@@ -76,7 +80,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
 
   const sections = [
     {
-      id: 'hoy', title: 'Hoy', sub: `${dayLabel(today)} · cada 30 min`,
+      id: 'hoy', title: 'Hoy', sub: `${dayLabel(today)} · bloques de 15 min`,
       rows: [
         { day: today, at: 'any', label: 'Cuando sea', tall: true },
         ...SLOTS.map((m) => ({ day: today, at: m, label: fmtMin(m), slot: true, half: m % 60 === 30 }))
@@ -94,35 +98,45 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
   ];
 
   const timedToday = entries.filter((e) => isTimed(e, today));
-  const plannedBlocks = timedToday.reduce((s, e) => s + (e.it.d || 2), 0);
-  const aheadBlocks = timedToday
-    .filter((e) => !e.it.done && e.eff.at + (e.it.d || 2) * SLOT_STEP > curMin)
-    .reduce((s, e) => s + (e.it.d || 2), 0);
-  const todaySub = `${dayLabel(today)} · cada 30 min · ${plannedBlocks ? durLabel(plannedBlocks) : '0h'} planificadas · ${aheadBlocks ? durLabel(aheadBlocks) : '0h'} por delante`;
+  const plannedMin = timedToday.reduce((s, e) => s + durOf(e.it), 0);
+  const aheadMin = timedToday
+    .filter((e) => !e.it.done && e.eff.at + durOf(e.it) > curMin)
+    .reduce((s, e) => s + durOf(e.it), 0);
+  const todaySub = `${dayLabel(today)} · bloques de 15 min · ${plannedMin ? durLabel(plannedMin) : '0h'} planificadas · ${aheadMin ? durLabel(aheadMin) : '0h'} por delante`;
 
   // ── mutations ──────────────────────────────────────────────────────────
-  const makeItem = (area, pos, d) => ({
+  const makeItem = (area, pos, dur) => ({
     id: uid(), area, text: '', done: false, day: pos.day, at: pos.at,
-    ...(typeof pos.at === 'number' ? { d: d || 2 } : {})
+    ...(typeof pos.at === 'number' ? { dur: dur || 60 } : {})
   });
+  // Minute of the day under the pointer: the top half of a 30-min row is :00,
+  // the bottom half is :15.
+  const pointAt = (row, ev) => {
+    if (!row.slot) return row.at;
+    const r = ev.currentTarget.getBoundingClientRect();
+    const steps = SLOT_STEP / SNAP;
+    const k = Math.floor(((ev.clientY - r.top) / r.height) * steps);
+    return row.at + Math.max(0, Math.min(k, steps - 1)) * SNAP;
+  };
   const insertAfter = (items, afterId, item) => {
     const idx = afterId ? items.findIndex((i) => i.id === afterId) + 1 : items.length;
     return [...items.slice(0, idx), item, ...items.slice(idx)];
   };
-  const addItem = (row, areaId) => {
-    const item = makeItem(areaId, { day: row.day, at: row.at });
+  const addItem = (row, areaId, at) => {
+    const item = makeItem(areaId, { day: row.day, at: at === undefined ? row.at : at });
     mutate((p) => ({ ...p, items: [...p.items, item] }));
     setFocusId(item.id);
   };
   const patchItem = (id, patch) => mutate((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) }));
   const removeItem = (id) => mutate((p) => ({ ...p, items: p.items.filter((i) => i.id !== id) }));
-  const moveItem = (id, row, areaId) => {
+  const moveItem = (id, row, areaId, at) => {
     mutate((p) => {
       const found = p.items.find((i) => i.id === id);
       if (!found) return p;
-      const moved = { ...found, day: row.day, at: row.at };
+      const moved = { ...found, day: row.day, at: at === undefined ? row.at : at };
       if (areaId) moved.area = areaId;
-      if (typeof row.at === 'number') moved.d = found.d || 2; else delete moved.d;
+      delete moved.d;
+      if (typeof row.at === 'number') moved.dur = durOf(found); else delete moved.dur;
       return { ...p, items: [...p.items.filter((i) => i.id !== id), moved] };
     });
   };
@@ -134,7 +148,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
       if (!text) { e.currentTarget.blur(); return; }
       // In today's grid the next block starts where this one ends.
       const next = typeof eff.at === 'number'
-        ? { day: eff.day, at: Math.min(eff.at + (it.d || 2) * SLOT_STEP, LAST_BLOCK_START) }
+        ? { day: eff.day, at: Math.min(eff.at + durOf(it), LAST_BLOCK_START) }
         : { day: eff.day, at: eff.at };
       const item = makeItem(it.area, next);
       mutate((p) => ({
@@ -155,11 +169,11 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
-    const startD = it.d || 2;
-    const maxD = (DAY_TO - eff.at) / SLOT_STEP;
+    const startDur = durOf(it);
+    const maxDur = DAY_TO - eff.at;
     const move = (ev) => {
-      const d = Math.max(1, Math.min(maxD, startD + Math.round((ev.clientY - startY) / 30)));
-      patchItem(it.id, { d });
+      const delta = Math.round((ev.clientY - startY) / PX_PER_MIN / SNAP) * SNAP;
+      patchItem(it.id, { dur: Math.max(SNAP, Math.min(maxDur, startDur + delta)) });
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
@@ -192,11 +206,12 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
     const ghost = col.kind !== 'area' && isHidden(it.area);
     const tagged = col.kind !== 'area';
     const timed = typeof eff.at === 'number' && eff.day === today;
-    const d = it.d || 2;
+    const dur = durOf(it);
     const cls = 'ap-item' + (it.done ? ' done' : '') + (ghost ? ' ghost' : '') + (timed ? ' block' : '');
     const style = { '--c': colorOf(area) };
     if (timed) {
-      style['--d'] = d;
+      style['--dur'] = dur;
+      style['--off'] = eff.at % SLOT_STEP;
       if (lane) { style['--l'] = lane.lane; style['--n'] = lane.n; }
     }
     const head = (
@@ -239,10 +254,10 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
     );
     if (timed) {
       return (
-        <li key={it.id} className={cls} style={style} data-d={d}>
+        <li key={it.id} className={cls} style={style} data-short={dur <= SNAP ? 2 : dur <= SLOT_STEP ? 1 : undefined}>
           <div className="ap-bh">{head}</div>
           <div className="ap-meta">
-            {tagged ? `${area.name} · ` : ''}{fmtMin(eff.at)}–{fmtMin(eff.at + d * SLOT_STEP)} · {durLabel(d)}
+            {tagged ? `${area.name} · ` : ''}{fmtMin(eff.at)}–{fmtMin(eff.at + dur)} · {durLabel(dur)}
           </div>
           {!ghost && (
             <div className="ap-rs" title="Estirar para cambiar la duración" onPointerDown={(ev) => startResize(ev, it, eff)} />
@@ -258,15 +273,16 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
     );
   };
 
-  const onCellClick = (row, col) => {
+  const onCellClick = (row, col, ev) => {
     if (col.kind === 'rest') return;
+    const at = pointAt(row, ev);
     if (col.kind === 'day') {
       const target = visibleAreas[0];
       if (!target) { flash('Activa un área para añadir tareas'); return; }
-      addItem(row, target.id);
+      addItem(row, target.id, at);
       return;
     }
-    addItem(row, col.id);
+    addItem(row, col.id, at);
   };
 
   // Columns share the full width equally, so every area is visible without
@@ -280,7 +296,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
   const boardMinWidth = RAIL_PX + cols.reduce((sum, c) => sum + colMin(c), 0) + (areaMode ? ADD_PX : 0);
 
   return (
-    <div className={`ap-root${compact ? ' compact' : ''}`}>
+    <div className={`ap-root${compact ? ' compact' : ''}`} style={{ '--row': `${ROW_PX}px` }}>
       <div className="ap-head">
         <h1 className="font-title">Plan por áreas</h1>
         <span className="ap-sub">{areaMode ? 'tiempo ↓ · áreas →' : 'día completo'}</span>
@@ -381,13 +397,14 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
                     </div>
                     {colData.map(({ col, list, lanes }) => {
                       const cellKey = `${rowKey}|${col.id}`;
-                      const here = list.filter((e) => e.eff.day === row.day && e.eff.at === row.at);
+                      const here = list.filter((e) => e.eff.day === row.day
+                        && (typeof e.eff.at === 'number' ? rowStart(e.eff.at) : e.eff.at) === row.at);
                       return (
                         <div
                           key={cellKey}
                           className={`ap-cell${sx}${isNow ? ' nowrow' : ''}${row.tall ? ' tall' : ''}${col.kind === 'rest' ? ' rest' : ''}${overKey === cellKey ? ' over' : ''}`}
                           style={nowp}
-                          onClick={() => onCellClick(row, col)}
+                          onClick={(ev) => onCellClick(row, col, ev)}
                           onDragOver={(ev) => {
                             if (!dragId.current || col.kind === 'rest') return;
                             ev.preventDefault();
@@ -396,7 +413,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
                           onDrop={(ev) => {
                             if (!dragId.current || col.kind === 'rest') return;
                             ev.preventDefault();
-                            moveItem(dragId.current, row, col.kind === 'area' ? col.id : null);
+                            moveItem(dragId.current, row, col.kind === 'area' ? col.id : null, pointAt(row, ev));
                             dragId.current = null;
                             setOverKey(null);
                           }}
@@ -405,7 +422,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
                         </div>
                       );
                     })}
-                    {areaMode && <div className="ap-cell rest" style={{ cursor: 'default' }} />}
+                    {areaMode && <div className={`ap-cell rest${sx}`} style={{ cursor: 'default' }} />}
                   </React.Fragment>
                 );
               })}
@@ -415,7 +432,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
       </div>
 
       <p className="ap-hint">
-        Clic en una casilla para escribir · <kbd>Enter</kbd> crea la siguiente (en Hoy empieza donde termina la anterior) · <kbd>Esc</kbd> termina · estira el borde de un bloque para cambiar su duración · arrastra con ⋮⋮
+        Clic en una casilla para escribir · <kbd>Enter</kbd> crea la siguiente (en Hoy empieza donde termina la anterior) · <kbd>Esc</kbd> termina · estira el borde de un bloque para cambiar su duración (de 15 en 15 min) · arrastra con ⋮⋮
       </p>
       {toast && <div className="ap-toast" role="status">{toast}</div>}
     </div>
