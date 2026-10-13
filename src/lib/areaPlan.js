@@ -2,8 +2,9 @@
 //
 // An item lives at (day, at):
 //   day: 'YYYY-MM-DD' or 'later'
-//   at:  minutes since midnight (a time block, today only), 'am' | 'pm' | 'ev'
-//        (tomorrow's bands) or 'any' (no specific time)
+//   at:  minutes since midnight (a time block: today and tomorrow have the
+//        detailed grid), 'am' | 'pm' | 'ev' (the day after tomorrow's bands)
+//        or 'any' (no specific time)
 // Dates are stored absolutely and "Hoy / Mañana" are resolved at render time,
 // so the board rotates by itself at midnight.
 
@@ -61,20 +62,23 @@ export function effectiveSlot(item, today) {
   const { day, at } = item;
   if (day === 'later' || day > addDays(today, 6)) return { day: 'later', at: 'any' };
   if (day < today) return { day: today, at: 'any' };
-  if (day === today) return { day, at: typeof at === 'number' ? at : 'any' };
-  if (day === addDays(today, 1)) return { day, at: BANDS.some((b) => b.id === at) ? at : 'am' };
+  // Today and tomorrow have the detailed grid. A band item that rolls into
+  // tomorrow has no exact time, so it lands in that day's "Cuando sea".
+  if (day === today || day === addDays(today, 1)) return { day, at: typeof at === 'number' ? at : 'any' };
+  if (day === addDays(today, 2)) return { day, at: BANDS.some((b) => b.id === at) ? at : 'am' };
   return { day, at: 'any' };
 }
 
-// Side-by-side lanes for time blocks that overlap within one column.
+// Side-by-side lanes for time blocks that overlap within one column and day.
 // entries: [{ it, eff }]; returns { [itemId]: { lane, n } }.
-export function computeLanes(entries, today) {
+export function computeLanes(entries) {
   const blocks = entries
-    .filter((e) => e.eff.day === today && typeof e.eff.at === 'number')
-    .map((e) => ({ id: e.it.id, a: e.eff.at, b: e.eff.at + durOf(e.it) }))
-    .sort((x, y) => x.a - y.a || y.b - x.b);
+    .filter((e) => typeof e.eff.at === 'number')
+    .map((e) => ({ id: e.it.id, day: e.eff.day, a: e.eff.at, b: e.eff.at + durOf(e.it) }))
+    .sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : x.a - y.a || y.b - x.b));
 
   const result = {};
+  let day = null;
   let cluster = [];
   let ends = [];
   let clusterEnd = -1;
@@ -84,6 +88,7 @@ export function computeLanes(entries, today) {
     ends = [];
   };
   blocks.forEach((blk) => {
+    if (blk.day !== day) { flush(); clusterEnd = -1; day = blk.day; }
     if (blk.a >= clusterEnd) { flush(); clusterEnd = -1; }
     let lane = ends.findIndex((end) => end <= blk.a);
     if (lane < 0) { lane = ends.length; ends.push(blk.b); } else ends[lane] = blk.b;

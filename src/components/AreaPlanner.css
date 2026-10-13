@@ -122,3 +122,11 @@
   .ap-head h1 { font-size: 1.4rem; }
   .ap-hint { display: none; }
 }
+
+/* moving blocks with the pointer */
+.ap-item { cursor: grab; }
+.ap-item .ap-txt { cursor: text; }
+.ap-grip { touch-action: none; }
+.ap-item.moving { pointer-events: none; opacity: 0.85; box-shadow: var(--shadow-floating); z-index: 6; }
+body.ap-moving, body.ap-moving * { cursor: grabbing !important; user-select: none !important; }
+.ap-band .ap-fold { align-self: center; font-size: 0.68rem; padding: 3px 8px; }
