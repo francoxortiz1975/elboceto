@@ -11,6 +11,7 @@ import { useAuth } from './context/AuthContext';
 import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSync';
 import { subscribeToCloudChanges } from './lib/realtimeSync';
 import { loadAreaPlan, saveAreaPlan } from './lib/areaPlan';
+import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import {
   Plus,
   BookOpen,
@@ -568,6 +569,7 @@ function parseTextToBlocks(rawText) {
   // that, edits sync to the cloud automatically on a short debounce, and
   // Guardar/Cargar remain available for explicit manual control.
   const { user } = useAuth();
+  useAreaPlanSync(user, areaPlan, setAreaPlan);
   const reconcileStartedForRef = useRef(null);
   const [reconciledUserId, setReconciledUserId] = useState(null);
 

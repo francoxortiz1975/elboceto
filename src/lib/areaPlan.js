@@ -163,3 +163,13 @@ export function saveAreaPlan(plan) {
     console.error('Error saving area plan:', e);
   }
 }
+
+// True when the plan is still the starter example, with nothing edited. Used so
+// a device that never synced can't upload its untouched example over real data.
+const planSignature = (plan) => JSON.stringify({
+  areas: plan.areas.map((a) => [a.name, a.c]),
+  items: plan.items
+    .map((i) => [i.area, i.text, i.day === 'later' ? 'later' : 'dated', typeof i.at === 'number' ? 'n' : i.at, !!i.done])
+    .sort()
+});
+export const isUntouchedPlan = (plan) => planSignature(plan) === planSignature(defaultAreaPlan());
