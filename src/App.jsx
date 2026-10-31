@@ -10,7 +10,7 @@ import { DesktopAppLayout } from './layouts/DesktopAppLayout';
 import { useAuth } from './context/AuthContext';
 import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSync';
 import { subscribeToCloudChanges } from './lib/realtimeSync';
-import { loadAreaPlan, saveAreaPlan } from './lib/areaPlan';
+import { loadAreaPlan, saveAreaPlan, importSchedule } from './lib/areaPlan';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import {
   Plus,
@@ -869,6 +869,13 @@ function parseTextToBlocks(rawText) {
     }
   };
 
+  // Adds a bundled timetable to the plan (idempotent); returns what happened for the menu to show.
+  const handleImportSchedule = (schedule) => {
+    const result = importSchedule(areaPlan, schedule);
+    if (result.added > 0) setAreaPlan(result.plan);
+    return { added: result.added, total: result.total };
+  };
+
   const [showDocDropdown, setShowDocDropdown] = useState(false);
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
 
@@ -984,6 +991,7 @@ function parseTextToBlocks(rawText) {
           handleRedo={handleRedo}
           handleExportJSON={handleExportJSON}
           handleImportJSON={handleImportJSON}
+          onImportSchedule={handleImportSchedule}
           setIsSidebarOpen={setIsSidebarOpen}
           onMouseMoveSurface={handleMouseMoveSurface}
           onSaveToCloud={handleSaveToCloud}

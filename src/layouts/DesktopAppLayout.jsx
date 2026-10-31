@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Plus,
   BookOpen,
@@ -22,6 +22,7 @@ import {
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
 import { PlanView } from '../components/PlanView';
+import { SCHEDULES } from '../data/schedules';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -69,12 +70,14 @@ export function DesktopAppLayout({
   handleRedo,
   handleExportJSON,
   handleImportJSON,
+  onImportSchedule,
   setIsSidebarOpen,
   onMouseMoveSurface,
   onSaveToCloud,
   onLoadFromCloud
 }) {
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
+  const [scheduleResult, setScheduleResult] = useState({});
 
   // Views are stacked vertically; each sits at its distance from the active one.
   const VIEW_ORDER = ['notes', 'board', 'planner'];
@@ -318,6 +321,33 @@ export function DesktopAppLayout({
                   {autoSortCompleted ? 'ON' : 'OFF'}
                 </span>
               </button>
+
+              {/* Timetables */}
+              <div className="panel-section-title font-mono">HORARIOS</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                {SCHEDULES.map(sch => {
+                  const r = scheduleResult[sch.id];
+                  return (
+                    <React.Fragment key={sch.id}>
+                      <button
+                        className="btn-icon"
+                        style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
+                        onClick={() => setScheduleResult(prev => ({ ...prev, [sch.id]: onImportSchedule(sch) }))}
+                      >
+                        <Calendar size={12} />
+                        <span className="font-mono" style={{ fontSize: '0.75rem' }}>{sch.label}</span>
+                      </button>
+                      {r && (
+                        <span className="font-mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', padding: '0 4px' }}>
+                          {r.added > 0
+                            ? `✓ ${r.added} clases añadidas a ${sch.area}. Míralas en Plan → Semana o Mes.`
+                            : 'Ya estaban importadas, no se añadió nada.'}
+                        </span>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
 
               {/* Export & Import */}
               <div className="panel-section-title font-mono">COPIA DE SEGURIDAD</div>

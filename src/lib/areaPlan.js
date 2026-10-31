@@ -185,3 +185,32 @@ export function rollingMonth(offset = 0, today = isoOf(new Date())) {
   const lead = (fromIso(anchor).getDay() + 6) % 7;
   return { anchor, end, gridStart: addDays(anchor, -lead), rows: Math.ceil((lead + 31) / 7) };
 }
+
+const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+// Adds a timetable to the plan under the area named `schedule.area` (created if
+// it doesn't exist). Events whose id is already in the plan are skipped.
+export function importSchedule(plan, schedule) {
+  let areas = plan.areas;
+  let area = areas.find((a) => a.name.trim().toLowerCase() === schedule.area.toLowerCase());
+  if (!area) {
+    const used = areas.map((a) => a.c);
+    const free = AREA_COLORS.findIndex((_, i) => !used.includes(i));
+    area = { id: uid(), name: schedule.area, c: free < 0 ? areas.length % AREA_COLORS.length : free };
+    areas = [...areas, area];
+  }
+  const have = new Set(plan.items.map((i) => i.id));
+  const fresh = schedule.items
+    .map((ev) => ({
+      id: `${schedule.id}:${ev.day}:${ev.from}`,
+      area: area.id,
+      text: ev.text,
+      ...(ev.note ? { note: ev.note } : {}),
+      done: false,
+      day: ev.day,
+      at: toMinutes(ev.from),
+      dur: toMinutes(ev.to) - toMinutes(ev.from)
+    }))
+    .filter((it) => !have.has(it.id));
+  return { plan: { ...plan, areas, items: [...plan.items, ...fresh] }, added: fresh.length, total: schedule.items.length };
+}

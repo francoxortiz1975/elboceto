@@ -305,7 +305,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     );
     if (timed) {
       return (
-        <li key={it.id} className={cls} style={style} onPointerDown={grab} data-short={dur <= SNAP ? 2 : dur <= SLOT_STEP ? 1 : undefined}>
+        <li key={it.id} className={cls} style={style} title={it.note || undefined} onPointerDown={grab} data-short={dur <= SNAP ? 2 : dur <= SLOT_STEP ? 1 : undefined}>
           <div className="ap-bh">{head}</div>
           <div className="ap-meta">
             {tagged ? `${area.name} · ` : ''}{fmtMin(eff.at)}–{fmtMin(eff.at + dur)} · {durLabel(dur)}
@@ -317,7 +317,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
       );
     }
     return (
-      <li key={it.id} className={cls} style={style} onPointerDown={grab}>
+      <li key={it.id} className={cls} style={style} title={it.note || undefined} onPointerDown={grab}>
         {head}
         {tagged && <span className="ap-tag">{area.name}</span>}
       </li>

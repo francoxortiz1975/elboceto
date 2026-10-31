@@ -34,7 +34,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
       .filter((it) => it.day === iso && areaById[it.area] && !hidden.includes(it.area))
       .map((it) => ({
         key: it.id, item: it, text: it.text, done: !!it.done,
-        color: colorOf(areaById[it.area]), area: areaById[it.area].name,
+        color: colorOf(areaById[it.area]), area: areaById[it.area].name, note: it.note,
         at: typeof it.at === 'number' ? it.at : null
       }));
     const fromPlanner = (plannerTasks || [])
@@ -105,7 +105,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
                     key={chip.key}
                     className={`mc-chip${chip.done ? ' done' : ''}${chip.item ? '' : ' plain'}${movingId === chip.key ? ' moving' : ''}`}
                     style={chip.color ? { '--c': chip.color } : undefined}
-                    title={`${chip.area}${chip.at !== null ? ` · ${fmtMin(chip.at)}` : ''}`}
+                    title={`${chip.area}${chip.at !== null ? ` · ${fmtMin(chip.at)}` : ''}${chip.note ? ` · ${chip.note}` : ''}`}
                     onPointerDown={(e) => startMove(e, chip)}
                   >
                     {chip.at !== null && <span className="mc-time font-mono">{fmtMin(chip.at)}</span>}

@@ -134,6 +134,7 @@ export function WeeklyPlanner({
       isArea: true,
       areaName: areaById[it.area].name,
       areaColor: colorOf(areaById[it.area]),
+      note: it.note,
       timeSlot: minutesToTimeStr(it.at),
       durationMin: durOf(it),
       dayIso: dayObj.isoDate,
@@ -735,7 +736,7 @@ export function WeeklyPlanner({
                       <div
                         key={task.id}
                         className="planner-task-card"
-                        title={`${task.timeSlot} — ${endStr}${task.isArea ? ` · ${task.areaName}` : ''}`}
+                        title={`${task.timeSlot} — ${endStr}${task.isArea ? ` · ${task.areaName}` : ''}${task.note ? ` · ${task.note}` : ''}`}
                         onMouseDown={(e) => startDragMove(e, task, day.key)}
                         onTouchStart={(e) => startDragMove(e, task, day.key)}
                         onDoubleClick={handleOpenModalForTask}
