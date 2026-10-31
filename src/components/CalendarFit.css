@@ -1,0 +1,66 @@
+/* Sizing for the week/month calendar views (WeeklyPlanner + MonthCalendar):
+   keeps text inside headers, chips, buttons and blocks at every width. */
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.wk-head { padding: 14px 24px; }
+.wk-head-left { gap: 16px; min-width: 0; flex-wrap: wrap; }
+.wk-title { font-size: 1.4rem; white-space: nowrap; }
+.wk-range { min-width: 150px; white-space: nowrap; }
+
+/* ── Toolbar: view switch, area filters, "Nuevo bloque en" ─────────────── */
+.wk-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 24px; border-bottom: var(--border-hairline); flex-shrink: 0; }
+.wk-toolbar .ap-seg { margin-right: 0; }
+.wk-areas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.wk-areas .ap-chip { white-space: nowrap; flex: none; }
+.wk-create { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wk-create select { max-width: 160px; }
+
+/* ── Day headers ──────────────────────────────────────────────────────── */
+.wk-dayhead { container: wkhead / inline-size; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; gap: 4px 6px; min-height: 38px; min-width: 0; }
+.wk-daytitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; min-width: 0; }
+.wk-daytitle .font-mono { white-space: nowrap; }
+.wk-add { padding: 2px 6px; font-size: 0.62rem; border-radius: 10px; white-space: nowrap; flex: none; }
+@container wkhead (max-width: 150px) {
+  .wk-add-label { display: none; }
+  .wk-add { padding: 2px 8px; font-size: 0.78rem; line-height: 1.1; }
+}
+
+/* ── "Sin hora" strip ─────────────────────────────────────────────────── */
+.wk-untimed { grid-template-columns: 16px minmax(0, 1fr); cursor: default; padding-left: 4px; }
+.wk-untxt { font-size: 0.74rem; line-height: 16px; min-height: 16px; min-width: 0; white-space: normal; word-break: break-word; }
+@media (hover: hover) and (pointer: fine) {
+  .wk-untimed .ap-del { position: absolute; right: 2px; top: 0; padding: 0 3px; background: var(--bg-note); border-radius: 3px; }
+}
+@media (pointer: coarse) {
+  .wk-untimed { grid-template-columns: 16px minmax(0, 1fr) 18px; }
+  .wk-untimed .ap-del { opacity: 1; }
+}
+
+/* ── Time blocks ──────────────────────────────────────────────────────── */
+.planner-task-card { container: wkcard / inline-size; }
+.wk-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+.wk-title-input { flex: 1; min-height: 0; width: 100%; background: transparent; border: none; outline: none; padding: 0; margin: 0; resize: none; overflow: hidden; font-family: var(--font-body); font-size: 0.78rem; line-height: 1.25; white-space: normal; word-break: break-word; cursor: text; }
+.wk-actions { display: flex; gap: 2px; flex-shrink: 0; align-items: center; }
+@media (hover: hover) and (pointer: fine) {
+  /* Actions float over the block on hover, so the title keeps the full width. */
+  .planner-task-card .wk-actions { position: absolute; right: 3px; top: 3px; z-index: 2; padding: 1px 3px; border-radius: 4px; background: var(--wk-bg, var(--bg-note)); box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.08); opacity: 0; transition: opacity 0.12s; }
+  .planner-task-card:hover .wk-actions, .planner-task-card:focus-within .wk-actions { opacity: 1; }
+}
+@container wkcard (max-width: 120px) {
+  .wk-time, .wk-area-name { display: none; }
+}
+
+/* ── Phone ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .wk-head { padding: 10px 14px; }
+  .wk-head-left { gap: 4px 10px; }
+  .wk-title { font-size: 1.1rem; }
+  .wk-range { min-width: 0; padding: 0 2px; }
+  .wk-toolbar { padding: 6px 12px; gap: 6px 8px; }
+  .wk-areas { order: 3; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .wk-areas::-webkit-scrollbar { display: none; }
+  .wk-areas .ap-flabel { flex: none; }
+}
+
+/* One-line block titles end in an ellipsis instead of being cut mid-letter. */
+.planner-task-card input.block-text-input { text-overflow: ellipsis; }

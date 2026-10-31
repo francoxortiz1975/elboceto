@@ -9,6 +9,10 @@ import {
   ChevronUp,
   Calendar
 } from 'lucide-react';
+import { MonthCalendar } from './MonthCalendar';
+import { AREA_COLORS, BANDS, durOf, fromIso, isoOf, uid as areaUid } from '../lib/areaPlan';
+import './AreaPlanner.css';
+import './CalendarFit.css';
 
 const DAYS_ES = [
   { key: 'mon', label: 'Lunes',     short: 'Lun' },
@@ -48,6 +52,12 @@ function timeStrToMinutes(timeStr) {
   return (h || 0) * 60 + (m || 0);
 }
 
+function autoSize(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
 export function WeeklyPlanner({
   boardNotes,
   plannerTasks,
@@ -56,12 +66,17 @@ export function WeeklyPlanner({
   onOpenCalendarModal,
   onTransitionToBoard,
   weekOffset: propWeekOffset,
-  onWeekOffsetChange
+  onWeekOffsetChange,
+  areaPlan,
+  onChangeAreaPlan
 }) {
   const [localWeekOffset, setLocalWeekOffset] = useState(0);
   const weekOffset = propWeekOffset !== undefined ? propWeekOffset : localWeekOffset;
   const setWeekOffset = onWeekOffsetChange || setLocalWeekOffset;
   const [dayPairIndex, setDayPairIndex] = useState(0);
+  const [mode, setMode] = useState('week'); // 'week' | 'month'
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [createIn, setCreateIn] = useState('planner'); // where new blocks go: 'planner' or an area id
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
 
   useEffect(() => {
@@ -88,7 +103,7 @@ export function WeeklyPlanner({
         dayIdx: idx,
         dateObj: d,
         formattedDate: d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
-        isoDate: d.toISOString().slice(0, 10),
+        isoDate: isoOf(d), // local date; toISOString() shifts the day by the UTC offset
         isToday
       };
     });
@@ -103,7 +118,29 @@ export function WeeklyPlanner({
 
   const currentWeekLabel = `${weekDays[0].formattedDate} — ${weekDays[6].formattedDate}`;
 
-  // Tasks for a day (planner tasks + board notes with eventDate)
+  // ── Plan por áreas layer ──────────────────────────────────────────────────
+  const plan = areaPlan || { areas: [], items: [], hidden: [] };
+  const areaById = Object.fromEntries(plan.areas.map(a => [a.id, a]));
+  const colorOf = (a) => AREA_COLORS[a.c % AREA_COLORS.length];
+  const areaItemsOn = (iso) => plan.items.filter(it => it.day === iso && areaById[it.area] && !plan.hidden.includes(it.area));
+  const timedAreaTasks = (dayObj) => areaItemsOn(dayObj.isoDate)
+    .filter(it => typeof it.at === 'number')
+    .map(it => ({
+      id: `area_${it.id}`,
+      text: it.text,
+      completed: !!it.done,
+      isArea: true,
+      areaName: areaById[it.area].name,
+      areaColor: colorOf(areaById[it.area]),
+      timeSlot: minutesToTimeStr(it.at),
+      durationMin: durOf(it),
+      dayIso: dayObj.isoDate,
+      dayKey: dayObj.key
+    }));
+  const untimedAreaItems = (dayObj) => areaItemsOn(dayObj.isoDate).filter(it => typeof it.at !== 'number');
+  const changeArea = (fn) => { if (onChangeAreaPlan) onChangeAreaPlan(fn); };
+
+  // Tasks for a day (planner tasks + board notes with eventDate + area plan blocks)
   const getTasksForDay = (dayObj) => {
     const pTasks = plannerTasks.filter(t => {
       const matchesDay = t.dayIso ? t.dayIso === dayObj.isoDate : t.dayKey === dayObj.key;
@@ -125,11 +162,22 @@ export function WeeklyPlanner({
         dayKey: dayObj.key
       }));
 
-    return [...pTasks, ...bTasks];
+    return [...pTasks, ...bTasks, ...timedAreaTasks(dayObj)];
   };
 
   const updateTask = useCallback((id, updates) => {
-    if (typeof id === 'string' && id.startsWith('board_')) {
+    if (typeof id === 'string' && id.startsWith('area_')) {
+      const itemId = id.slice(5);
+      const patch = {};
+      if (updates.text !== undefined) patch.text = updates.text;
+      if (updates.completed !== undefined) patch.done = updates.completed;
+      if (updates.timeSlot !== undefined) patch.at = timeStrToMinutes(updates.timeSlot);
+      if (updates.durationMin !== undefined) patch.dur = updates.durationMin;
+      if (updates.dayIso !== undefined) patch.day = updates.dayIso;
+      if (onChangeAreaPlan) {
+        onChangeAreaPlan(p => ({ ...p, items: p.items.map(i => (i.id === itemId ? { ...i, ...patch } : i)) }));
+      }
+    } else if (typeof id === 'string' && id.startsWith('board_')) {
       const noteId = id.replace('board_', '');
       const current = (boardNotes || []).find(n => n.id === noteId);
       if (current && onUpdateBoardNotes) {
@@ -147,10 +195,13 @@ export function WeeklyPlanner({
     } else {
       onUpdatePlannerTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     }
-  }, [onUpdatePlannerTasks, onUpdateBoardNotes, boardNotes]);
+  }, [onUpdatePlannerTasks, onUpdateBoardNotes, onChangeAreaPlan, boardNotes]);
 
   const deleteTask = (id) => {
-    if (typeof id === 'string' && id.startsWith('board_')) {
+    if (typeof id === 'string' && id.startsWith('area_')) {
+      const itemId = id.slice(5);
+      changeArea(p => ({ ...p, items: p.items.filter(i => i.id !== itemId) }));
+    } else if (typeof id === 'string' && id.startsWith('board_')) {
       const noteId = id.replace('board_', '');
       const current = (boardNotes || []).find(n => n.id === noteId);
       if (current && onUpdateBoardNotes) {
@@ -167,6 +218,13 @@ export function WeeklyPlanner({
     const colHeight = colEl.getBoundingClientRect().height;
     const startMin = yToMinutes(clickY, colHeight);
     const clamped = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN - 30, startMin));
+    if (createIn !== 'planner' && areaById[createIn]) {
+      changeArea(p => ({
+        ...p,
+        items: [...p.items, { id: areaUid(), area: createIn, text: '', done: false, day: dayObj.isoDate, at: clamped, dur: 60 }]
+      }));
+      return;
+    }
     const newTask = {
       id: 'task_' + Date.now(),
       text: '',
@@ -332,16 +390,37 @@ export function WeeklyPlanner({
     <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-book)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* Header */}
-      <div style={{ padding: '14px 24px', borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span className="brand-title" style={{ fontSize: '1.4rem' }}>Planificador Semanal</span>
+      <div className="wk-head" style={{ borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
+        <div className="wk-head-left" style={{ display: 'flex', alignItems: 'center' }}>
+          <span className="brand-title wk-title">{mode === 'week' ? 'Planificador Semanal' : 'Calendario Mensual'}</span>
+
+          {/* Month Switcher Controls */}
+          {mode === 'month' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button className="btn-icon" onClick={() => setMonthOffset(p => p - 1)} title="Mes anterior">
+                <ChevronLeft size={14} />
+              </button>
+              <span className="font-mono wk-range" style={{ fontSize: '0.85rem', textAlign: 'center', textTransform: 'capitalize' }}>
+                {new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+              </span>
+              <button className="btn-icon" onClick={() => setMonthOffset(p => p + 1)} title="Mes siguiente">
+                <ChevronRight size={14} />
+              </button>
+              {monthOffset !== 0 && (
+                <button className="btn-icon active" onClick={() => setMonthOffset(0)} style={{ fontSize: '0.7rem' }}>
+                  Hoy
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Week Switcher Controls */}
+          {mode === 'week' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button className="btn-icon" onClick={() => setWeekOffset(p => p - 1)} title="Semana anterior">
               <ChevronLeft size={14} />
             </button>
-            <span className="font-mono" style={{ fontSize: '0.85rem', minWidth: '150px', textAlign: 'center' }}>
+            <span className="font-mono wk-range" style={{ fontSize: '0.85rem', textAlign: 'center' }}>
               {currentWeekLabel}
             </span>
             <button className="btn-icon" onClick={() => setWeekOffset(p => p + 1)} title="Semana siguiente">
@@ -353,6 +432,7 @@ export function WeeklyPlanner({
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* Subtle Transparent Spatial Navigation Trigger — Centered on X-axis */}
@@ -370,8 +450,55 @@ export function WeeklyPlanner({
         )}
       </div>
 
+      {/* View switch + area filters */}
+      <div className="wk-toolbar">
+        <div className="ap-seg">
+          <button aria-pressed={mode === 'week'} onClick={() => setMode('week')}>Semana</button>
+          <button aria-pressed={mode === 'month'} onClick={() => setMode('month')}>Mes</button>
+        </div>
+        {plan.areas.length > 0 && (
+          <div className="wk-areas">
+            <span className="ap-flabel">Áreas</span>
+            {plan.areas.map(a => (
+              <button
+                key={a.id}
+                className="ap-chip"
+                style={{ '--c': colorOf(a) }}
+                aria-pressed={!plan.hidden.includes(a.id)}
+                title="Mostrar u ocultar esta área"
+                onClick={() => changeArea(p => ({
+                  ...p,
+                  hidden: p.hidden.includes(a.id) ? p.hidden.filter(x => x !== a.id) : [...p.hidden, a.id]
+                }))}
+              >
+                <i />{a.name}
+              </button>
+            ))}
+            <button
+              className="ap-chip all"
+              aria-pressed={plan.hidden.length === 0}
+              onClick={() => changeArea(p => ({ ...p, hidden: [] }))}
+            >Todas</button>
+          </div>
+        )}
+        {mode === 'week' && plan.areas.length > 0 && (
+          <label className="ap-flabel wk-create">
+            Nuevo bloque en
+            <select
+              id="planner-create-in"
+              className="ap-btn"
+              value={createIn}
+              onChange={(e) => setCreateIn(e.target.value)}
+            >
+              <option value="planner">Planificador</option>
+              {plan.areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
+
       {/* Mobile 2-Day View Pair Selector Header */}
-      {isMobile && (
+      {isMobile && mode === 'week' && (
         <div className="mobile-2day-header">
           <div className="mobile-pair-pills">
             <button
@@ -420,33 +547,97 @@ export function WeeklyPlanner({
         </div>
       )}
 
-      {/* Planner Grid */}
-      <div className="planner-grid-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {mode === 'month' && (
+        <MonthCalendar
+          areaPlan={plan}
+          plannerTasks={plannerTasks}
+          monthOffset={monthOffset}
+          onChangeAreaPlan={changeArea}
+          onOpenDay={(iso) => {
+            const mondayOf = (d) => { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); x.setHours(0, 0, 0, 0); return x; };
+            setWeekOffset(Math.round((mondayOf(fromIso(iso)) - mondayOf(new Date())) / (7 * 864e5)));
+            setDayPairIndex(Math.floor(((fromIso(iso).getDay() + 6) % 7) / 2));
+            setMode('week');
+          }}
+        />
+      )}
+
+      {mode === 'week' && (
+            <div className="planner-grid-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="planner-grid-inner" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: '100%' }}>
 
           {/* Day headers */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0 }}>
             <div />
             {visibleDays.map(day => (
-              <div key={day.key} style={{ padding: '6px 8px', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'var(--bg-active)' : 'rgba(24,24,27,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+              <div key={day.key} className="wk-dayhead" style={{ borderLeft: 'var(--border-hairline)', background: day.isToday ? 'var(--bg-active)' : 'rgba(24,24,27,0.02)' }}>
+                <div className="wk-daytitle">
                   <span className="font-title" style={{ fontSize: '1.05rem', fontStyle: 'italic', fontWeight: day.isToday ? 600 : 400 }}>{day.label}</span>
                   <span className="font-mono" style={{ fontSize: '0.65rem', color: day.isToday ? 'var(--text-ink)' : 'var(--text-muted)' }}>{day.formattedDate}</span>
                 </div>
                 <button
-                  className="btn-icon active"
-                  style={{ padding: '2px 6px', fontSize: '0.62rem', borderRadius: '10px' }}
+                  className="btn-icon active wk-add"
                   onClick={(e) => {
                     e.stopPropagation();
                     addTimeTask(day, 120);
                   }}
                   title="Añadir Evento"
+                  aria-label="Añadir Evento"
                 >
-                  + Evento
+                  +<span className="wk-add-label"> Evento</span>
                 </button>
               </div>
             ))}
           </div>
+
+          {/* Area items without a time of day */}
+          {(() => {
+            const anyUntimed = visibleDays.some(d => untimedAreaItems(d).length > 0);
+            if (!anyUntimed && createIn === 'planner') return null;
+            const bandLabel = (at) => (BANDS.find(b => b.id === at) || {}).label;
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0, maxHeight: '150px', overflowY: 'auto' }}>
+                <div className="font-mono" style={{ fontSize: '0.55rem', color: 'var(--text-subtle)', padding: '5px 6px 0 0', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>sin hora</div>
+                {visibleDays.map(day => (
+                  <div key={day.key} style={{ borderLeft: 'var(--border-hairline)', padding: '3px 4px', display: 'grid', gap: '2px', alignContent: 'start', minWidth: 0 }}>
+                    {untimedAreaItems(day).map(it => {
+                      const a = areaById[it.area];
+                      return (
+                        <div
+                          key={it.id}
+                          className={`ap-item wk-untimed${it.done ? ' done' : ''}`}
+                          style={{ '--c': colorOf(a), borderLeft: `3px solid ${colorOf(a)}`, background: `color-mix(in srgb, ${colorOf(a)} 12%, var(--bg-note))` }}
+                          title={`${a.name}${bandLabel(it.at) ? ' · ' + bandLabel(it.at) : ''}`}
+                        >
+                          <button className="ap-chk" aria-label={it.done ? 'Marcar pendiente' : 'Marcar hecho'} onClick={() => updateTask(`area_${it.id}`, { completed: !it.done })} />
+                          <textarea
+                            className="ap-txt wk-untxt"
+                            rows={1}
+                            ref={autoSize}
+                            value={it.text}
+                            placeholder="Escribe…"
+                            onChange={e => updateTask(`area_${it.id}`, { text: e.target.value })}
+                          />
+                          <button className="ap-del" aria-label="Borrar tarea" onClick={() => deleteTask(`area_${it.id}`)}>×</button>
+                        </div>
+                      );
+                    })}
+                    {createIn !== 'planner' && areaById[createIn] && (
+                      <button
+                        className="ap-btn"
+                        style={{ fontSize: '0.62rem', padding: '1px 6px', justifySelf: 'start' }}
+                        onClick={() => changeArea(p => ({
+                          ...p,
+                          items: [...p.items, { id: areaUid(), area: createIn, text: '', done: false, day: day.isoDate, at: 'any' }]
+                        }))}
+                        title={`Añadir tarea sin hora en ${areaById[createIn].name}`}
+                      >+</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Scrollable time grid */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
@@ -532,6 +723,7 @@ export function WeeklyPlanner({
                     const yPct       = ((startMin - DAY_START_MIN) / DAY_TOTAL_MIN) * 100;
                     const heightPct  = (durationMin / DAY_TOTAL_MIN) * 100;
                     const endStr     = minutesToTimeStr(startMin + durationMin);
+                    const cardBg     = task.isArea ? `color-mix(in srgb, ${task.areaColor} ${task.completed ? 7 : 16}%, var(--bg-note))` : task.isEvent ? 'var(--text-ink)' : (task.completed ? 'rgba(24,24,27,0.04)' : 'var(--bg-note)');
 
                     const handleOpenModalForTask = (e) => {
                       if (e) e.stopPropagation();
@@ -553,6 +745,7 @@ export function WeeklyPlanner({
                       <div
                         key={task.id}
                         className="planner-task-card"
+                        title={`${task.timeSlot} — ${endStr}${task.isArea ? ` · ${task.areaName}` : ''}`}
                         onMouseDown={(e) => startDragMove(e, task, day.key)}
                         onTouchStart={(e) => startDragMove(e, task, day.key)}
                         onDoubleClick={handleOpenModalForTask}
@@ -563,13 +756,14 @@ export function WeeklyPlanner({
                           right: '2px',
                           height: `${heightPct}%`,
                           minHeight: '26px',
-                          background: task.isEvent ? 'var(--text-ink)' : (task.completed ? 'rgba(24,24,27,0.04)' : 'var(--bg-note)'),
+                          background: cardBg,
+                          '--wk-bg': task.completed && !task.isArea ? 'var(--bg-note)' : cardBg,
                           color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
                           border: task.isEvent ? '1px solid rgba(24,24,27,0.9)' : 'var(--border-hairline)',
-                          borderLeft: task.isEvent ? '3px solid #F7F4EE' : `2px solid rgba(24,24,27,${task.completed ? 0.15 : 0.4})`,
+                          borderLeft: task.isArea ? `3px solid ${task.areaColor}` : task.isEvent ? '3px solid #F7F4EE' : `2px solid rgba(24,24,27,${task.completed ? 0.15 : 0.4})`,
                           borderRadius: '4px',
                           boxShadow: 'var(--shadow-subtle)',
-                          padding: '3px 6px 10px 6px',
+                          padding: '3px 6px 6px 6px',
                           overflow: 'hidden',
                           cursor: 'grab',
                           zIndex: task.isEvent ? 5 : 4,
@@ -583,7 +777,7 @@ export function WeeklyPlanner({
                         {durationMin <= 60 ? (
                           /* Compact 1-row layout for <=60m tasks */
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', flex: 1 }}>
-                            <span className="font-mono" style={{ fontSize: '0.62rem', opacity: 0.75, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            <span className="font-mono wk-time" style={{ fontSize: '0.62rem', opacity: 0.75, whiteSpace: 'nowrap', flexShrink: 0 }}>
                               {task.timeSlot}
                             </span>
                             <input
@@ -605,9 +799,9 @@ export function WeeklyPlanner({
                               onChange={e => updateTask(task.id, { text: e.target.value })}
                               placeholder="Evento..."
                             />
-                            <div style={{ display: 'flex', gap: '2px', flexShrink: 0, alignItems: 'center' }}>
+                            <div className="wk-actions">
                               <button
-                                style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                style={{display: task.isArea ? 'none' : undefined,  background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={handleOpenModalForTask}
                                 title="Configurar / Sincronizar Calendario"
@@ -635,12 +829,12 @@ export function WeeklyPlanner({
                           /* Standard 2-row layout for >60m tasks */
                           <>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', flexShrink: 0 }}>
-                              <span className="font-mono" style={{ fontSize: '0.6rem', opacity: 0.75, whiteSpace: 'nowrap' }}>
-                                {task.timeSlot} — {endStr}
+                              <span className="font-mono wk-label" style={{ fontSize: '0.6rem', opacity: 0.75 }}>
+                                {task.timeSlot} — {endStr}{task.isArea && <span className="wk-area-name">{` · ${task.areaName}`}</span>}
                               </span>
-                              <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                              <div className="wk-actions">
                                 <button
-                                  style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                  style={{display: task.isArea ? 'none' : undefined,  background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
                                   onMouseDown={e => e.stopPropagation()}
                                   onClick={handleOpenModalForTask}
                                   title="Configurar / Sincronizar Calendario"
@@ -665,17 +859,12 @@ export function WeeklyPlanner({
                               </div>
                             </div>
 
-                            <input
-                              type="text"
-                              className="block-text-input"
+                            <textarea
+                              className="wk-title-input"
+                              rows={1}
                               style={{
-                                fontSize: '0.78rem',
-                                flex: 1,
-                                cursor: 'text',
                                 textDecoration: task.completed ? 'line-through' : 'none',
-                                color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
-                                padding: 0,
-                                margin: 0
+                                color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)')
                               }}
                               value={task.text}
                               onMouseDown={e => e.stopPropagation()}
@@ -694,7 +883,7 @@ export function WeeklyPlanner({
                             bottom: 0,
                             left: 0,
                             right: 0,
-                            height: '10px',
+                            height: '6px',
                             cursor: 'ns-resize',
                             background: 'transparent',
                             borderBottom: '2px solid rgba(24,24,27,0.2)',
@@ -711,6 +900,7 @@ export function WeeklyPlanner({
         </div>
       </div>
     </div>
+      )}
   </div>
 );
 }

@@ -1745,7 +1745,7 @@ h3,
 
   .mobile-pair-pill.active {
     background: var(--text-ink);
-    color: var(--bg-paper);
+    color: var(--bg-book);
     border-color: var(--text-ink);
   }
 }

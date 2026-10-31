@@ -172,6 +172,8 @@ export function MobileAppLayout({
             onTransitionToBoard={() => setActiveView('board')}
             weekOffset={weekOffset}
             onWeekOffsetChange={setWeekOffset}
+            areaPlan={areaPlan}
+            onChangeAreaPlan={setAreaPlan}
           />
         )}
 
