@@ -130,3 +130,7 @@
 .ap-item.moving { pointer-events: none; opacity: 0.85; box-shadow: var(--shadow-floating); z-index: 6; }
 body.ap-moving, body.ap-moving * { cursor: grabbing !important; user-select: none !important; }
 .ap-band .ap-fold { align-self: center; font-size: 0.68rem; padding: 3px 8px; }
+
+/* "Nuevo en" picker of the full-day lens */
+.ap-target { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ap-target select { max-width: 160px; }

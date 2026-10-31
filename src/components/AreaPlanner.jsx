@@ -4,6 +4,7 @@ import {
   AREA_COLORS, SLOTS, BANDS, SLOT_STEP, SNAP, DAY_FROM, DAY_TO,
   uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
 } from '../lib/areaPlan';
+import { PlanTabs } from './PlanTabs';
 import './AreaPlanner.css';
 
 const LAST_BLOCK_START = DAY_TO - SNAP;
@@ -19,15 +20,17 @@ function autoSize(el) {
   el.style.height = el.scrollHeight + 'px';
 }
 
-// plan: { view: 'areas' | 'day', hidden: [areaId], areas: [{id,name,c}], items: [...] }
+// plan: { hidden: [areaId], areas: [{id,name,c}], items: [...] }
+// lens: 'areas' (one column per area) or 'day' (every area merged into one timeline).
 // onChange receives an updater function (prev => next), so edits made in the
 // same tick (blur + Enter) never overwrite each other.
-export function AreaPlanner({ plan, onChange, onBack, compact }) {
+export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange, lens }) {
   const [clock, setClock] = useState(() => new Date());
   const [focusId, setFocusId] = useState(null);
   const [overKey, setOverKey] = useState(null);
   const [movingId, setMovingId] = useState(null);
   const [toast, setToast] = useState('');
+  const [dayTarget, setDayTarget] = useState(''); // area that receives new blocks in the full-day lens
   const gestureEnd = useRef(0); // time a stretch/drag last ended; swallows its trailing click
   const wrapRef = useRef(null);
   const toastTimer = useRef(null);
@@ -60,7 +63,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
 
   const entries = plan.items.map((it) => ({ it, eff: effectiveSlot(it, today) }));
   const visibleAreas = plan.areas.filter((a) => !isHidden(a.id));
-  const areaMode = plan.view === 'areas';
+  const areaMode = (lens || plan.view) === 'areas';
 
   const cols = !areaMode
     ? [{ id: '__day', kind: 'day' }]
@@ -330,7 +333,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
     if (ev.target.closest('.ap-item')) return;
     const at = pointAt(row, ev);
     if (col.kind === 'day') {
-      const target = visibleAreas[0];
+      const target = visibleAreas.find((a) => a.id === dayTarget) || visibleAreas[0];
       if (!target) { flash('Activa un área para añadir tareas'); return; }
       addItem(row, target.id, at);
       return;
@@ -361,10 +364,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
       </div>
 
       <div className="ap-filters">
-        <div className="ap-seg">
-          <button aria-pressed={areaMode} onClick={() => mutate((p) => ({ ...p, view: 'areas' }))}>Por áreas</button>
-          <button aria-pressed={!areaMode} onClick={() => mutate((p) => ({ ...p, view: 'day' }))}>Día completo</button>
-        </div>
+        {onTabChange && <PlanTabs value={tab} onChange={onTabChange} />}
         <span className="ap-flabel">Mostrar</span>
         {plan.areas.map((a) => (
           <button
@@ -381,6 +381,19 @@ export function AreaPlanner({ plan, onChange, onBack, compact }) {
           className="ap-chip all" aria-pressed={plan.hidden.length === 0}
           onClick={() => mutate((p) => ({ ...p, hidden: [] }))}
         >Todas</button>
+        {!areaMode && visibleAreas.length > 0 && (
+          <label className="ap-flabel ap-target">
+            Nuevo en
+            <select
+              id="plan-day-target"
+              className="ap-btn"
+              value={visibleAreas.some((a) => a.id === dayTarget) ? dayTarget : visibleAreas[0].id}
+              onChange={(e) => setDayTarget(e.target.value)}
+            >
+              {visibleAreas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className="ap-wrap" ref={wrapRef}>

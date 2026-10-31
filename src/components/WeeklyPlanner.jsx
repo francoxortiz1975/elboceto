@@ -10,6 +10,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { MonthCalendar } from './MonthCalendar';
+import { PlanTabs } from './PlanTabs';
 import { AREA_COLORS, BANDS, durOf, fromIso, isoOf, uid as areaUid } from '../lib/areaPlan';
 import './AreaPlanner.css';
 import './CalendarFit.css';
@@ -68,13 +69,17 @@ export function WeeklyPlanner({
   weekOffset: propWeekOffset,
   onWeekOffsetChange,
   areaPlan,
-  onChangeAreaPlan
+  onChangeAreaPlan,
+  mode: propMode,
+  onModeChange
 }) {
   const [localWeekOffset, setLocalWeekOffset] = useState(0);
   const weekOffset = propWeekOffset !== undefined ? propWeekOffset : localWeekOffset;
   const setWeekOffset = onWeekOffsetChange || setLocalWeekOffset;
   const [dayPairIndex, setDayPairIndex] = useState(0);
-  const [mode, setMode] = useState('week'); // 'week' | 'month'
+  const [localMode, setLocalMode] = useState('week');
+  const mode = propMode || localMode; // 'week' | 'month'
+  const setMode = onModeChange || setLocalMode;
   const [monthOffset, setMonthOffset] = useState(0);
   const [createIn, setCreateIn] = useState('planner'); // where new blocks go: 'planner' or an area id
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
@@ -392,7 +397,7 @@ export function WeeklyPlanner({
       {/* Header */}
       <div className="wk-head" style={{ borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
         <div className="wk-head-left" style={{ display: 'flex', alignItems: 'center' }}>
-          <span className="brand-title wk-title">{mode === 'week' ? 'Planificador Semanal' : 'Calendario Mensual'}</span>
+          <span className="brand-title wk-title">{mode === 'week' ? 'Plan semanal' : 'Plan mensual'}</span>
 
           {/* Month Switcher Controls */}
           {mode === 'month' && (
@@ -452,10 +457,7 @@ export function WeeklyPlanner({
 
       {/* View switch + area filters */}
       <div className="wk-toolbar">
-        <div className="ap-seg">
-          <button aria-pressed={mode === 'week'} onClick={() => setMode('week')}>Semana</button>
-          <button aria-pressed={mode === 'month'} onClick={() => setMode('month')}>Mes</button>
-        </div>
+        <PlanTabs value={mode} onChange={setMode} />
         {plan.areas.length > 0 && (
           <div className="wk-areas">
             <span className="ap-flabel">Áreas</span>

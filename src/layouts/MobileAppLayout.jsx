@@ -4,13 +4,11 @@ import {
   Plus,
   Calendar,
   BookOpen,
-  Layers,
   Pin
 } from 'lucide-react';
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { MobileBoardView } from '../components/MobileBoardView';
-import { WeeklyPlanner } from '../components/WeeklyPlanner';
-import { AreaPlanner } from '../components/AreaPlanner';
+import { PlanView } from '../components/PlanView';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -39,6 +37,8 @@ export function MobileAppLayout({
   plannerTasks,
   areaPlan,
   setAreaPlan,
+  planTab,
+  setPlanTab,
   handleUpdatePlannerTasks,
   weekOffset,
   setWeekOffset,
@@ -74,7 +74,7 @@ export function MobileAppLayout({
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span className="brand-title" style={{ fontSize: '1.05rem' }}>el boceto</span>
           <span className="font-mono" style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {activeView === 'notes' ? 'Notas' : activeView === 'planner' ? 'Planificador' : activeView === 'areas' ? 'Áreas' : 'Lienzo'}
+            {activeView === 'notes' ? 'Notas' : activeView === 'planner' ? 'Plan' : 'Lienzo'}
           </span>
         </div>
 
@@ -163,22 +163,21 @@ export function MobileAppLayout({
         )}
 
         {activeView === 'planner' && (
-          <WeeklyPlanner
+          <PlanView
+            tab={planTab}
+            onTabChange={setPlanTab}
+            areaPlan={areaPlan}
+            onChangeAreaPlan={setAreaPlan}
+            onBack={() => setActiveView('board')}
+            compact
             boardNotes={notes}
             plannerTasks={plannerTasks}
             onUpdatePlannerTasks={handleUpdatePlannerTasks}
             onUpdateBoardNotes={handleUpdateNote}
             onOpenCalendarModal={setCalendarModalNote}
-            onTransitionToBoard={() => setActiveView('board')}
             weekOffset={weekOffset}
             onWeekOffsetChange={setWeekOffset}
-            areaPlan={areaPlan}
-            onChangeAreaPlan={setAreaPlan}
           />
-        )}
-
-        {activeView === 'areas' && (
-          <AreaPlanner plan={areaPlan} onChange={setAreaPlan} compact />
         )}
       </div>
 
@@ -205,15 +204,7 @@ export function MobileAppLayout({
           onClick={() => setActiveView('planner')}
         >
           <Calendar size={16} />
-          <span className="font-mono">Planificador</span>
-        </button>
-
-        <button
-          className={`btn-icon ${activeView === 'areas' ? 'active' : ''}`}
-          onClick={() => setActiveView('areas')}
-        >
-          <Layers size={16} />
-          <span className="font-mono">Áreas</span>
+          <span className="font-mono">Plan</span>
         </button>
       </div>
     </div>

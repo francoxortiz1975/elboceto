@@ -21,8 +21,7 @@ import {
 } from 'lucide-react';
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
-import { WeeklyPlanner } from '../components/WeeklyPlanner';
-import { AreaPlanner } from '../components/AreaPlanner';
+import { PlanView } from '../components/PlanView';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -52,6 +51,8 @@ export function DesktopAppLayout({
   plannerTasks,
   areaPlan,
   setAreaPlan,
+  planTab,
+  setPlanTab,
   handleUpdatePlannerTasks,
   weekOffset,
   setWeekOffset,
@@ -76,7 +77,7 @@ export function DesktopAppLayout({
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
 
   // Views are stacked vertically; each sits at its distance from the active one.
-  const VIEW_ORDER = ['notes', 'board', 'planner', 'areas'];
+  const VIEW_ORDER = ['notes', 'board', 'planner'];
   const viewOffset = (view) =>
     `translateY(${(VIEW_ORDER.indexOf(view) - VIEW_ORDER.indexOf(activeView)) * 100}vh)`;
 
@@ -160,8 +161,8 @@ export function DesktopAppLayout({
           </>
         )}
 
-        {/* Week Switcher Controls in Planner View */}
-        {activeView === 'planner' && (
+        {/* Week Switcher Controls in Planner View (only while looking at the week) */}
+        {activeView === 'planner' && planTab === 'week' && (
           <>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
               <button
@@ -401,23 +402,15 @@ export function DesktopAppLayout({
           <button
             className="subtle-spatial-nav"
             onClick={() => setActiveView('planner')}
-            title="Ir a Planificador"
+            title="Ir al Plan"
           >
             <ChevronDown size={14} />
-            <span className="nav-label font-mono">Planificador</span>
-          </button>
-          <button
-            className="subtle-spatial-nav"
-            onClick={() => setActiveView('areas')}
-            title="Ir a Plan por áreas"
-          >
-            <ChevronDown size={14} />
-            <span className="nav-label font-mono">Áreas</span>
+            <span className="nav-label font-mono">Plan</span>
           </button>
         </div>
       </div>
 
-      {/* View 3: Weekly Planner (BELOW MAIN BOARD) */}
+      {/* View 3: Plan — area board, week and month (BELOW MAIN BOARD) */}
       <div
         style={{
           position: 'absolute',
@@ -426,33 +419,19 @@ export function DesktopAppLayout({
           transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
-        <WeeklyPlanner
+        <PlanView
+          tab={planTab}
+          onTabChange={setPlanTab}
+          areaPlan={areaPlan}
+          onChangeAreaPlan={setAreaPlan}
+          onBack={() => setActiveView('board')}
           boardNotes={notes}
           plannerTasks={plannerTasks}
           onUpdatePlannerTasks={handleUpdatePlannerTasks}
           onUpdateBoardNotes={handleUpdateNote}
           onOpenCalendarModal={setCalendarModalNote}
-          onTransitionToBoard={() => setActiveView('board')}
           weekOffset={weekOffset}
           onWeekOffsetChange={setWeekOffset}
-          areaPlan={areaPlan}
-          onChangeAreaPlan={setAreaPlan}
-        />
-      </div>
-
-      {/* View 4: Plan por áreas (BELOW WEEKLY PLANNER) */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          transform: viewOffset('areas'),
-          transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}
-      >
-        <AreaPlanner
-          plan={areaPlan}
-          onChange={setAreaPlan}
-          onBack={() => setActiveView('board')}
         />
       </div>
     </div>

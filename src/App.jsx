@@ -40,6 +40,7 @@ const STORAGE_KEY_PLANNER = 'el_boceto_planner_v1';
 const STORAGE_KEY_VIEWPORT = 'el_boceto_viewport_v1';
 const STORAGE_KEY_DOCUMENTS = 'el_boceto_documents_v2';
 const STORAGE_KEY_GRID_MODE = 'el_boceto_grid_mode_v1';
+const STORAGE_KEY_PLAN_TAB = 'el_boceto_plan_tab_v1';
 
 
 const INITIAL_DOCUMENTS = [
@@ -129,6 +130,18 @@ export default function App() {
   // Area planner ("Plan por áreas"): local-first, persisted in localStorage.
   const [areaPlan, setAreaPlan] = useState(loadAreaPlan);
   useEffect(() => { saveAreaPlan(areaPlan); }, [areaPlan]);
+
+  // Which look of the plan is open: the full day, the area board, the week or the month.
+  const [planTab, setPlanTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_PLAN_TAB);
+      if (saved === 'day' || saved === 'board' || saved === 'week' || saved === 'month') return saved;
+    } catch { /* storage unavailable */ }
+    return 'board';
+  });
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY_PLAN_TAB, planTab); } catch { /* storage unavailable */ }
+  }, [planTab]);
 
   // Freeform Document Notes state
   const [documents, setDocuments] = useState(() => {
@@ -740,7 +753,8 @@ function parseTextToBlocks(rawText) {
 
   useEffect(() => {
     const handleWheel = (e) => {
-      if (e.target.closest('.note-card') || e.target.closest('.freeform-node')) {
+      // Scrolling the plan's own grids must not flip back to the canvas.
+      if (e.target.closest('.note-card') || e.target.closest('.freeform-node') || e.target.closest('.ap-wrap') || e.target.closest('.mc-wrap')) {
         return;
       }
 
@@ -913,6 +927,8 @@ function parseTextToBlocks(rawText) {
           plannerTasks={plannerTasks}
           areaPlan={areaPlan}
           setAreaPlan={setAreaPlan}
+          planTab={planTab}
+          setPlanTab={setPlanTab}
           handleUpdatePlannerTasks={handleUpdatePlannerTasks}
           weekOffset={weekOffset}
           setWeekOffset={setWeekOffset}
@@ -951,6 +967,8 @@ function parseTextToBlocks(rawText) {
           plannerTasks={plannerTasks}
           areaPlan={areaPlan}
           setAreaPlan={setAreaPlan}
+          planTab={planTab}
+          setPlanTab={setPlanTab}
           handleUpdatePlannerTasks={handleUpdatePlannerTasks}
           weekOffset={weekOffset}
           setWeekOffset={setWeekOffset}
