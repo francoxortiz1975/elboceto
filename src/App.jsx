@@ -264,14 +264,13 @@ export default function App() {
   }, []);
 
   const currentWeekLabel = React.useMemo(() => {
-    const now = new Date();
-    const distanceToMon = (now.getDay() + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - distanceToMon + weekOffset * 7);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
+    // Rolling 7-day window that starts today (shifted by whole weeks).
+    const start = new Date();
+    start.setDate(start.getDate() + weekOffset * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
     const formatDayMonth = (d) => `${d.getDate()} ${d.toLocaleString('es-ES', { month: 'short' })}`;
-    return `Semana del ${formatDayMonth(monday)} al ${formatDayMonth(sunday)}`;
+    return `Del ${formatDayMonth(start)} al ${formatDayMonth(end)}`;
   }, [weekOffset]);
 
   // Undo / Redo History Stacks

@@ -173,3 +173,15 @@ const planSignature = (plan) => JSON.stringify({
     .sort()
 });
 export const isUntouchedPlan = (plan) => planSignature(plan) === planSignature(defaultAreaPlan());
+
+// Whole days from isoA to isoB (negative when isoB is earlier). DST-safe.
+export const daysBetween = (isoA, isoB) => Math.round((fromIso(isoB) - fromIso(isoA)) / 864e5);
+
+// The month view is a rolling window: today up to one month ahead (31 days),
+// laid out on a Monday-first grid. `offset` moves the window by 4 weeks.
+export function rollingMonth(offset = 0, today = isoOf(new Date())) {
+  const anchor = addDays(today, offset * 28);
+  const end = addDays(anchor, 30);
+  const lead = (fromIso(anchor).getDay() + 6) % 7;
+  return { anchor, end, gridStart: addDays(anchor, -lead), rows: Math.ceil((lead + 31) / 7) };
+}

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { MonthCalendar } from './MonthCalendar';
 import { PlanTabs } from './PlanTabs';
-import { AREA_COLORS, BANDS, durOf, fromIso, isoOf, uid as areaUid } from '../lib/areaPlan';
+import { AREA_COLORS, BANDS, addDays, daysBetween, durOf, rollingMonth, isoOf, uid as areaUid } from '../lib/areaPlan';
 import './AreaPlanner.css';
 import './CalendarFit.css';
 
@@ -94,22 +94,19 @@ export function WeeklyPlanner({
   const dragState   = useRef(null);
   const weekDaysRef = useRef([]);
 
+  // Rolling window: seven days starting today (shifted by whole weeks), not Mon–Sun.
   const getWeekDates = () => {
-    const now = new Date();
-    const distanceToMon = (now.getDay() + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - distanceToMon + weekOffset * 7);
-    return DAYS_ES.map((day, idx) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + idx);
-      const isToday = d.toDateString() === new Date().toDateString();
+    const todayIso = isoOf(new Date());
+    return Array.from({ length: 7 }, (_, idx) => {
+      const iso = addDays(todayIso, weekOffset * 7 + idx); // local date; toISOString() shifts the day by the UTC offset
+      const d = new Date(iso + 'T00:00:00');
       return {
-        ...day,
+        ...DAYS_ES[(d.getDay() + 6) % 7],
         dayIdx: idx,
         dateObj: d,
         formattedDate: d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
-        isoDate: isoOf(d), // local date; toISOString() shifts the day by the UTC offset
-        isToday
+        isoDate: iso,
+        isToday: iso === todayIso
       };
     });
   };
@@ -402,13 +399,17 @@ export function WeeklyPlanner({
           {/* Month Switcher Controls */}
           {mode === 'month' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button className="btn-icon" onClick={() => setMonthOffset(p => p - 1)} title="Mes anterior">
+              <button className="btn-icon" onClick={() => setMonthOffset(p => p - 1)} title="4 semanas antes">
                 <ChevronLeft size={14} />
               </button>
               <span className="font-mono wk-range" style={{ fontSize: '0.85rem', textAlign: 'center', textTransform: 'capitalize' }}>
-                {new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                {(() => {
+                  const { anchor, end } = rollingMonth(monthOffset);
+                  const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+                  return `${fmt(anchor)} — ${fmt(end)}`;
+                })()}
               </span>
-              <button className="btn-icon" onClick={() => setMonthOffset(p => p + 1)} title="Mes siguiente">
+              <button className="btn-icon" onClick={() => setMonthOffset(p => p + 1)} title="4 semanas después">
                 <ChevronRight size={14} />
               </button>
               {monthOffset !== 0 && (
@@ -503,30 +504,15 @@ export function WeeklyPlanner({
       {isMobile && mode === 'week' && (
         <div className="mobile-2day-header">
           <div className="mobile-pair-pills">
-            <button
-              className={`mobile-pair-pill ${dayPairIndex === 0 ? 'active' : ''}`}
-              onClick={() => setDayPairIndex(0)}
-            >
-              Lun - Mar
-            </button>
-            <button
-              className={`mobile-pair-pill ${dayPairIndex === 1 ? 'active' : ''}`}
-              onClick={() => setDayPairIndex(1)}
-            >
-              Mié - Jue
-            </button>
-            <button
-              className={`mobile-pair-pill ${dayPairIndex === 2 ? 'active' : ''}`}
-              onClick={() => setDayPairIndex(2)}
-            >
-              Vie - Sáb
-            </button>
-            <button
-              className={`mobile-pair-pill ${dayPairIndex === 3 ? 'active' : ''}`}
-              onClick={() => setDayPairIndex(3)}
-            >
-              Dom
-            </button>
+            {[[0, 1], [2, 3], [4, 5], [6]].map((pair, pairIdx) => (
+              <button
+                key={pairIdx}
+                className={`mobile-pair-pill ${dayPairIndex === pairIdx ? 'active' : ''}`}
+                onClick={() => setDayPairIndex(pairIdx)}
+              >
+                {pair.map(i => (weekDays[i].isToday ? 'Hoy' : weekDays[i].short)).join(' - ')}
+              </button>
+            ))}
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
             <button
@@ -556,9 +542,11 @@ export function WeeklyPlanner({
           monthOffset={monthOffset}
           onChangeAreaPlan={changeArea}
           onOpenDay={(iso) => {
-            const mondayOf = (d) => { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); x.setHours(0, 0, 0, 0); return x; };
-            setWeekOffset(Math.round((mondayOf(fromIso(iso)) - mondayOf(new Date())) / (7 * 864e5)));
-            setDayPairIndex(Math.floor(((fromIso(iso).getDay() + 6) % 7) / 2));
+            // The week window starts today, so the day lands in window floor(diff / 7).
+            const diff = daysBetween(isoOf(new Date()), iso);
+            const offset = Math.floor(diff / 7);
+            setWeekOffset(offset);
+            setDayPairIndex(Math.floor((diff - offset * 7) / 2));
             setMode('week');
           }}
         />

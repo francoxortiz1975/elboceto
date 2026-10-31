@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { AREA_COLORS, fromIso, isoOf, fmtMin } from '../lib/areaPlan';
+import { AREA_COLORS, addDays, fromIso, isoOf, fmtMin, rollingMonth } from '../lib/areaPlan';
 import './MonthCalendar.css';
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MAX_CHIPS = 4;
 
-// Month grid of the area plan (plus the planner's dated tasks, in neutral).
+// Rolling month (today up to one month ahead) of the area plan, plus the
+// planner's dated tasks in neutral. Days outside that window are dimmed.
 // Clicking a day opens its week; area chips can be dragged to another day.
 export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, onChangeAreaPlan }) {
   const [overIso, setOverIso] = useState(null);
@@ -13,14 +14,14 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
   const gestureEnd = useRef(0);
 
   const todayIso = isoOf(new Date());
-  const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
-  const lead = (first.getDay() + 6) % 7;
-  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-  const weeks = Math.ceil((lead + daysInMonth) / 7);
-  const cells = Array.from({ length: weeks * 7 }, (_, i) => {
-    const d = new Date(first.getFullYear(), first.getMonth(), 1 - lead + i);
-    return { iso: isoOf(d), day: d.getDate(), inMonth: d.getMonth() === first.getMonth() };
+  const { anchor, end, gridStart, rows } = rollingMonth(monthOffset, todayIso);
+  const cells = Array.from({ length: rows * 7 }, (_, i) => {
+    const iso = addDays(gridStart, i);
+    const d = fromIso(iso);
+    const label = d.getDate() === 1 || i === 0
+      ? `${d.getDate()} ${d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}`
+      : String(d.getDate());
+    return { iso, label, first: d.getDate() === 1, inWindow: iso >= anchor && iso <= end };
   });
 
   const areas = areaPlan?.areas || [];
@@ -84,7 +85,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
 
   return (
     <div className="mc-wrap">
-      <div className="mc-grid" style={{ gridTemplateRows: `auto repeat(${weeks}, minmax(92px, 1fr))` }}>
+      <div className="mc-grid" style={{ gridTemplateRows: `auto repeat(${rows}, minmax(92px, 1fr))` }}>
         {WEEKDAYS.map((w) => <div key={w} className="mc-weekday font-mono">{w}</div>)}
         {cells.map((c) => {
           const chips = chipsFor(c.iso);
@@ -93,11 +94,11 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
             <div
               key={c.iso}
               data-iso={c.iso}
-              className={`mc-cell${c.inMonth ? '' : ' out'}${c.iso === todayIso ? ' today' : ''}${overIso === c.iso ? ' over' : ''}`}
+              className={`mc-cell${c.inWindow ? '' : ' out'}${c.first ? ' first' : ''}${c.iso === todayIso ? ' today' : ''}${overIso === c.iso ? ' over' : ''}`}
               onClick={() => { if (Date.now() - gestureEnd.current > 400) onOpenDay(c.iso); }}
               title={fromIso(c.iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
             >
-              <span className="mc-num font-mono">{c.day}</span>
+              <span className="mc-num font-mono">{c.label}</span>
               <div className="mc-chips">
                 {chips.slice(0, MAX_CHIPS).map((chip) => (
                   <div
