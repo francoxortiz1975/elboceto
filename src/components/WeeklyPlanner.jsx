@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { MonthCalendar } from './MonthCalendar';
 import { PlanTabs } from './PlanTabs';
-import { AREA_COLORS, BANDS, addDays, daysBetween, durOf, rollingMonth, isoOf, uid as areaUid } from '../lib/areaPlan';
+import { AREA_COLORS, AREA_DRAG_TYPE, BANDS, addDays, daysBetween, durOf, hasAreaDrag, placeAreaItem, rollingMonth, isoOf, uid as areaUid } from '../lib/areaPlan';
 import './AreaPlanner.css';
 import './CalendarFit.css';
 
@@ -354,6 +354,13 @@ export function WeeklyPlanner({
     const colHeight = rect.height;
     const startMin = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN - 60, yToMinutes(clickY, colHeight)));
 
+    // A "Más adelante" item dragged from the left panel: it gets this day and time.
+    const areaItemId = e.dataTransfer.getData(AREA_DRAG_TYPE);
+    if (areaItemId) {
+      changeArea(p => placeAreaItem(p, areaItemId, { day: day.isoDate, at: startMin }));
+      return;
+    }
+
     if (taskId) {
       updateTask(taskId, {
         dayIso: day.isoDate,
@@ -590,7 +597,17 @@ export function WeeklyPlanner({
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0, maxHeight: '150px', overflowY: 'auto' }}>
                 <div className="font-mono" style={{ fontSize: '0.55rem', color: 'var(--text-subtle)', padding: '5px 6px 0 0', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>sin hora</div>
                 {visibleDays.map(day => (
-                  <div key={day.key} style={{ borderLeft: 'var(--border-hairline)', padding: '3px 4px', display: 'grid', gap: '2px', alignContent: 'start', minWidth: 0 }}>
+                  <div
+                    key={day.key}
+                    style={{ borderLeft: 'var(--border-hairline)', padding: '3px 4px', display: 'grid', gap: '2px', alignContent: 'start', minWidth: 0 }}
+                    onDragOver={e => { if (hasAreaDrag(e)) e.preventDefault(); }}
+                    onDrop={e => {
+                      if (!hasAreaDrag(e)) return;
+                      e.preventDefault();
+                      const id = e.dataTransfer.getData(AREA_DRAG_TYPE);
+                      changeArea(p => placeAreaItem(p, id, { day: day.isoDate, at: 'any' }));
+                    }}
+                  >
                     {untimedAreaItems(day).map(it => {
                       const a = areaById[it.area];
                       return (

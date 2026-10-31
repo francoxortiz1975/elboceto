@@ -1,0 +1,20 @@
+/* "Más adelante" section of the left slide-out panel */
+.ab { padding: 4px 0 8px; border-bottom: var(--border-hairline); }
+.ab-head { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 12px 6px; }
+.ab-title { font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.ab-count { font-family: var(--font-mono); font-size: 0.58rem; color: var(--text-subtle); }
+.ab-pills { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px 6px; }
+.ab-pills .ap-chip { padding: 2px 8px; font-size: 0.66rem; gap: 5px; }
+.ab-add { display: flex; align-items: center; gap: 4px; padding: 2px 12px 6px; }
+.ab-add input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; font: inherit; font-size: 0.8rem; color: var(--text-ink); }
+.ab-add select { max-width: 84px; font-size: 0.64rem; padding: 2px 4px; }
+.ab-add button { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0 2px; display: grid; place-items: center; }
+.ab-row { display: flex; align-items: flex-start; gap: 7px; padding: 5px 10px 5px 9px; border-left: 3px solid var(--c); cursor: grab; transition: background 0.1s; }
+.ab-row:hover { background: var(--bg-hover); }
+.ab-row.done { opacity: 0.5; }
+.ab-text { flex: 1; min-width: 0; font-size: 0.8rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.ab-row.done .ab-text { text-decoration: line-through; color: var(--text-muted); }
+.ab-del { background: none; border: none; cursor: pointer; color: var(--text-subtle); font-size: 0.8rem; line-height: 1; padding: 0 1px; opacity: 0; }
+.ab-row:hover .ab-del, .ab-del:focus-visible { opacity: 1; }
+.ab-empty { padding: 10px 14px; font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-subtle); }
+.ab-sub { padding: 8px 12px 2px; font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-subtle); }

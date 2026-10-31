@@ -1024,6 +1024,8 @@ function parseTextToBlocks(rawText) {
         boardNotes={notes}
         onUpdatePlannerTasks={handleUpdatePlannerTasks}
         onUpdateBoardNotes={handleUpdateNote}
+        areaPlan={areaPlan}
+        onChangeAreaPlan={setAreaPlan}
       />
 
       {/* Google Calendar Sync Modal */}

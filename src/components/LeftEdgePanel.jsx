@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Plus, GripVertical, Check, CheckSquare } from 'lucide-react';
+import { AreaBacklog } from './AreaBacklog';
 
 // ── shared time helpers ────────────────────────────────────────────────────────
 const DAY_START = 7 * 60;   // 420
@@ -341,7 +342,7 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
 }
 
 // ── Planner view: board tasks without a date ───────────────────────────────────
-function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpdateBoardNotes }) {
+function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpdateBoardNotes, areaPlan, onChangeAreaPlan }) {
   const [newText, setNewText] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -457,7 +458,13 @@ function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpd
   const visibleBoardItems = showCompleted ? boardItems : boardItems.filter(i => !i.completed);
   const visibleOwnTasks   = showCompleted ? ownTasks : ownTasks.filter(t => !t.completed);
   const totalVisibleCount = visibleBoardItems.length + visibleOwnTasks.length;
-  const completedCount    = boardItems.filter(i => i.completed).length + ownTasks.filter(t => t.completed).length;
+
+  // The plan's "Más adelante" items (shared area filter: plan.hidden).
+  const plan = areaPlan || { areas: [], items: [], hidden: [] };
+  const hasBacklog = plan.areas.length > 0 && !!onChangeAreaPlan;
+  const backlogDone = plan.items.filter(i => i.day === 'later' && i.done && !plan.hidden.includes(i.area)).length;
+  const backlogShown = plan.items.filter(i => i.day === 'later' && !plan.hidden.includes(i.area) && (showCompleted || !i.done)).length;
+  const completedCount    = boardItems.filter(i => i.completed).length + ownTasks.filter(t => t.completed).length + (hasBacklog ? backlogDone : 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -500,13 +507,15 @@ function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpd
 
       {/* list */}
       <div style={{ flex: 1, overflowY: 'auto', paddingTop: '4px' }}>
-        {totalVisibleCount === 0 ? (
+        {hasBacklog && <AreaBacklog plan={plan} onChange={onChangeAreaPlan} showCompleted={showCompleted} />}
+        {hasBacklog && totalVisibleCount > 0 && <div className="ab-sub">notas y tareas sueltas</div>}
+        {totalVisibleCount === 0 ? (hasBacklog && backlogShown > 0 ? null : (
           <div style={{ padding: '24px 14px', textAlign: 'center' }}>
             <span className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>
               {completedCount > 0 && !showCompleted ? `${completedCount} tarea(s) completada(s) oculta(s)` : 'sin tareas pendientes'}
             </span>
           </div>
-        ) : (
+        )) : (
           <>
             {/* own planner tasks */}
             {visibleOwnTasks.length > 0 && (
@@ -538,7 +547,7 @@ function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpd
 }
 
 // ── Root export ────────────────────────────────────────────────────────────────
-export function LeftEdgePanel({ activeView, plannerTasks, onUpdatePlannerTasks, boardNotes, onUpdateBoardNotes }) {
+export function LeftEdgePanel({ activeView, plannerTasks, onUpdatePlannerTasks, boardNotes, onUpdateBoardNotes, areaPlan, onChangeAreaPlan }) {
   const [visible, setVisible] = useState(false);
   const closeTimeout = useRef(null);
 
@@ -562,7 +571,7 @@ export function LeftEdgePanel({ activeView, plannerTasks, onUpdatePlannerTasks, 
       >
         {activeView === 'board'
           ? <TodayPanel plannerTasks={plannerTasks} boardNotes={boardNotes} onUpdatePlannerTasks={onUpdatePlannerTasks} onUpdateBoardNotes={onUpdateBoardNotes} />
-          : <BoardTasksPanel boardNotes={boardNotes} plannerTasks={plannerTasks} onUpdatePlannerTasks={onUpdatePlannerTasks} onUpdateBoardNotes={onUpdateBoardNotes} />
+          : <BoardTasksPanel boardNotes={boardNotes} plannerTasks={plannerTasks} onUpdatePlannerTasks={onUpdatePlannerTasks} onUpdateBoardNotes={onUpdateBoardNotes} areaPlan={areaPlan} onChangeAreaPlan={onChangeAreaPlan} />
         }
       </div>
     </>

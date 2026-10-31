@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AREA_COLORS, addDays, fromIso, isoOf, fmtMin, rollingMonth } from '../lib/areaPlan';
+import { AREA_COLORS, AREA_DRAG_TYPE, addDays, fromIso, isoOf, fmtMin, hasAreaDrag, placeAreaItem, rollingMonth } from '../lib/areaPlan';
 import './MonthCalendar.css';
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -96,6 +96,15 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
               data-iso={c.iso}
               className={`mc-cell${c.inWindow ? '' : ' out'}${c.first ? ' first' : ''}${c.iso === todayIso ? ' today' : ''}${overIso === c.iso ? ' over' : ''}`}
               onClick={() => { if (Date.now() - gestureEnd.current > 400) onOpenDay(c.iso); }}
+              onDragOver={(e) => { if (hasAreaDrag(e)) { e.preventDefault(); if (overIso !== c.iso) setOverIso(c.iso); } }}
+              onDragLeave={() => setOverIso((cur) => (cur === c.iso ? null : cur))}
+              onDrop={(e) => {
+                if (!hasAreaDrag(e)) return;
+                e.preventDefault();
+                const id = e.dataTransfer.getData(AREA_DRAG_TYPE);
+                onChangeAreaPlan((p) => placeAreaItem(p, id, { day: c.iso, at: 'any' }));
+                setOverIso(null);
+              }}
               title={fromIso(c.iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
             >
               <span className="mc-num font-mono">{c.label}</span>

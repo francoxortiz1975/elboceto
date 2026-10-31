@@ -214,3 +214,23 @@ export function importSchedule(plan, schedule) {
     .filter((it) => !have.has(it.id));
   return { plan: { ...plan, areas, items: [...plan.items, ...fresh] }, added: fresh.length, total: schedule.items.length };
 }
+
+// Dragging a backlog item out of the left panel onto the calendars.
+export const AREA_DRAG_TYPE = 'application/x-boceto-area-item';
+export const hasAreaDrag = (e) => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes(AREA_DRAG_TYPE);
+
+// Puts an item at a new day/time (and optionally another area). Timed drops
+// keep the item's duration; untimed ones drop it.
+export function placeAreaItem(plan, id, { day, at, area }) {
+  return {
+    ...plan,
+    items: plan.items.map((it) => {
+      if (it.id !== id) return it;
+      const moved = { ...it, day, at };
+      if (area) moved.area = area;
+      delete moved.d;
+      if (typeof at === 'number') moved.dur = durOf(it); else delete moved.dur;
+      return moved;
+    })
+  };
+}

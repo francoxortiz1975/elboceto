@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronUp } from 'lucide-react';
 import {
-  AREA_COLORS, SLOTS, BANDS, SLOT_STEP, SNAP, DAY_FROM, DAY_TO,
-  uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
+  AREA_COLORS, AREA_DRAG_TYPE, SLOTS, BANDS, SLOT_STEP, SNAP, DAY_FROM, DAY_TO,
+  hasAreaDrag, placeAreaItem, uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
 } from '../lib/areaPlan';
 import { PlanTabs } from './PlanTabs';
 import './AreaPlanner.css';
@@ -480,6 +480,21 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
                           className={`ap-cell${sx}${isNow ? ' nowrow' : ''}${row.tall ? ' tall' : ''}${col.kind === 'rest' ? ' rest' : ''}${overKey === cellKey ? ' over' : ''}`}
                           style={nowp}
                           onClick={(ev) => onCellClick(row, col, ev)}
+                          onDragOver={(ev) => {
+                            if (!hasAreaDrag(ev) || col.kind === 'rest') return;
+                            ev.preventDefault();
+                            if (overKey !== cellKey) setOverKey(cellKey);
+                          }}
+                          onDragLeave={() => setOverKey((cur) => (cur === cellKey ? null : cur))}
+                          onDrop={(ev) => {
+                            if (!hasAreaDrag(ev) || col.kind === 'rest') return;
+                            ev.preventDefault();
+                            const id = ev.dataTransfer.getData(AREA_DRAG_TYPE);
+                            const at = pointAt(row, ev);
+                            // Into an area column the item takes that area; in the merged day it keeps its own.
+                            mutate((p) => placeAreaItem(p, id, { day: row.day, at, area: col.kind === 'area' ? col.id : undefined }));
+                            setOverKey(null);
+                          }}
                           data-day={row.day} data-at={String(row.at)} data-slot={row.slot ? '1' : undefined}
                           data-col={col.id} data-kind={col.kind}
                         >
