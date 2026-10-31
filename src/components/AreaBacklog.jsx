@@ -16,6 +16,10 @@ export function AreaBacklog({ plan, onChange, showCompleted }) {
 
   const later = plan.items.filter((it) => it.day === 'later' && areaById[it.area] && !isHidden(it.area));
   const shown = later.filter((it) => showCompleted || !it.done);
+  // One block per area, in the plan's order, each with its own title.
+  const groups = visibleAreas
+    .map((a) => ({ area: a, items: shown.filter((it) => it.area === a.id) }))
+    .filter((g) => g.items.length > 0);
   const targetId = visibleAreas.some((a) => a.id === newArea) ? newArea : (visibleAreas[0] && visibleAreas[0].id) || '';
 
   const toggleArea = (id) => onChange((p) => ({
@@ -73,35 +77,40 @@ export function AreaBacklog({ plan, onChange, showCompleted }) {
           {visibleAreas.length === 0 ? 'todas las áreas están ocultas' : 'nada pendiente para más adelante'}
         </div>
       ) : (
-        shown.map((it) => {
-          const a = areaById[it.area];
-          return (
-            <div
-              key={it.id}
-              className={`ab-row${it.done ? ' done' : ''}`}
-              style={{ '--c': colorOf(a) }}
-              title={a.name}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(AREA_DRAG_TYPE, it.id);
-                e.dataTransfer.setData('text/plain', it.text);
-                e.dataTransfer.effectAllowed = 'move';
-              }}
-            >
-              <GripVertical size={10} style={{ color: 'var(--text-subtle)', flexShrink: 0, marginTop: 3 }} />
-              <button
-                className={`block-checkmark ${it.done ? 'checked' : ''}`}
-                style={{ width: '13px', height: '13px', flexShrink: 0, marginTop: 2 }}
-                aria-label={it.done ? 'Marcar pendiente' : 'Marcar hecho'}
-                onClick={(e) => { e.stopPropagation(); patch(it.id, { done: !it.done }); }}
-              >
-                {it.done && <Check size={8} strokeWidth={3} />}
-              </button>
-              <span className="ab-text">{it.text || 'sin título'}</span>
-              <button className="ab-del" aria-label="Borrar tarea" onClick={(e) => { e.stopPropagation(); remove(it.id); }}>×</button>
+        groups.map(({ area, items }) => (
+          <div key={area.id} className="ab-group" style={{ '--c': colorOf(area) }}>
+            <div className="ab-group-head">
+              <i />
+              <span className="ab-group-name">{area.name}</span>
+              <span className="ab-group-count">{items.length}</span>
             </div>
-          );
-        })
+            {items.map((it) => (
+              <div
+                key={it.id}
+                className={`ab-row${it.done ? ' done' : ''}`}
+                title={area.name}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(AREA_DRAG_TYPE, it.id);
+                  e.dataTransfer.setData('text/plain', it.text);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+              >
+                <GripVertical size={10} style={{ color: 'var(--text-subtle)', flexShrink: 0, marginTop: 3 }} />
+                <button
+                  className={`block-checkmark ${it.done ? 'checked' : ''}`}
+                  style={{ width: '13px', height: '13px', flexShrink: 0, marginTop: 2 }}
+                  aria-label={it.done ? 'Marcar pendiente' : 'Marcar hecho'}
+                  onClick={(e) => { e.stopPropagation(); patch(it.id, { done: !it.done }); }}
+                >
+                  {it.done && <Check size={8} strokeWidth={3} />}
+                </button>
+                <span className="ab-text">{it.text || 'sin título'}</span>
+                <button className="ab-del" aria-label="Borrar tarea" onClick={(e) => { e.stopPropagation(); remove(it.id); }}>×</button>
+              </div>
+            ))}
+          </div>
+        ))
       )}
     </div>
   );

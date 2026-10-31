@@ -18,3 +18,10 @@
 .ab-row:hover .ab-del, .ab-del:focus-visible { opacity: 1; }
 .ab-empty { padding: 10px 14px; font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-subtle); }
 .ab-sub { padding: 8px 12px 2px; font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-subtle); }
+
+/* One titled block per area */
+.ab-group { padding-bottom: 2px; }
+.ab-group-head { display: flex; align-items: center; gap: 6px; padding: 8px 12px 3px; font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-ink); }
+.ab-group-head i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+.ab-group-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ab-group-count { margin-left: auto; color: var(--text-subtle); }
