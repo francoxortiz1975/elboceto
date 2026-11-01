@@ -71,6 +71,7 @@ export function DesktopAppLayout({
   handleExportJSON,
   handleImportJSON,
   onImportSchedule,
+  gcal,
   setIsSidebarOpen,
   onMouseMoveSurface,
   onSaveToCloud,
@@ -321,6 +322,47 @@ export function DesktopAppLayout({
                   {autoSortCompleted ? 'ON' : 'OFF'}
                 </span>
               </button>
+
+              {/* Google Calendar (app -> Google) */}
+              <div className="panel-section-title font-mono">GOOGLE CALENDAR</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                <button
+                  className={`btn-icon ${gcal.on ? 'active' : ''}`}
+                  style={{ width: '100%', justifyContent: 'space-between' }}
+                  disabled={!gcal.canUse || gcal.phase === 'syncing' && !gcal.on}
+                  onClick={gcal.on ? gcal.disable : gcal.enable}
+                  title={gcal.canUse ? 'Enviar tu plan a un calendario de Google' : 'Inicia sesión para usarlo'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={12} />
+                    <span className="font-mono" style={{ fontSize: '0.75rem' }}>Sincronizar con Google</span>
+                  </div>
+                  <span className="font-mono" style={{ fontSize: '0.68rem', color: gcal.on ? 'inherit' : 'var(--text-muted)' }}>
+                    {gcal.on ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+                {!gcal.canUse && (
+                  <span className="font-mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', padding: '0 4px' }}>
+                    Inicia sesión para usarlo.
+                  </span>
+                )}
+                {gcal.on && (
+                  <button className="btn-icon" style={{ width: '100%' }} disabled={gcal.phase === 'syncing'} onClick={gcal.syncNow}>
+                    <span className="font-mono" style={{ fontSize: '0.75rem' }}>
+                      {gcal.phase === 'syncing' ? 'Sincronizando…' : 'Sincronizar ahora'}
+                    </span>
+                  </button>
+                )}
+                {(gcal.message || (gcal.on && gcal.phase === 'ok')) && (
+                  <span
+                    className="font-mono"
+                    style={{ fontSize: '0.68rem', padding: '0 4px', color: gcal.phase === 'error' ? '#b91c1c' : 'var(--text-muted)' }}
+                  >
+                    {gcal.phase === 'error' ? '⚠ ' : ''}
+                    {gcal.message || `✓ ${gcal.count} evento${gcal.count === 1 ? '' : 's'} en Google${gcal.lastSync ? ` · ${gcal.lastSync.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
+                  </span>
+                )}
+              </div>
 
               {/* Timetables */}
               <div className="panel-section-title font-mono">HORARIOS</div>

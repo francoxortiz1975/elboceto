@@ -12,6 +12,7 @@ import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSyn
 import { subscribeToCloudChanges } from './lib/realtimeSync';
 import { loadAreaPlan, saveAreaPlan, importSchedule } from './lib/areaPlan';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
+import { useGcalSync } from './lib/useGcalSync';
 import {
   Plus,
   BookOpen,
@@ -582,6 +583,7 @@ function parseTextToBlocks(rawText) {
   // Guardar/Cargar remain available for explicit manual control.
   const { user } = useAuth();
   useAreaPlanSync(user, areaPlan, setAreaPlan);
+  const gcal = useGcalSync(user, areaPlan, setAreaPlan);
   const reconcileStartedForRef = useRef(null);
   const [reconciledUserId, setReconciledUserId] = useState(null);
 
@@ -992,6 +994,7 @@ function parseTextToBlocks(rawText) {
           handleExportJSON={handleExportJSON}
           handleImportJSON={handleImportJSON}
           onImportSchedule={handleImportSchedule}
+          gcal={gcal}
           setIsSidebarOpen={setIsSidebarOpen}
           onMouseMoveSurface={handleMouseMoveSurface}
           onSaveToCloud={handleSaveToCloud}

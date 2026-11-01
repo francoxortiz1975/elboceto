@@ -75,3 +75,13 @@ EL_BOCETO/
 1. **Styling**: Always use Vanilla CSS classes defined in `src/index.css`. Maintain paper-like typography, soft shadows, and subtle micro-animations.
 2. **Component Integrity**: Keep state mutations immutable and push to history when modifying notes.
 3. **Touch & Mobile Support**: Event handlers in `CanvasBoard` handle both mouse (`onMouseDown`, `onMouseMove`) and touch (`onTouchStart`, `onTouchMove`) events via standard helper `getCoords(e)`.
+
+---
+
+## Google Calendar sync (app → Google, one way)
+
+- `api/gcal.js` (Vercel function) writes the plan's dated items to one shared Google Calendar as a **service account**; there is no OAuth consent screen. Only the signed-in user whose e-mail is `GOOGLE_SYNC_USER_EMAIL` may call it.
+- Env vars (Vercel): `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_CALENDAR_ID`, `GOOGLE_SYNC_USER_EMAIL`. The calendar must be shared with the service account's e-mail ("Make changes to events").
+- `src/lib/gcalSync.js` (pure: builds events, diffs the plan against `plan.gcal.map`) and `src/lib/useGcalSync.js` (debounced sync while `plan.gcal.on`). The item → Google event map lives in the plan, so it syncs across devices and deletions are detected by diffing.
+- The toggle is in the ⋮ menu ("GOOGLE CALENDAR"). `/api` only exists on Vercel, not in `vite dev`.
+
