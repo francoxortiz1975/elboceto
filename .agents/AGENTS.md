@@ -83,5 +83,6 @@ EL_BOCETO/
 - `api/gcal.js` (Vercel function) writes the plan's dated items to one shared Google Calendar as a **service account**; there is no OAuth consent screen. Only the signed-in user whose e-mail is `GOOGLE_SYNC_USER_EMAIL` may call it.
 - Env vars (Vercel): `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_CALENDAR_ID`, `GOOGLE_SYNC_USER_EMAIL`. The calendar must be shared with the service account's e-mail ("Make changes to events").
 - `src/lib/gcalSync.js` (pure: builds events, diffs the plan against `plan.gcal.map`) and `src/lib/useGcalSync.js` (debounced sync while `plan.gcal.on`). The item → Google event map lives in the plan, so it syncs across devices and deletions are detected by diffing.
+- Event colors: Google only has 11 fixed `colorId`s, so each area color maps to the closest one (`AREA_COLOR_IDS` in `gcalSync.js`, same order as `AREA_COLORS`).
 - The toggle is in the ⋮ menu ("GOOGLE CALENDAR"). `/api` only exists on Vercel, not in `vite dev`.
 

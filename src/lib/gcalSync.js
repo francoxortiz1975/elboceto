@@ -1,4 +1,4 @@
-import { BANDS, addDays, durOf } from './areaPlan';
+import { AREA_COLORS, BANDS, addDays, durOf } from './areaPlan';
 
 // Pure helpers that decide what to send to Google Calendar. The plan keeps a
 // map of itemId -> { id: googleEventId, hash } in `plan.gcal.map`, so deleting
@@ -8,6 +8,13 @@ import { BANDS, addDays, durOf } from './areaPlan';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const pad2 = (n) => String(n).padStart(2, '0');
 export const MAX_OPS_PER_REQUEST = 25;
+
+// Google only offers 11 fixed event colors (colorId), not free hex values. These
+// are the closest ones to AREA_COLORS, in the same order: sage green -> Basil,
+// blue -> Blueberry, ochre -> Tangerine, purple -> Grape, teal -> Peacock,
+// rose -> Flamingo, grey -> Graphite.
+const AREA_COLOR_IDS = ['10', '9', '6', '3', '7', '4', '8'];
+export const gcalColorId = (area) => (area ? AREA_COLOR_IDS[area.c % AREA_COLORS.length] : undefined);
 
 // Only dated items with a title go to Google ("Más adelante" items stay in the app).
 export const isSyncable = (item) => DATE_RE.test(item.day || '') && !!(item.text || '').trim();
@@ -26,7 +33,12 @@ export function buildEvent(item, area, tz) {
   if (band) lines.push(`Franja: ${band.label}`);
   if (item.note) lines.push(item.note);
   lines.push('Creado en El Boceto');
-  const common = { summary: `${item.done ? '✓ ' : ''}${item.text.trim()}`, description: lines.join('\n') };
+  const colorId = gcalColorId(area);
+  const common = {
+    summary: `${item.done ? '✓ ' : ''}${item.text.trim()}`,
+    description: lines.join('\n'),
+    ...(colorId ? { colorId } : {})
+  };
 
   if (typeof item.at === 'number') {
     return {
