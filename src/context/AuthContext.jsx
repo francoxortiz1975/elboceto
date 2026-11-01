@@ -27,6 +27,12 @@ export function AuthProvider({ children }) {
     });
   };
 
+  // Signs in with the numeric code that comes in the same email as the magic link.
+  const verifyOtp = (email, token) => {
+    if (!supabase) return Promise.resolve({ error: { message: 'Login no disponible: falta configurar Supabase en este entorno.' } });
+    return supabase.auth.verifyOtp({ email, token, type: 'email' });
+  };
+
   const signOut = () => supabase ? supabase.auth.signOut() : Promise.resolve({ error: null });
 
   const value = {
@@ -34,6 +40,7 @@ export function AuthProvider({ children }) {
     user: session?.user || null,
     loading,
     signInWithOtp,
+    verifyOtp,
     signOut
   };
 

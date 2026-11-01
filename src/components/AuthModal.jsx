@@ -1,24 +1,58 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export function AuthModal({ onClose }) {
-  const { signInWithOtp } = useAuth();
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | sending | sent | error
-  const [errorMsg, setErrorMsg] = useState('');
+const RESEND_SECONDS = 60; // Supabase allows one email per minute
 
-  const handleSubmit = async (e) => {
+export function AuthModal({ onClose }) {
+  const { signInWithOtp, verifyOtp } = useAuth();
+  const [step, setStep] = useState('email'); // email | code
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [notice, setNotice] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const sendEmail = async () => {
+    setBusy(true);
+    setErrorMsg('');
+    const { error } = await signInWithOtp(email.trim());
+    setBusy(false);
+    if (error) { setErrorMsg(error.message); return false; }
+    setCooldown(RESEND_SECONDS);
+    return true;
+  };
+
+  const handleSend = async (e) => {
     e.preventDefault();
     if (!email.trim()) return;
-    setStatus('sending');
-    const { error } = await signInWithOtp(email.trim());
+    if (await sendEmail()) { setStep('code'); setNotice(''); setCode(''); }
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0 || busy) return;
+    if (await sendEmail()) setNotice('Te mandamos otro correo.');
+  };
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (code.length < 6 || busy) return;
+    setBusy(true);
+    setErrorMsg('');
+    const { error } = await verifyOtp(email.trim(), code);
+    setBusy(false);
     if (error) {
-      setErrorMsg(error.message);
-      setStatus('error');
-    } else {
-      setStatus('sent');
+      setErrorMsg('El código es incorrecto o ya venció. Revisa el último correo o pide uno nuevo.');
+      return;
     }
+    onClose();
   };
 
   return (
@@ -48,16 +82,50 @@ export function AuthModal({ onClose }) {
           Iniciar sesión
         </div>
 
-        {status === 'sent' ? (
-          <div className="home-pin-desc">
-            Revisá tu correo — te mandamos un link para entrar a <strong>{email}</strong>.
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit}>
+        {step === 'code' ? (
+          <form onSubmit={handleVerify}>
             <div className="home-pin-desc">
-              Ingresá tu email para guardar tus notas y acceder desde otros dispositivos.
+              Te mandamos un correo a <strong>{email}</strong>. Abre el link, o escribe aquí el código que trae.
             </div>
             <input
+              id="auth-code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={10}
+              autoFocus
+              placeholder="Código"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              className="note-title-input font-mono"
+              style={{ width: '100%', margin: '10px 0', boxSizing: 'border-box', letterSpacing: '0.3em', textAlign: 'center', fontSize: '1.05rem' }}
+            />
+            {errorMsg && (
+              <div style={{ color: '#b91c1c', fontSize: '0.72rem', marginBottom: '8px' }}>{errorMsg}</div>
+            )}
+            {notice && !errorMsg && (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '8px' }}>{notice}</div>
+            )}
+            <div className="home-pin-actions" style={{ flexWrap: 'wrap', rowGap: '6px' }}>
+              <button type="button" className="btn-pin-cancel font-mono" onClick={() => { setStep('email'); setErrorMsg(''); }}>
+                Cambiar email
+              </button>
+              <button type="button" className="btn-pin-cancel font-mono" onClick={handleResend} disabled={cooldown > 0 || busy}>
+                {cooldown > 0 ? `Reenviar (${cooldown}s)` : 'Reenviar'}
+              </button>
+              <button type="submit" className="btn-pin-confirm font-mono" disabled={busy || code.length < 6}>
+                {busy ? 'Entrando…' : 'Entrar'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleSend}>
+            <div className="home-pin-desc">
+              Ingresá tu email para guardar tus notas y acceder desde otros dispositivos. Te mandamos un link y un código para entrar.
+            </div>
+            <input
+              id="auth-email"
               type="email"
               autoFocus
               required
@@ -67,17 +135,15 @@ export function AuthModal({ onClose }) {
               className="note-title-input"
               style={{ width: '100%', margin: '10px 0', boxSizing: 'border-box' }}
             />
-            {status === 'error' && (
-              <div style={{ color: '#b91c1c', fontSize: '0.72rem', marginBottom: '8px' }}>
-                {errorMsg}
-              </div>
+            {errorMsg && (
+              <div style={{ color: '#b91c1c', fontSize: '0.72rem', marginBottom: '8px' }}>{errorMsg}</div>
             )}
             <div className="home-pin-actions">
               <button type="button" className="btn-pin-cancel font-mono" onClick={onClose}>
                 Cancelar
               </button>
-              <button type="submit" className="btn-pin-confirm font-mono" disabled={status === 'sending'}>
-                {status === 'sending' ? 'Enviando…' : 'Enviar link mágico'}
+              <button type="submit" className="btn-pin-confirm font-mono" disabled={busy}>
+                {busy ? 'Enviando…' : 'Enviar link y código'}
               </button>
             </div>
           </form>
