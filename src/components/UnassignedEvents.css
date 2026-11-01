@@ -1,0 +1,24 @@
+/* "Eventos sin área" dialog */
+.ue-overlay { position: fixed; inset: 0; z-index: 2500; background: rgba(24, 24, 27, 0.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ue-box { position: relative; width: 560px; max-width: 100%; max-height: 86vh; overflow: auto; background: var(--bg-note); border: var(--border-strong); border-radius: 10px; box-shadow: var(--shadow-floating); padding: 22px 22px 18px; display: flex; flex-direction: column; gap: 12px; }
+.ue-close { position: absolute; top: 10px; right: 10px; background: none; border: 0; cursor: pointer; color: var(--text-muted); padding: 4px; display: grid; place-items: center; }
+.ue-title { margin: 0; font-size: 1.6rem; font-weight: 400; line-height: 1.1; }
+.ue-desc { margin: 0; font-size: 0.8rem; color: var(--text-muted); max-width: 58ch; }
+.ue-empty { padding: 18px 4px; font-size: 0.85rem; color: var(--text-muted); }
+.ue-all { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-muted); }
+.ue-all select { min-width: 130px; }
+.ue-list { display: grid; gap: 4px; border-top: var(--border-hairline); padding-top: 8px; }
+.ue-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 84px; align-items: center; gap: 10px; padding: 7px 8px 7px 10px; border-left: 3px solid var(--c, rgba(24, 24, 27, 0.15)); border-radius: 2px; background: color-mix(in srgb, var(--c, transparent) 10%, transparent); }
+.ue-text { font-size: 0.86rem; font-weight: 500; overflow-wrap: anywhere; }
+.ue-text em { color: var(--text-subtle); font-weight: 400; }
+.ue-when { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted); margin-top: 2px; }
+.ue-select { width: 100%; }
+.ue-discard { text-align: right; background: none; border: 0; cursor: pointer; color: var(--text-subtle); font: 500 0.7rem var(--font-mono); padding: 4px; white-space: nowrap; }
+.ue-discard:hover { color: var(--text-ink); text-decoration: underline; }
+.ue-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 6px; }
+.ue-primary { font: 500 0.78rem var(--font-body); padding: 7px 14px; border-radius: var(--radius-md); border: 1px solid var(--text-ink); background: var(--text-ink); color: var(--bg-book); cursor: pointer; }
+.ue-primary:disabled { opacity: 0.4; cursor: default; }
+@media (max-width: 560px) {
+  .ue-row { grid-template-columns: minmax(0, 1fr) 84px; }
+  .ue-select { grid-column: 1 / -1; order: 3; }
+}

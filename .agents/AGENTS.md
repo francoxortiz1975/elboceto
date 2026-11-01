@@ -86,3 +86,11 @@ EL_BOCETO/
 - Event colors: Google only has 11 fixed `colorId`s, so each area color maps to the closest one (`AREA_COLOR_IDS` in `gcalSync.js`, same order as `AREA_COLORS`).
 - The toggle is in the ⋮ menu ("GOOGLE CALENDAR"). `/api` only exists on Vercel, not in `vite dev`.
 
+---
+
+## Every block has an area
+
+- Creating a block (double click on the week, on the "sin hora" strip, on the mini "hoy" panel, or dragging a loose task / a note's check onto the week) always opens `AreaPicker` ("¿Para qué área?") first; nothing is created until an area is chosen.
+- Old events without an area (dated Planificador tasks and canvas notes with a date) are listed by `UnassignedEvents` (auto-opens once per session, or from the ⋮ menu); each becomes a normal block only when you pick an area (`src/lib/legacyEvents.js`).
+- A note's check that was dragged onto the week keeps `areaItemId` on its block, which hides it from "Pendientes" while that block exists.
+

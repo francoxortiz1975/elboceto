@@ -1,0 +1,9 @@
+/* Area chooser popover (see AreaPicker.jsx) */
+.apick { position: fixed; z-index: 3000; min-width: 176px; max-width: 240px; padding: 6px; background: var(--bg-note); border: var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-floating); display: grid; gap: 2px; user-select: none; }
+.apick-title { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); padding: 4px 8px 6px; }
+.apick-empty { font-size: 0.75rem; color: var(--text-muted); padding: 4px 8px 6px; }
+.apick-opt { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--text-ink); font: 500 0.82rem var(--font-body); text-align: left; cursor: pointer; }
+.apick-opt:hover, .apick-opt:focus-visible { background: color-mix(in srgb, var(--c) 16%, var(--bg-note)); outline: none; }
+.apick-opt i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+.apick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apick-opt kbd { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-subtle); border: var(--border-hairline); border-radius: 3px; padding: 0 4px; }

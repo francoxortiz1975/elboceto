@@ -72,6 +72,8 @@ export function DesktopAppLayout({
   handleImportJSON,
   onImportSchedule,
   gcal,
+  legacyCount,
+  onOpenLegacy,
   setIsSidebarOpen,
   onMouseMoveSurface,
   onSaveToCloud,
@@ -322,6 +324,23 @@ export function DesktopAppLayout({
                   {autoSortCompleted ? 'ON' : 'OFF'}
                 </span>
               </button>
+
+              {/* Events that still have no area */}
+              {legacyCount > 0 && (
+                <>
+                  <div className="panel-section-title font-mono">EVENTOS SIN ÁREA</div>
+                  <button
+                    className="btn-icon"
+                    style={{ width: '100%', justifyContent: 'flex-start', marginBottom: '12px' }}
+                    onClick={() => { onOpenLegacy(); setShowMoreMenu(false); }}
+                  >
+                    <CheckSquare size={12} />
+                    <span className="font-mono" style={{ fontSize: '0.75rem' }}>
+                      Asignar área a {legacyCount} evento{legacyCount === 1 ? '' : 's'}
+                    </span>
+                  </button>
+                </>
+              )}
 
               {/* Google Calendar (app -> Google) */}
               <div className="panel-section-title font-mono">GOOGLE CALENDAR</div>

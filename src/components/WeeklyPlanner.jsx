@@ -7,10 +7,10 @@ import {
   ArrowUp,
   Trash2,
   ChevronUp,
-  Calendar
 } from 'lucide-react';
 import { MonthCalendar } from './MonthCalendar';
 import { PlanTabs } from './PlanTabs';
+import { AreaPicker } from './AreaPicker';
 import { AREA_COLORS, AREA_DRAG_TYPE, BANDS, addDays, daysBetween, durOf, hasAreaDrag, placeAreaItem, rollingMonth, isoOf, uid as areaUid } from '../lib/areaPlan';
 import './AreaPlanner.css';
 import './CalendarFit.css';
@@ -64,7 +64,6 @@ export function WeeklyPlanner({
   plannerTasks,
   onUpdatePlannerTasks,
   onUpdateBoardNotes,
-  onOpenCalendarModal,
   onTransitionToBoard,
   weekOffset: propWeekOffset,
   onWeekOffsetChange,
@@ -81,7 +80,8 @@ export function WeeklyPlanner({
   const mode = propMode || localMode; // 'week' | 'month'
   const setMode = onModeChange || setLocalMode;
   const [monthOffset, setMonthOffset] = useState(0);
-  const [createIn, setCreateIn] = useState('planner'); // where new blocks go: 'planner' or an area id
+  const [picker, setPicker] = useState(null); // "¿Para qué área?" popover: { x, y, create(areaId) }
+  const [newBlockId, setNewBlockId] = useState(null); // block that should grab focus so you can type its title
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
 
   useEffect(() => {
@@ -215,29 +215,30 @@ export function WeeklyPlanner({
     }
   };
 
-  const addTimeTask = (dayObj, clickY) => {
+  // Every new block belongs to an area: ask first, then create a normal block.
+  const askArea = (evt, create) => setPicker({ x: evt.clientX, y: evt.clientY, create });
+  const addAreaItem = (areaId, fields) => {
+    const id = areaUid();
+    changeArea(p => ({
+      ...p,
+      hidden: p.hidden.filter(h => h !== areaId), // a new block in a hidden area would vanish
+      items: [...p.items, { id, area: areaId, text: '', done: false, ...fields }]
+    }));
+    setNewBlockId(`area_${id}`);
+    return id;
+  };
+
+  const addTimeTask = (dayObj, clickY, evt) => {
     const colEl = colRefs.current[dayObj.key];
     if (!colEl) return;
     const colHeight = colEl.getBoundingClientRect().height;
     const startMin = yToMinutes(clickY, colHeight);
     const clamped = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN - 30, startMin));
-    if (createIn !== 'planner' && areaById[createIn]) {
-      changeArea(p => ({
-        ...p,
-        items: [...p.items, { id: areaUid(), area: createIn, text: '', done: false, day: dayObj.isoDate, at: clamped, dur: 60 }]
-      }));
-      return;
-    }
-    const newTask = {
-      id: 'task_' + Date.now(),
-      text: '',
-      completed: false,
-      dayIso: dayObj.isoDate,
-      dayKey: dayObj.key,
-      timeSlot: minutesToTimeStr(clamped),
-      durationMin: 60
-    };
-    onUpdatePlannerTasks(prev => [...prev, newTask]);
+    askArea(evt, (areaId) => addAreaItem(areaId, { day: dayObj.isoDate, at: clamped, dur: 60 }));
+  };
+
+  const addUntimedItem = (dayObj, evt) => {
+    askArea(evt, (areaId) => addAreaItem(areaId, { day: dayObj.isoDate, at: 'any' }));
   };
 
   // ── Pointer-based drag (move and resize) ──────────────────────────────────
@@ -362,42 +363,44 @@ export function WeeklyPlanner({
     }
 
     if (taskId) {
-      updateTask(taskId, {
-        dayIso: day.isoDate,
-        dayKey: day.key,
-        timeSlot: minutesToTimeStr(startMin)
+      // A loose task from "Pendientes": it becomes a normal block of the area you choose.
+      const task = plannerTasks.find(t => t.id === taskId);
+      if (!task) return;
+      askArea(e, (areaId) => {
+        addAreaItem(areaId, { text: task.text || '', done: !!task.completed, day: day.isoDate, at: startMin, dur: task.durationMin || 60 });
+        onUpdatePlannerTasks(prev => prev.filter(t => t.id !== taskId));
       });
     } else if (boardBlockRaw) {
+      // A check from a canvas note: a new block; the check is remembered so it leaves "Pendientes".
       try {
-        const { text, noteId } = JSON.parse(boardBlockRaw);
-        if (text) {
-          onUpdatePlannerTasks(prev => [...prev, {
-            id: 'task_' + Date.now(),
-            text,
-            completed: false,
-            dayIso: day.isoDate,
-            dayKey: day.key,
-            timeSlot: minutesToTimeStr(startMin),
-            durationMin: 60,
-            noteId
-          }]);
-          if (noteId && onUpdateBoardNotes) {
-            const current = (boardNotes || []).find(n => n.id === noteId);
-            if (current) {
-              onUpdateBoardNotes({
-                ...current,
-                eventDate: day.isoDate,
-                eventTime: minutesToTimeStr(startMin)
-              });
-            }
+        const { text, noteId, blockId } = JSON.parse(boardBlockRaw);
+        if (!text) return;
+        askArea(e, (areaId) => {
+          const itemId = addAreaItem(areaId, { text, day: day.isoDate, at: startMin, dur: 60 });
+          const current = (boardNotes || []).find(n => n.id === noteId);
+          if (current && onUpdateBoardNotes) {
+            onUpdateBoardNotes({
+              ...current,
+              blocks: (current.blocks || []).map(b => (b.id === blockId ? { ...b, areaItemId: itemId } : b))
+            });
           }
-        }
-      } catch (_) {}
+        });
+      } catch { /* malformed drag data */ }
     }
   };
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-book)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {picker && (
+        <AreaPicker
+          x={picker.x}
+          y={picker.y}
+          areas={plan.areas}
+          onPick={(areaId) => { const p = picker; setPicker(null); p.create(areaId); }}
+          onClose={() => setPicker(null)}
+        />
+      )}
 
       {/* Header */}
       <div className="wk-head" style={{ borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
@@ -492,20 +495,6 @@ export function WeeklyPlanner({
             >Todas</button>
           </div>
         )}
-        {mode === 'week' && plan.areas.length > 0 && (
-          <label className="ap-flabel wk-create">
-            Nuevo bloque en
-            <select
-              id="planner-create-in"
-              className="ap-btn"
-              value={createIn}
-              onChange={(e) => setCreateIn(e.target.value)}
-            >
-              <option value="planner">Planificador</option>
-              {plan.areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </label>
-        )}
       </div>
 
       {/* Mobile 2-Day View Pair Selector Header */}
@@ -573,25 +562,12 @@ export function WeeklyPlanner({
                   <span className="font-title" style={{ fontSize: '1.05rem', fontStyle: 'italic', fontWeight: day.isToday ? 600 : 400 }}>{day.label}</span>
                   <span className="font-mono" style={{ fontSize: '0.65rem', color: day.isToday ? 'var(--text-ink)' : 'var(--text-muted)' }}>{day.formattedDate}</span>
                 </div>
-                <button
-                  className="btn-icon active wk-add"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addTimeTask(day, 120);
-                  }}
-                  title="Añadir Evento"
-                  aria-label="Añadir Evento"
-                >
-                  +<span className="wk-add-label"> Evento</span>
-                </button>
               </div>
             ))}
           </div>
 
           {/* Area items without a time of day */}
           {(() => {
-            const anyUntimed = visibleDays.some(d => untimedAreaItems(d).length > 0);
-            if (!anyUntimed && createIn === 'planner') return null;
             const bandLabel = (at) => (BANDS.find(b => b.id === at) || {}).label;
             return (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0, maxHeight: '150px', overflowY: 'auto' }}>
@@ -599,7 +575,10 @@ export function WeeklyPlanner({
                 {visibleDays.map(day => (
                   <div
                     key={day.key}
-                    style={{ borderLeft: 'var(--border-hairline)', padding: '3px 4px', display: 'grid', gap: '2px', alignContent: 'start', minWidth: 0 }}
+                    style={{ borderLeft: 'var(--border-hairline)', padding: '3px 4px', display: 'grid', gap: '2px', alignContent: 'start', minWidth: 0, minHeight: '28px', cursor: 'crosshair' }}
+                    title="Doble clic para añadir una tarea sin hora"
+                    onClick={e => { if (isMobile && !e.target.closest('.ap-item')) addUntimedItem(day, e); }}
+                    onDoubleClick={e => { if (!isMobile && !e.target.closest('.ap-item')) addUntimedItem(day, e); }}
                     onDragOver={e => { if (hasAreaDrag(e)) e.preventDefault(); }}
                     onDrop={e => {
                       if (!hasAreaDrag(e)) return;
@@ -621,6 +600,8 @@ export function WeeklyPlanner({
                           <textarea
                             className="ap-txt wk-untxt"
                             rows={1}
+                            autoFocus={newBlockId === `area_${it.id}`}
+                            onFocus={() => { if (newBlockId === `area_${it.id}`) setNewBlockId(null); }}
                             ref={autoSize}
                             value={it.text}
                             placeholder="Escribe…"
@@ -630,17 +611,6 @@ export function WeeklyPlanner({
                         </div>
                       );
                     })}
-                    {createIn !== 'planner' && areaById[createIn] && (
-                      <button
-                        className="ap-btn"
-                        style={{ fontSize: '0.62rem', padding: '1px 6px', justifySelf: 'start' }}
-                        onClick={() => changeArea(p => ({
-                          ...p,
-                          items: [...p.items, { id: areaUid(), area: createIn, text: '', done: false, day: day.isoDate, at: 'any' }]
-                        }))}
-                        title={`Añadir tarea sin hora en ${areaById[createIn].name}`}
-                      >+</button>
-                    )}
                   </div>
                 ))}
               </div>
@@ -679,7 +649,7 @@ export function WeeklyPlanner({
                       const colEl = colRefs.current[day.key];
                       if (!colEl) return;
                       const rect = colEl.getBoundingClientRect();
-                      addTimeTask(day, e.clientY - rect.top);
+                      addTimeTask(day, e.clientY - rect.top, e);
                     }
                   }}
                   onDoubleClick={(e) => {
@@ -687,7 +657,7 @@ export function WeeklyPlanner({
                       const colEl = colRefs.current[day.key];
                       if (!colEl) return;
                       const rect = colEl.getBoundingClientRect();
-                      addTimeTask(day, e.clientY - rect.top);
+                      addTimeTask(day, e.clientY - rect.top, e);
                     }
                   }}
                   onDragOver={e => e.preventDefault()}
@@ -733,22 +703,6 @@ export function WeeklyPlanner({
                     const endStr     = minutesToTimeStr(startMin + durationMin);
                     const cardBg     = task.isArea ? `color-mix(in srgb, ${task.areaColor} ${task.completed ? 7 : 16}%, var(--bg-note))` : task.isEvent ? 'var(--text-ink)' : (task.completed ? 'rgba(24,24,27,0.04)' : 'var(--bg-note)');
 
-                    const handleOpenModalForTask = (e) => {
-                      if (e) e.stopPropagation();
-                      if (onOpenCalendarModal) {
-                        const targetNote = (boardNotes || []).find(n => n.id === task.noteId || `board_${n.id}` === task.id) || {
-                          id: task.id,
-                          title: task.text || 'Evento',
-                          eventDate: task.dayIso,
-                          eventTime: task.timeSlot,
-                          eventDurationMin: task.durationMin || 60,
-                          isEvent: task.isEvent,
-                          blocks: [{ id: 'b_1', text: task.text || 'Evento' }]
-                        };
-                        onOpenCalendarModal(targetNote);
-                      }
-                    };
-
                     return (
                       <div
                         key={task.id}
@@ -756,7 +710,6 @@ export function WeeklyPlanner({
                         title={`${task.timeSlot} — ${endStr}${task.isArea ? ` · ${task.areaName}` : ''}${task.note ? ` · ${task.note}` : ''}`}
                         onMouseDown={(e) => startDragMove(e, task, day.key)}
                         onTouchStart={(e) => startDragMove(e, task, day.key)}
-                        onDoubleClick={handleOpenModalForTask}
                         style={{
                           position: 'absolute',
                           top: `${yPct}%`,
@@ -791,6 +744,8 @@ export function WeeklyPlanner({
                             <input
                               type="text"
                               className="block-text-input"
+                              autoFocus={newBlockId === task.id}
+                              onFocus={() => { if (newBlockId === task.id) setNewBlockId(null); }}
                               style={{
                                 fontSize: '0.78rem',
                                 flex: 1,
@@ -808,14 +763,6 @@ export function WeeklyPlanner({
                               placeholder="Evento..."
                             />
                             <div className="wk-actions">
-                              <button
-                                style={{display: task.isArea ? 'none' : undefined,  background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
-                                onMouseDown={e => e.stopPropagation()}
-                                onClick={handleOpenModalForTask}
-                                title="Configurar / Sincronizar Calendario"
-                              >
-                                <Calendar size={10} />
-                              </button>
                               <button
                                 className={`block-checkmark ${task.completed ? 'checked' : ''}`}
                                 style={{ width: '12px', height: '12px' }}
@@ -842,14 +789,6 @@ export function WeeklyPlanner({
                               </span>
                               <div className="wk-actions">
                                 <button
-                                  style={{display: task.isArea ? 'none' : undefined,  background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
-                                  onMouseDown={e => e.stopPropagation()}
-                                  onClick={handleOpenModalForTask}
-                                  title="Configurar / Sincronizar Calendario"
-                                >
-                                  <Calendar size={10} />
-                                </button>
-                                <button
                                   className={`block-checkmark ${task.completed ? 'checked' : ''}`}
                                   style={{ width: '12px', height: '12px' }}
                                   onMouseDown={e => e.stopPropagation()}
@@ -870,6 +809,8 @@ export function WeeklyPlanner({
                             <textarea
                               className="wk-title-input"
                               rows={1}
+                              autoFocus={newBlockId === task.id}
+                              onFocus={() => { if (newBlockId === task.id) setNewBlockId(null); }}
                               style={{
                                 textDecoration: task.completed ? 'line-through' : 'none',
                                 color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)')

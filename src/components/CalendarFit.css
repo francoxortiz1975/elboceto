@@ -12,25 +12,11 @@
 .wk-toolbar .ap-seg { margin-right: 0; }
 .wk-areas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .wk-areas .ap-chip { white-space: nowrap; flex: none; }
-.wk-create { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.wk-create select { max-width: 160px; }
 
 /* ── Day headers ──────────────────────────────────────────────────────── */
 .wk-dayhead { container: wkhead / inline-size; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; gap: 4px 6px; min-height: 38px; min-width: 0; }
 .wk-daytitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; min-width: 0; }
 .wk-daytitle .font-mono { white-space: nowrap; }
-.wk-add { padding: 2px 6px; font-size: 0.62rem; border-radius: 10px; white-space: nowrap; flex: none; }
-@container wkhead (max-width: 150px) {
-  .wk-add-label { display: none; }
-  .wk-add { padding: 2px 8px; font-size: 0.78rem; line-height: 1.1; }
-}
-
-/* ── "Sin hora" strip ─────────────────────────────────────────────────── */
-.wk-untimed { grid-template-columns: 16px minmax(0, 1fr); cursor: default; padding-left: 4px; }
-.wk-untxt { font-size: 0.74rem; line-height: 16px; min-height: 16px; min-width: 0; white-space: normal; word-break: break-word; }
-@media (hover: hover) and (pointer: fine) {
-  .wk-untimed .ap-del { position: absolute; right: 2px; top: 0; padding: 0 3px; background: var(--bg-note); border-radius: 3px; }
-}
 @media (pointer: coarse) {
   .wk-untimed { grid-template-columns: 16px minmax(0, 1fr) 18px; }
   .wk-untimed .ap-del { opacity: 1; }

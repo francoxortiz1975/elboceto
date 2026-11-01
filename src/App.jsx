@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CanvasBoard } from './components/CanvasBoard';
 import { SidebarList } from './components/SidebarList';
 import { GoogleCalendarModal } from './components/GoogleCalendarModal';
+import { UnassignedEvents } from './components/UnassignedEvents';
 import { WeeklyPlanner } from './components/WeeklyPlanner';
 import { LeftEdgePanel } from './components/LeftEdgePanel';
 import { DocumentBoardView } from './components/DocumentBoardView';
@@ -13,6 +14,7 @@ import { subscribeToCloudChanges } from './lib/realtimeSync';
 import { loadAreaPlan, saveAreaPlan, importSchedule } from './lib/areaPlan';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import { useGcalSync } from './lib/useGcalSync';
+import { collectLegacyEvents, legacyToItem, legacyRemovals } from './lib/legacyEvents';
 import {
   Plus,
   BookOpen,
@@ -829,6 +831,36 @@ function parseTextToBlocks(rawText) {
     setPlannerTasks(actionOrValue);
   };
 
+  // Events from before every block had an area: ask for one instead of converting silently.
+  const [legacyOpen, setLegacyOpen] = useState(false);
+  const legacyAsked = useRef(false);
+  const legacyEvents = React.useMemo(
+    () => collectLegacyEvents({ plannerTasks, notes }),
+    [plannerTasks, notes]
+  );
+  useEffect(() => {
+    if (legacyAsked.current || legacyEvents.length === 0) return undefined;
+    const t = setTimeout(() => { legacyAsked.current = true; setLegacyOpen(true); }, 1500);
+    return () => clearTimeout(t);
+  }, [legacyEvents.length]);
+
+  const removeLegacy = (events) => {
+    const { taskIds, noteIds } = legacyRemovals(events);
+    if (taskIds.size) setPlannerTasks(prev => prev.filter(t => !taskIds.has(t.id)));
+    if (noteIds.size) {
+      setNotes(prev => prev.map(n => (noteIds.has(n.id) ? { ...n, eventDate: null, eventTime: null, eventDurationMin: null } : n)));
+    }
+  };
+  const handleAssignLegacy = (assignments) => {
+    const areaIds = new Set(assignments.map(a => a.areaId));
+    setAreaPlan(p => ({
+      ...p,
+      hidden: p.hidden.filter(h => !areaIds.has(h)),
+      items: [...p.items, ...assignments.map(a => legacyToItem(a.ev, a.areaId))]
+    }));
+    removeLegacy(assignments.map(a => a.ev));
+  };
+
   const handleCalendarSyncSuccess = (noteId, syncData) => {
     setNotes(prev => prev.map(n => {
       if (n.id === noteId) {
@@ -995,6 +1027,8 @@ function parseTextToBlocks(rawText) {
           handleImportJSON={handleImportJSON}
           onImportSchedule={handleImportSchedule}
           gcal={gcal}
+          legacyCount={legacyEvents.length}
+          onOpenLegacy={() => setLegacyOpen(true)}
           setIsSidebarOpen={setIsSidebarOpen}
           onMouseMoveSurface={handleMouseMoveSurface}
           onSaveToCloud={handleSaveToCloud}
@@ -1030,6 +1064,16 @@ function parseTextToBlocks(rawText) {
         areaPlan={areaPlan}
         onChangeAreaPlan={setAreaPlan}
       />
+
+      {legacyOpen && (
+        <UnassignedEvents
+          events={legacyEvents}
+          areas={areaPlan.areas}
+          onAssign={handleAssignLegacy}
+          onDiscard={removeLegacy}
+          onClose={() => setLegacyOpen(false)}
+        />
+      )}
 
       {/* Google Calendar Sync Modal */}
       <GoogleCalendarModal

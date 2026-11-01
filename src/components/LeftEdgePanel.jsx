@@ -1,6 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Plus, GripVertical, Check, CheckSquare } from 'lucide-react';
 import { AreaBacklog } from './AreaBacklog';
+import { AreaPicker } from './AreaPicker';
+import { AREA_COLORS, isoOf, uid } from '../lib/areaPlan';
 
 // ── shared time helpers ────────────────────────────────────────────────────────
 const DAY_START = 7 * 60;   // 420
@@ -32,9 +34,9 @@ function yToMin(y) {
 }
 
 // ── Board view: mini day timeline ─────────────────────────────────────────────
-function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBoardNotes }) {
+function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBoardNotes, areaPlan, onChangeAreaPlan }) {
   const today     = new Date();
-  const todayIso  = today.toISOString().slice(0, 10);
+  const todayIso  = isoOf(today); // local date (toISOString() shifts the day by the UTC offset)
   const todayKey  = ['sun','mon','tue','wed','thu','fri','sat'][today.getDay()];
   const nowMin    = today.getHours() * 60 + today.getMinutes();
   const colRef    = useRef(null);
@@ -50,6 +52,28 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
 
   // board notes for today (events & scheduled tasks)
   const eventNotes = boardNotes.filter(n => n.eventDate === todayIso);
+
+  // today's blocks from the plan, with their area color
+  const plan = areaPlan || { areas: [], items: [], hidden: [] };
+  const areaById = Object.fromEntries(plan.areas.map(a => [a.id, a]));
+  const areaColor = (a) => AREA_COLORS[a.c % AREA_COLORS.length];
+  const areaBlocks = plan.items.filter(it =>
+    it.day === todayIso && typeof it.at === 'number' && areaById[it.area] && !plan.hidden.includes(it.area));
+  const [picker, setPicker] = useState(null); // "¿Para qué área?" popover: { x, y, startMin }
+  const [focusId, setFocusId] = useState(null);
+  const patchBlock = (id, fields) => onChangeAreaPlan(p => ({ ...p, items: p.items.map(i => (i.id === id ? { ...i, ...fields } : i)) }));
+  const removeBlock = (id) => onChangeAreaPlan(p => ({ ...p, items: p.items.filter(i => i.id !== id) }));
+  const createBlock = (areaId) => {
+    const startMin = picker.startMin;
+    const id = uid();
+    onChangeAreaPlan(p => ({
+      ...p,
+      hidden: p.hidden.filter(h => h !== areaId),
+      items: [...p.items, { id, area: areaId, text: '', done: false, day: todayIso, at: startMin, dur: 60 }]
+    }));
+    setFocusId(id);
+    setPicker(null);
+  };
 
   const updateTask = useCallback((id, updates) => {
     if (typeof id === 'string' && id.startsWith('board_')) {
@@ -155,15 +179,8 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
     const rect = el.getBoundingClientRect();
     const relY = ((e.clientY - rect.top) / rect.height) * PANEL_H;
     const startMin = Math.max(DAY_START, Math.min(DAY_END - 60, yToMin(relY)));
-    onUpdatePlannerTasks(prev => [...prev, {
-      id: 'task_' + Date.now(),
-      text: '',
-      completed: false,
-      dayIso: todayIso,
-      dayKey: todayKey,
-      timeSlot: toStr(startMin),
-      durationMin: 60
-    }]);
+    // Every block belongs to an area, so ask which one before creating it.
+    setPicker({ x: e.clientX, y: e.clientY, startMin });
   };
 
   return (
@@ -263,6 +280,58 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
             );
           })}
 
+          {/* blocks from the plan: area color, editable title (move and resize them in the week) */}
+          {areaBlocks.map(it => {
+            const a = areaById[it.area];
+            const dur = it.dur || (it.d ? it.d * 30 : 60);
+            const color = areaColor(a);
+            return (
+              <div
+                key={it.id}
+                title={a.name + (it.note ? ' · ' + it.note : '')}
+                style={{
+                  position: 'absolute',
+                  top: `${yPct(it.at)}%`,
+                  left: '32px', right: '4px',
+                  height: `${hPct(dur)}%`,
+                  minHeight: '22px',
+                  background: `color-mix(in srgb, ${color} 16%, var(--bg-note))`,
+                  borderLeft: `3px solid ${color}`,
+                  borderRadius: '2px',
+                  padding: '2px 5px',
+                  overflow: 'hidden',
+                  zIndex: 3,
+                  userSelect: 'none',
+                  opacity: it.done ? 0.5 : 1
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span className="font-mono" style={{ fontSize: '0.55rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    {toStr(it.at)} — {toStr(it.at + dur)} · {a.name}
+                  </span>
+                  <button
+                    onClick={e => { e.stopPropagation(); removeBlock(it.id); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', fontSize: '0.7rem', lineHeight: 1, padding: '0 1px' }}
+                    title="Eliminar bloque"
+                  >×</button>
+                </div>
+                <input
+                  type="text"
+                  value={it.text}
+                  autoFocus={focusId === it.id}
+                  onFocus={() => { if (focusId === it.id) setFocusId(null); }}
+                  onChange={e => patchBlock(it.id, { text: e.target.value })}
+                  placeholder="Bloque..."
+                  style={{
+                    fontSize: '0.73rem', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'inherit',
+                    padding: '1px 0', width: '100%', minWidth: 0, cursor: 'text',
+                    textDecoration: it.done ? 'line-through' : 'none', color: 'var(--text-ink)'
+                  }}
+                />
+              </div>
+            );
+          })}
+
           {/* planner tasks — draggable & resizable */}
           {tasks.map(task => {
             const startMin = toMin(task.timeSlot) ?? DAY_START;
@@ -337,6 +406,15 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
           })}
         </div>
       </div>
+      {picker && (
+        <AreaPicker
+          x={picker.x}
+          y={picker.y}
+          areas={plan.areas}
+          onPick={createBlock}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </div>
   );
 }
@@ -345,6 +423,9 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
 function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpdateBoardNotes, areaPlan, onChangeAreaPlan }) {
   const [newText, setNewText] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
+
+  // A check that was dragged onto the week became a block (`areaItemId`); it leaves this list while that block exists.
+  const blockIds = React.useMemo(() => new Set(((areaPlan && areaPlan.items) || []).map(i => i.id)), [areaPlan]);
 
   // Collect checkmark task blocks from board notes that have no event date
   const boardItems = React.useMemo(() => {
@@ -356,7 +437,7 @@ function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpd
         const isCheckmarkTask = Boolean(b.isCheck || b.type === 'check');
         const hasText = b.text?.trim();
 
-        if (isCheckmarkTask && hasText) {
+        if (isCheckmarkTask && hasText && !(b.areaItemId && blockIds.has(b.areaItemId))) {
           items.push({
             id: `board_${note.id}_${b.id}`,
             text: b.text.trim(),
@@ -371,7 +452,7 @@ function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpd
     });
     // show unscheduled first
     return items.filter(i => !i.isScheduled);
-  }, [boardNotes]);
+  }, [boardNotes, blockIds]);
 
   // Existing unscheduled planner tasks (created in the panel directly)
   const ownTasks = plannerTasks.filter(t => !t.dayIso && !t.dayKey);
@@ -570,7 +651,7 @@ export function LeftEdgePanel({ activeView, plannerTasks, onUpdatePlannerTasks, 
         onMouseLeave={close}
       >
         {activeView === 'board'
-          ? <TodayPanel plannerTasks={plannerTasks} boardNotes={boardNotes} onUpdatePlannerTasks={onUpdatePlannerTasks} onUpdateBoardNotes={onUpdateBoardNotes} />
+          ? <TodayPanel plannerTasks={plannerTasks} boardNotes={boardNotes} onUpdatePlannerTasks={onUpdatePlannerTasks} onUpdateBoardNotes={onUpdateBoardNotes} areaPlan={areaPlan} onChangeAreaPlan={onChangeAreaPlan} />
           : <BoardTasksPanel boardNotes={boardNotes} plannerTasks={plannerTasks} onUpdatePlannerTasks={onUpdatePlannerTasks} onUpdateBoardNotes={onUpdateBoardNotes} areaPlan={areaPlan} onChangeAreaPlan={onChangeAreaPlan} />
         }
       </div>
