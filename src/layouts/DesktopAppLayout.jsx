@@ -23,6 +23,8 @@ import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
 import { PlanView } from '../components/PlanView';
 import { SCHEDULES } from '../data/schedules';
+import { SPRINTS, sprintSchedule } from '../data/sprints';
+import { isoOf } from '../lib/areaPlan';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -403,6 +405,34 @@ export function DesktopAppLayout({
                           {r.added > 0
                             ? `✓ ${r.added} clases añadidas a ${sch.area}. Míralas en Plan → Semana o Mes.`
                             : 'Ya estaban importadas, no se añadió nada.'}
+                        </span>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+
+              {/* Loginet sprints */}
+              <div className="panel-section-title font-mono">SPRINTS LOGINET</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                {SPRINTS.map(sp => {
+                  const id = `sprint-${sp.n}`;
+                  const r = scheduleResult[id];
+                  return (
+                    <React.Fragment key={id}>
+                      <button
+                        className="btn-icon"
+                        style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
+                        onClick={() => setScheduleResult(prev => ({ ...prev, [id]: onImportSchedule(sprintSchedule(sp, isoOf(new Date()))) }))}
+                      >
+                        <Calendar size={12} />
+                        <span className="font-mono" style={{ fontSize: '0.75rem' }}>Sprint {sp.n} · {sp.title}</span>
+                      </button>
+                      {r && (
+                        <span className="font-mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', padding: '0 4px' }}>
+                          {r.added > 0
+                            ? `✓ ${r.added} bloques añadidos a Loginet para hoy.`
+                            : 'Ya estaba importado, no se añadió nada.'}
                         </span>
                       )}
                     </React.Fragment>

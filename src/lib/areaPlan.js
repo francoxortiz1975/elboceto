@@ -202,14 +202,15 @@ export function importSchedule(plan, schedule) {
   const have = new Set(plan.items.map((i) => i.id));
   const fresh = schedule.items
     .map((ev) => ({
-      id: `${schedule.id}:${ev.day}:${ev.from}`,
+      // Untimed events (`key` instead of `from`) keep their id whatever day they land on.
+      id: ev.from ? `${schedule.id}:${ev.day}:${ev.from}` : `${schedule.id}:${ev.key}`,
       area: area.id,
       text: ev.text,
       ...(ev.note ? { note: ev.note } : {}),
       done: false,
       day: ev.day,
-      at: toMinutes(ev.from),
-      dur: toMinutes(ev.to) - toMinutes(ev.from)
+      at: ev.from ? toMinutes(ev.from) : 'any',
+      ...(ev.from ? { dur: toMinutes(ev.to) - toMinutes(ev.from) } : {})
     }))
     .filter((it) => !have.has(it.id));
   return { plan: { ...plan, areas, items: [...plan.items, ...fresh] }, added: fresh.length, total: schedule.items.length };
