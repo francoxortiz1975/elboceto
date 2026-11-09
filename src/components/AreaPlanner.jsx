@@ -89,6 +89,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
   const dayAfter = addDays(today, 2);
   const tomorrowOpen = !plan.tomorrowCollapsed;
   const sections = [
+    { id: 'later', title: 'Más adelante', sub: 'sin fecha', rows: [{ day: 'later', at: 'any', label: 'Backlog', tall: true }] },
     {
       id: 'hoy', title: 'Hoy', sub: `${dayLabel(today)} · bloques de 15 min`,
       rows: detailedRows(today)
@@ -104,8 +105,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     {
       id: 'sem', title: 'Próximos días', sub: 'por día',
       rows: [3, 4, 5, 6].map((i) => ({ day: addDays(today, i), at: 'any', label: dayLabel(addDays(today, i)) }))
-    },
-    { id: 'later', title: 'Más adelante', sub: 'sin fecha', rows: [{ day: 'later', at: 'any', label: 'Backlog', tall: true }] }
+    }
   ];
 
   const timedToday = entries.filter((e) => isTimed(e) && e.eff.day === today);
