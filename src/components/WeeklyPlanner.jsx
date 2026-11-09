@@ -403,7 +403,7 @@ export function WeeklyPlanner({
       )}
 
       {/* Header */}
-      <div className="wk-head" style={{ borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,244,238,0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
+      <div className="wk-head" style={{ borderBottom: 'var(--border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(var(--book-rgb), 0.97)', backdropFilter: 'blur(8px)', zIndex: 10, flexShrink: 0, position: 'relative' }}>
         <div className="wk-head-left" style={{ display: 'flex', alignItems: 'center' }}>
           <span className="brand-title wk-title">{mode === 'week' ? 'Plan semanal' : 'Plan mensual'}</span>
 
@@ -557,7 +557,7 @@ export function WeeklyPlanner({
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', borderBottom: 'var(--border-hairline)', flexShrink: 0 }}>
             <div />
             {visibleDays.map(day => (
-              <div key={day.key} className="wk-dayhead" style={{ borderLeft: 'var(--border-hairline)', background: day.isToday ? 'var(--bg-active)' : 'rgba(24,24,27,0.02)' }}>
+              <div key={day.key} className="wk-dayhead" style={{ borderLeft: 'var(--border-hairline)', background: day.isToday ? 'var(--bg-active)' : 'rgba(var(--ink-rgb), 0.02)' }}>
                 <div className="wk-daytitle">
                   <span className="font-title" style={{ fontSize: '1.05rem', fontStyle: 'italic', fontWeight: day.isToday ? 600 : 400 }}>{day.label}</span>
                   <span className="font-mono" style={{ fontSize: '0.65rem', color: day.isToday ? 'var(--text-ink)' : 'var(--text-muted)' }}>{day.formattedDate}</span>
@@ -622,7 +622,7 @@ export function WeeklyPlanner({
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', height: '700px', position: 'relative' }}>
 
             {/* Time gutter */}
-            <div style={{ borderRight: 'var(--border-hairline)', position: 'relative', background: 'rgba(247,244,238,0.6)' }}>
+            <div style={{ borderRight: 'var(--border-hairline)', position: 'relative', background: 'rgba(var(--book-rgb), 0.6)' }}>
               {KEY_HOURS.map(h => {
                 const yPct = ((h * 60 - DAY_START_MIN) / DAY_TOTAL_MIN) * 100;
                 if (yPct < 0 || yPct > 100) return null;
@@ -643,7 +643,7 @@ export function WeeklyPlanner({
                 <div
                   key={day.key}
                   ref={el => colRefs.current[day.key] = el}
-                  style={{ position: 'relative', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'rgba(24,24,27,0.018)' : 'var(--bg-book)', cursor: 'crosshair' }}
+                  style={{ position: 'relative', borderLeft: 'var(--border-hairline)', background: day.isToday ? 'rgba(var(--ink-rgb), 0.018)' : 'var(--bg-book)', cursor: 'crosshair' }}
                   onClick={(e) => {
                     if (isMobile && !e.target.closest('.planner-task-card')) {
                       const colEl = colRefs.current[day.key];
@@ -678,7 +678,7 @@ export function WeeklyPlanner({
                           left: 0,
                           right: 0,
                           height: '1px',
-                          background: isKey ? 'rgba(24,24,27,0.12)' : 'rgba(24,24,27,0.05)',
+                          background: isKey ? 'rgba(var(--ink-rgb), 0.12)' : 'rgba(var(--ink-rgb), 0.05)',
                           pointerEvents: 'none'
                         }}
                       />
@@ -701,7 +701,7 @@ export function WeeklyPlanner({
                     const yPct       = ((startMin - DAY_START_MIN) / DAY_TOTAL_MIN) * 100;
                     const heightPct  = (durationMin / DAY_TOTAL_MIN) * 100;
                     const endStr     = minutesToTimeStr(startMin + durationMin);
-                    const cardBg     = task.isArea ? `color-mix(in srgb, ${task.areaColor} ${task.completed ? 7 : 16}%, var(--bg-note))` : task.isEvent ? 'var(--text-ink)' : (task.completed ? 'rgba(24,24,27,0.04)' : 'var(--bg-note)');
+                    const cardBg     = task.isArea ? `color-mix(in srgb, ${task.areaColor} ${task.completed ? 7 : 16}%, var(--bg-note))` : task.isEvent ? 'var(--text-ink)' : (task.completed ? 'rgba(var(--ink-rgb), 0.04)' : 'var(--bg-note)');
 
                     return (
                       <div
@@ -719,8 +719,8 @@ export function WeeklyPlanner({
                           minHeight: '26px',
                           background: cardBg,
                           '--wk-bg': task.completed && !task.isArea ? 'var(--bg-note)' : cardBg,
-                          color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
-                          border: task.isEvent ? '1px solid rgba(24,24,27,0.9)' : 'var(--border-hairline)',
+                          color: task.isEvent ? 'var(--bg-book)' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
+                          border: task.isEvent ? '1px solid rgba(var(--ink-rgb), 0.9)' : 'var(--border-hairline)',
                           borderLeft: task.isArea ? `3px solid ${task.areaColor}` : task.isEvent ? '3px solid #F7F4EE' : `2px solid rgba(24,24,27,${task.completed ? 0.15 : 0.4})`,
                           borderRadius: '4px',
                           boxShadow: 'var(--shadow-subtle)',
@@ -752,7 +752,7 @@ export function WeeklyPlanner({
                                 minWidth: 0,
                                 cursor: 'text',
                                 textDecoration: task.completed ? 'line-through' : 'none',
-                                color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
+                                color: task.isEvent ? 'var(--bg-book)' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
                                 padding: 0,
                                 margin: 0,
                                 lineHeight: 1.2
@@ -772,7 +772,7 @@ export function WeeklyPlanner({
                                 {task.completed && <Check size={8} strokeWidth={3} />}
                               </button>
                               <button
-                                style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(var(--book-rgb), 0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                               >
@@ -797,7 +797,7 @@ export function WeeklyPlanner({
                                   {task.completed && <Check size={8} strokeWidth={3} />}
                                 </button>
                                 <button
-                                  style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(247,244,238,0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
+                                  style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(var(--book-rgb), 0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
                                   onMouseDown={e => e.stopPropagation()}
                                   onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                                 >
@@ -813,7 +813,7 @@ export function WeeklyPlanner({
                               onFocus={() => { if (newBlockId === task.id) setNewBlockId(null); }}
                               style={{
                                 textDecoration: task.completed ? 'line-through' : 'none',
-                                color: task.isEvent ? '#F7F4EE' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)')
+                                color: task.isEvent ? 'var(--bg-book)' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)')
                               }}
                               value={task.text}
                               onMouseDown={e => e.stopPropagation()}
@@ -835,7 +835,7 @@ export function WeeklyPlanner({
                             height: '6px',
                             cursor: 'ns-resize',
                             background: 'transparent',
-                            borderBottom: '2px solid rgba(24,24,27,0.2)',
+                            borderBottom: '2px solid rgba(var(--ink-rgb), 0.2)',
                             touchAction: 'none'
                           }}
                         />

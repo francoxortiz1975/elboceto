@@ -217,7 +217,7 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
                 ) : (
                   <div style={{ width: '22px' }} />
                 )}
-                <div style={{ flex: 1, height: '1px', background: isKey ? 'rgba(24,24,27,0.09)' : 'rgba(24,24,27,0.04)' }} />
+                <div style={{ flex: 1, height: '1px', background: isKey ? 'rgba(var(--ink-rgb), 0.09)' : 'rgba(var(--ink-rgb), 0.04)' }} />
               </div>
             );
           })}
@@ -255,7 +255,7 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
                   height: `${hPct(dur)}%`,
                   minHeight: '20px',
                   background: note.isEvent ? 'var(--text-ink)' : 'var(--bg-note)',
-                  border: note.isEvent ? 'none' : '1px solid rgba(24,24,27,0.18)',
+                  border: note.isEvent ? 'none' : '1px solid rgba(var(--ink-rgb), 0.18)',
                   borderRadius: '2px',
                   padding: '3px 6px',
                   overflow: 'hidden',
@@ -268,7 +268,7 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
                   {note.blocks?.[0]?.text || 'Tarea'}
                 </div>
                 {note.eventTime && (
-                  <span className="font-mono" style={{ fontSize: '0.56rem', color: note.isEvent ? 'rgba(247,244,238,0.5)' : 'var(--text-muted)' }}>{note.eventTime}</span>
+                  <span className="font-mono" style={{ fontSize: '0.56rem', color: note.isEvent ? 'rgba(var(--book-rgb), 0.5)' : 'var(--text-muted)' }}>{note.eventTime}</span>
                 )}
                 {/* Resize handle */}
                 <div
@@ -349,8 +349,8 @@ function TodayPanel({ plannerTasks, boardNotes, onUpdatePlannerTasks, onUpdateBo
                   left: '32px', right: '4px',
                   height: `${hPct(dur)}%`,
                   minHeight: '24px',
-                  background: task.completed ? 'rgba(24,24,27,0.04)' : 'var(--bg-note)',
-                  border: '1px solid rgba(24,24,27,0.15)',
+                  background: task.completed ? 'rgba(var(--ink-rgb), 0.04)' : 'var(--bg-note)',
+                  border: '1px solid rgba(var(--ink-rgb), 0.15)',
                   borderLeft: `2px solid rgba(24,24,27,${task.completed ? 0.15 : 0.45})`,
                   borderRadius: '2px',
                   boxShadow: 'var(--shadow-subtle)',
@@ -607,7 +607,7 @@ function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpd
                   true, makeDragStart(t.id, t.text, false),
                   () => handleDeleteOwn(t.id)
                 ))}
-                {visibleBoardItems.length > 0 && <div style={{ height: '1px', background: 'rgba(24,24,27,0.08)', margin: '6px 0' }} />}
+                {visibleBoardItems.length > 0 && <div style={{ height: '1px', background: 'rgba(var(--ink-rgb), 0.08)', margin: '6px 0' }} />}
               </>
             )}
             {/* board checkmark blocks */}

@@ -125,7 +125,7 @@ export function GoogleCalendarModal({ note, isOpen, onClose, onSyncSuccess }) {
           />
         </div>
 
-        <div style={{ background: 'rgba(24,24,27,0.03)', border: 'var(--border-hairline)', padding: '10px', borderRadius: '4px' }}>
+        <div style={{ background: 'rgba(var(--ink-rgb), 0.03)', border: 'var(--border-hairline)', padding: '10px', borderRadius: '4px' }}>
           <div className="font-mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Mail size={12} />
             <span>Sincronización Gmail / Google Workspace integrada</span>

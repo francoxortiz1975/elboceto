@@ -133,7 +133,7 @@ function EventSchedulerPopover({ node, onUpdate, onClose }) {
             style={{
               width: '28px', height: '16px',
               borderRadius: '8px',
-              background: isEvent ? 'var(--text-ink)' : 'rgba(24,24,27,0.15)',
+              background: isEvent ? 'var(--text-ink)' : 'rgba(var(--ink-rgb), 0.15)',
               position: 'relative',
               transition: 'background 0.2s',
               cursor: 'pointer',
@@ -146,7 +146,7 @@ function EventSchedulerPopover({ node, onUpdate, onClose }) {
               left: isEvent ? '14px' : '2px',
               width: '12px', height: '12px',
               borderRadius: '50%',
-              background: 'white',
+              background: 'var(--bg-note)',
               transition: 'left 0.2s',
               boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
             }} />
@@ -870,7 +870,7 @@ export function FreeformNode({
             )}
           </button>
 
-          <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
+          <div style={{ width: '1px', height: '14px', background: 'rgba(var(--ink-rgb), 0.15)', margin: '0 2px' }} />
 
           {/* Active target index for toolbar actions */}
           {(() => {
@@ -889,7 +889,7 @@ export function FreeformNode({
                   <Bold size={12} />
                 </button>
 
-                <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
+                <div style={{ width: '1px', height: '14px', background: 'rgba(var(--ink-rgb), 0.15)', margin: '0 2px' }} />
 
                 <button className={`btn-icon ${curBlock.isCheck ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleProperty(curIdx, 'isCheck'); }} title="Checkmark">
                   <CheckSquare size={12} />
@@ -920,7 +920,7 @@ export function FreeformNode({
           })()}
 
 
-          <div style={{ width: '1px', height: '14px', background: 'rgba(24,24,27,0.15)', margin: '0 2px' }} />
+          <div style={{ width: '1px', height: '14px', background: 'rgba(var(--ink-rgb), 0.15)', margin: '0 2px' }} />
 
           <button className={`btn-icon ${node.isCard ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); handleToggleCardMode(); }} title="Post-It">
             <StickyNote size={12} />
@@ -1014,7 +1014,7 @@ export function FreeformNode({
                       left: `${(b.indent - 1) * 18 + 6}px`,
                       top: 0, bottom: 0,
                       width: '1px',
-                      background: 'rgba(24,24,27,0.1)'
+                      background: 'rgba(var(--ink-rgb), 0.1)'
                     }} />
                   )}
                   {b.isCheck && (

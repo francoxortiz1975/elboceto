@@ -14,6 +14,7 @@ import { subscribeToCloudChanges } from './lib/realtimeSync';
 import { loadAreaPlan, saveAreaPlan, importSchedule } from './lib/areaPlan';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import { useGcalSync } from './lib/useGcalSync';
+import { useTheme } from './lib/theme';
 import { collectLegacyEvents, legacyToItem, legacyRemovals } from './lib/legacyEvents';
 import {
   Plus,
@@ -135,6 +136,7 @@ export default function App() {
   useEffect(() => { saveAreaPlan(areaPlan); }, [areaPlan]);
 
   // Which look of the plan is open: the full day, the area board, the week or the month.
+  const [theme, setTheme] = useTheme();
   const [planTab, setPlanTab] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_PLAN_TAB);
@@ -1026,6 +1028,8 @@ function parseTextToBlocks(rawText) {
           handleExportJSON={handleExportJSON}
           handleImportJSON={handleImportJSON}
           onImportSchedule={handleImportSchedule}
+          theme={theme}
+          onThemeChange={setTheme}
           gcal={gcal}
           legacyCount={legacyEvents.length}
           onOpenLegacy={() => setLegacyOpen(true)}

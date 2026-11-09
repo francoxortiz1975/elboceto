@@ -4,15 +4,15 @@
 .mc-weekday { padding: 6px 8px; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); background: var(--bg-book); border-bottom: var(--border-strong); border-right: var(--border-hairline); }
 .mc-cell { position: relative; padding: 4px 5px 5px; border-right: var(--border-hairline); border-bottom: var(--border-hairline); cursor: pointer; min-width: 0; display: flex; flex-direction: column; gap: 3px; transition: background 0.12s; }
 .mc-cell:hover { background: var(--bg-hover); }
-.mc-cell.out { background: rgba(247, 244, 238, 0.6); }
+.mc-cell.out { background: rgba(var(--book-rgb), 0.6); }
 .mc-cell.out .mc-num { color: var(--text-subtle); }
 .mc-cell.over { background: var(--bg-hover); box-shadow: inset 0 0 0 2px var(--text-subtle); }
 .mc-cell.first .mc-num { color: var(--text-ink); font-weight: 600; }
-.mc-cell.today { background: rgba(180, 83, 42, 0.07); }
-.mc-cell.today .mc-num { background: #B4532A; color: var(--bg-book); }
+.mc-cell.today { background: var(--ap-now-wash); }
+.mc-cell.today .mc-num { background: var(--ap-now); color: var(--bg-book); }
 .mc-num { align-self: flex-start; font-size: 0.68rem; line-height: 1; padding: 3px 5px; border-radius: 999px; color: var(--text-muted); }
 .mc-chips { display: grid; gap: 2px; min-width: 0; }
-.mc-chip { display: flex; gap: 5px; align-items: baseline; min-width: 0; font-size: 0.68rem; line-height: 1.25; padding: 1px 4px 1px 5px; border-radius: 3px; border-left: 3px solid var(--c, rgba(24, 24, 27, 0.3)); background: color-mix(in srgb, var(--c, #6B6B6B) 14%, var(--bg-note)); color: var(--text-ink); cursor: grab; user-select: none; }
+.mc-chip { display: flex; gap: 5px; align-items: baseline; min-width: 0; font-size: 0.68rem; line-height: 1.25; padding: 1px 4px 1px 5px; border-radius: 3px; border-left: 3px solid var(--c, rgba(var(--ink-rgb), 0.3)); background: color-mix(in srgb, var(--c, #6B6B6B) 14%, var(--bg-note)); color: var(--text-ink); cursor: grab; user-select: none; }
 .mc-chip.plain { cursor: default; }
 .mc-chip.done { opacity: 0.55; text-decoration: line-through; }
 .mc-chip.moving { pointer-events: none; opacity: 0.8; box-shadow: var(--shadow-floating); }

@@ -17,7 +17,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Trash2
+  Trash2,
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
 import { DocumentBoardView } from '../components/DocumentBoardView';
 import { CanvasBoard } from '../components/CanvasBoard';
@@ -73,6 +76,8 @@ export function DesktopAppLayout({
   handleExportJSON,
   handleImportJSON,
   onImportSchedule,
+  theme,
+  onThemeChange,
   gcal,
   legacyCount,
   onOpenLegacy,
@@ -345,6 +350,22 @@ export function DesktopAppLayout({
               )}
 
               {/* Google Calendar (app -> Google) */}
+              <div className="panel-section-title font-mono">APARIENCIA</div>
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                {[['system', 'Sistema', Monitor], ['light', 'Claro', Sun], ['dark', 'Oscuro', Moon]].map(([id, label, Icon]) => (
+                  <button
+                    key={id}
+                    className="btn-icon"
+                    aria-pressed={theme === id}
+                    style={{ flex: 1, justifyContent: 'center', ...(theme === id ? { background: 'var(--bg-active)', border: 'var(--border-strong)' } : {}) }}
+                    onClick={() => onThemeChange(id)}
+                  >
+                    <Icon size={12} />
+                    <span className="font-mono" style={{ fontSize: '0.7rem' }}>{label}</span>
+                  </button>
+                ))}
+              </div>
+
               <div className="panel-section-title font-mono">GOOGLE CALENDAR</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
                 <button
@@ -377,7 +398,7 @@ export function DesktopAppLayout({
                 {(gcal.message || (gcal.on && gcal.phase === 'ok')) && (
                   <span
                     className="font-mono"
-                    style={{ fontSize: '0.68rem', padding: '0 4px', color: gcal.phase === 'error' ? '#b91c1c' : 'var(--text-muted)' }}
+                    style={{ fontSize: '0.68rem', padding: '0 4px', color: gcal.phase === 'error' ? 'var(--danger)' : 'var(--text-muted)' }}
                   >
                     {gcal.phase === 'error' ? '⚠ ' : ''}
                     {gcal.message || `✓ ${gcal.count} evento${gcal.count === 1 ? '' : 's'} en Google${gcal.lastSync ? ` · ${gcal.lastSync.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : ''}`}

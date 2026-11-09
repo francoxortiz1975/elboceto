@@ -29,7 +29,7 @@
 .wk-actions { display: flex; gap: 2px; flex-shrink: 0; align-items: center; }
 @media (hover: hover) and (pointer: fine) {
   /* Actions float over the block on hover, so the title keeps the full width. */
-  .planner-task-card .wk-actions { position: absolute; right: 3px; top: 3px; z-index: 2; padding: 1px 3px; border-radius: 4px; background: var(--wk-bg, var(--bg-note)); box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.08); opacity: 0; transition: opacity 0.12s; }
+  .planner-task-card .wk-actions { position: absolute; right: 3px; top: 3px; z-index: 2; padding: 1px 3px; border-radius: 4px; background: var(--wk-bg, var(--bg-note)); box-shadow: 0 0 0 1px rgba(var(--ink-rgb), 0.08); opacity: 0; transition: opacity 0.12s; }
   .planner-task-card:hover .wk-actions, .planner-task-card:focus-within .wk-actions { opacity: 1; }
 }
 @container wkcard (max-width: 120px) {

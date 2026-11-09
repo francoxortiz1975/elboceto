@@ -63,7 +63,7 @@ export function MobileAppLayout({
         right: 0,
         height: '48px',
         padding: '0 12px',
-        background: 'rgba(247, 244, 238, 0.95)',
+        background: 'rgba(var(--book-rgb), 0.95)',
         backdropFilter: 'blur(12px)',
         borderBottom: 'var(--border-hairline)',
         display: 'flex',

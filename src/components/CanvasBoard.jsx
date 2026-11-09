@@ -228,8 +228,8 @@ export function CanvasBoard({
               top: `${Math.min(selectionBox.startY, selectionBox.currentY)}px`,
               width: `${Math.abs(selectionBox.currentX - selectionBox.startX)}px`,
               height: `${Math.abs(selectionBox.currentY - selectionBox.startY)}px`,
-              border: '1px dashed rgba(24, 24, 27, 0.4)',
-              background: 'rgba(24, 24, 27, 0.05)',
+              border: '1px dashed rgba(var(--ink-rgb), 0.4)',
+              background: 'rgba(var(--ink-rgb), 0.05)',
               borderRadius: '2px',
               pointerEvents: 'none',
               zIndex: 999

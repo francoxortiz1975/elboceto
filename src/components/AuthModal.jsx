@@ -58,7 +58,7 @@ export function AuthModal({ onClose }) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(24,24,27,0.35)',
+        position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.45)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000
       }}
       onClick={onClose}
@@ -102,7 +102,7 @@ export function AuthModal({ onClose }) {
               style={{ width: '100%', margin: '10px 0', boxSizing: 'border-box', letterSpacing: '0.3em', textAlign: 'center', fontSize: '1.05rem' }}
             />
             {errorMsg && (
-              <div style={{ color: '#b91c1c', fontSize: '0.72rem', marginBottom: '8px' }}>{errorMsg}</div>
+              <div style={{ color: 'var(--danger)', fontSize: '0.72rem', marginBottom: '8px' }}>{errorMsg}</div>
             )}
             {notice && !errorMsg && (
               <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '8px' }}>{notice}</div>
@@ -136,7 +136,7 @@ export function AuthModal({ onClose }) {
               style={{ width: '100%', margin: '10px 0', boxSizing: 'border-box' }}
             />
             {errorMsg && (
-              <div style={{ color: '#b91c1c', fontSize: '0.72rem', marginBottom: '8px' }}>{errorMsg}</div>
+              <div style={{ color: 'var(--danger)', fontSize: '0.72rem', marginBottom: '8px' }}>{errorMsg}</div>
             )}
             <div className="home-pin-actions">
               <button type="button" className="btn-pin-cancel font-mono" onClick={onClose}>
