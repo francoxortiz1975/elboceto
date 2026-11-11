@@ -472,8 +472,8 @@ export function DesktopAppLayout({
                   <span className="font-mono" style={{ fontSize: '0.68rem', color: contentResult.error ? 'var(--danger)' : 'var(--text-muted)', padding: '0 4px' }}>
                     {contentResult.error
                       ? contentResult.error
-                      : contentResult.added > 0
-                        ? `✓ ${contentResult.added} bloques añadidos a ${contentResult.area}. El stack está en el panel izquierdo.`
+                      : contentResult.added > 0 || contentResult.moved > 0
+                        ? `✓ ${contentResult.added} bloques añadidos a ${contentResult.area}${contentResult.moved ? `, ${contentResult.moved} movidos a otra área` : ''}. El stack está en el panel izquierdo.`
                         : 'Ya estaba importado, no se añadió nada.'}
                   </span>
                 )}

@@ -8,7 +8,7 @@
 // Dates are stored absolutely and "Hoy / Mañana" are resolved at render time,
 // so the board rotates by itself at midnight.
 
-export const AREA_COLORS = ['#6E8B5B', '#4F6FA8', '#9A6B2F', '#8A5A9E', '#2F8A86', '#A8546A', '#6B6B6B'];
+export const AREA_COLORS = ['#6E8B5B', '#4F6FA8', '#9A6B2F', '#8A5A9E', '#2F8A86', '#A8546A', '#6B6B6B', '#D1892F'];
 export const SLOT_STEP = 30; // one grid row
 export const SNAP = 15; // finest block precision (minutes)
 export const DAY_FROM = 7 * 60;

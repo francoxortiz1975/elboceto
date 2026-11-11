@@ -106,22 +106,33 @@ export function togglePosted(plan, stackId, reelId) {
 // again, so edits and deletions survive; Reel texts and details are refreshed.
 export function importContentPlan(plan, content) {
   let areas = plan.areas;
-  let area = areas.find((a) => a.name.trim().toLowerCase() === content.area.toLowerCase());
-  if (!area) {
-    const used = areas.map((a) => a.c);
-    const free = AREA_COLORS.findIndex((_, i) => !used.includes(i));
-    area = { id: uid(), name: content.area, c: free < 0 ? areas.length % AREA_COLORS.length : free };
-    areas = [...areas, area];
-  }
-  const have = new Set(plan.items.map((i) => i.id));
-  const fresh = [];
+  // Finds an area by name (case-insensitive) or creates it with a free color.
+  const areaFor = (name) => {
+    let a = areas.find((x) => x.name.trim().toLowerCase() === name.toLowerCase());
+    if (!a) {
+      const used = areas.map((x) => x.c);
+      const free = AREA_COLORS.findIndex((_, i) => !used.includes(i));
+      a = { id: uid(), name, c: free < 0 ? areas.length % AREA_COLORS.length : free };
+      areas = [...areas, a];
+    }
+    return a;
+  };
+  const area = areaFor(content.area);
   const sid = content.id;
+  const byId = Object.fromEntries(plan.items.map((i) => [i.id, i]));
+  const fresh = [];
+  const moves = {}; // blocks still in the plan's main area that the file now puts in another one
 
   (content.items || []).forEach((ev) => {
     const id = `${sid}:${ev.key}`;
-    if (have.has(id)) return;
+    const target = ev.area ? areaFor(ev.area) : area;
+    const have = byId[id];
+    if (have) {
+      if (have.stackId === sid && have.area === area.id && target.id !== area.id) moves[id] = target.id;
+      return;
+    }
     fresh.push({
-      id, area: area.id, text: ev.text, ...(ev.note ? { note: ev.note } : {}), done: false,
+      id, area: target.id, text: ev.text, ...(ev.note ? { note: ev.note } : {}), done: false,
       day: ev.day, at: ev.from ? toMinutes(ev.from) : 'any',
       ...(ev.from ? { dur: ev.to ? toMinutes(ev.to) - toMinutes(ev.from) : 60 } : {}),
       stackId: sid, ...(typeof ev.film === 'number' ? { film: ev.film } : {})
@@ -145,7 +156,7 @@ export function importContentPlan(plan, content) {
     };
     s.reels.forEach((r) => {
       const id = reelItemId(sid, r.id);
-      if (have.has(id)) return;
+      if (byId[id]) return;
       fresh.push({
         id, area: area.id, text: `Reel · ${r.short || r.hook || r.title}`, ...(r.title ? { note: r.title } : {}),
         done: false, day: s.start, at: toMinutes(s.at), dur: s.minutes || 30, stackId: sid, reel: r.id
@@ -153,6 +164,12 @@ export function importContentPlan(plan, content) {
     });
   }
 
-  const merged = applyStack({ ...plan, areas, items: [...plan.items, ...fresh], stacks }, sid);
-  return { plan: merged, added: fresh.length, total: (content.items || []).length + (s ? s.reels.length : 0) };
+  const items = plan.items.map((it) => (moves[it.id] ? { ...it, area: moves[it.id] } : it));
+  const merged = applyStack({ ...plan, areas, items: [...items, ...fresh], stacks }, sid);
+  return {
+    plan: merged,
+    added: fresh.length,
+    moved: Object.keys(moves).length,
+    total: (content.items || []).length + (s ? s.reels.length : 0)
+  };
 }

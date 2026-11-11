@@ -250,19 +250,22 @@
       "key": "story-w0-mon",
       "day": "2026-11-16",
       "text": "Stories: Do you care about the story behind your coffee?",
-      "note": "Story 1 (poll): Do you go to coffee shops? Yes / Yes, all the time.\nStory 2 (poll): Last time you were in a café, did you wonder where the beans came from? Yes / No.\nStory 3 (question box): Reply with a café whose story I should tell.\n\nYour own wording for Story 2 also works: “When you go to a coffee shop, are you interested in the story behind it, how it's made?” The version about what people did is harder to answer just to be nice. Write down the real numbers. You can use them in Wednesday's Stories and in a Reel, only if they are good."
+      "note": "Story 1 (poll): Do you go to coffee shops? Yes / Yes, all the time.\nStory 2 (poll): Last time you were in a café, did you wonder where the beans came from? Yes / No.\nStory 3 (question box): Reply with a café whose story I should tell.\n\nYour own wording for Story 2 also works: “When you go to a coffee shop, are you interested in the story behind it, how it's made?” The version about what people did is harder to answer just to be nice. Write down the real numbers. You can use them in Wednesday's Stories and in a Reel, only if they are good.",
+      "area": "Social Media"
     },
     {
       "key": "story-w0-wed",
       "day": "2026-11-18",
       "text": "Stories: Monday's results + the WhatsApp round",
-      "note": "Stories: show Monday's real poll numbers, for example “[N]% of you wondered where your beans come from.” Say what you are building next.\n\nWhatsApp round (not a Story): message your ~20 contacts in Paris with the link ?ref=wa and everyone else with ?ref=wain. Suggested message: “Hey! I'm testing Sumay, a coffee app I'm building. Could you do the 1-minute quiz and send it to one friend in Paris? [link]”\n\nSend the Paris link only to people in Paris. Everyone else gets the wain link. That is what keeps the Paris count honest."
+      "note": "Stories: show Monday's real poll numbers, for example “[N]% of you wondered where your beans come from.” Say what you are building next.\n\nWhatsApp round (not a Story): message your ~20 contacts in Paris with the link ?ref=wa and everyone else with ?ref=wain. Suggested message: “Hey! I'm testing Sumay, a coffee app I'm building. Could you do the 1-minute quiz and send it to one friend in Paris? [link]”\n\nSend the Paris link only to people in Paris. Everyone else gets the wain link. That is what keeps the Paris count honest.",
+      "area": "Social Media"
     },
     {
       "key": "story-w0-sat",
       "day": "2026-11-21",
       "text": "Stories: Behind the scenes in a café",
-      "note": "Show yourself in a café, filming or editing. One line about what you are working on next. Then answer every DM and comment from the week.\n\nReplies are signals too. If someone replies with a café, thank them and note it for the “Help me pick” Reel."
+      "note": "Show yourself in a café, filming or editing. One line about what you are working on next. Then answer every DM and comment from the week.\n\nReplies are signals too. If someone replies with a café, thank them and note it for the “Help me pick” Reel.",
+      "area": "Social Media"
     },
     {
       "key": "film-w0",
@@ -279,17 +282,20 @@
     {
       "key": "story-w1-mon",
       "day": "2026-11-23",
-      "text": "Stories: Question or poll"
+      "text": "Stories: Question or poll",
+      "area": "Social Media"
     },
     {
       "key": "story-w1-wed",
       "day": "2026-11-25",
-      "text": "Stories: Results + replies"
+      "text": "Stories: Results + replies",
+      "area": "Social Media"
     },
     {
       "key": "story-w1-sat",
       "day": "2026-11-28",
-      "text": "Stories: Behind the scenes"
+      "text": "Stories: Behind the scenes",
+      "area": "Social Media"
     },
     {
       "key": "film-w1",
@@ -306,17 +312,20 @@
     {
       "key": "story-w2-mon",
       "day": "2026-11-30",
-      "text": "Stories: Question or poll"
+      "text": "Stories: Question or poll",
+      "area": "Social Media"
     },
     {
       "key": "story-w2-wed",
       "day": "2026-12-02",
-      "text": "Stories: Results + replies"
+      "text": "Stories: Results + replies",
+      "area": "Social Media"
     },
     {
       "key": "story-w2-sat",
       "day": "2026-12-05",
-      "text": "Stories: Behind the scenes"
+      "text": "Stories: Behind the scenes",
+      "area": "Social Media"
     },
     {
       "key": "film-w2",
@@ -333,17 +342,20 @@
     {
       "key": "story-w3-mon",
       "day": "2026-12-07",
-      "text": "Stories: Question or poll"
+      "text": "Stories: Question or poll",
+      "area": "Social Media"
     },
     {
       "key": "story-w3-wed",
       "day": "2026-12-09",
-      "text": "Stories: Results + replies"
+      "text": "Stories: Results + replies",
+      "area": "Social Media"
     },
     {
       "key": "story-w3-sat",
       "day": "2026-12-12",
-      "text": "Stories: Behind the scenes"
+      "text": "Stories: Behind the scenes",
+      "area": "Social Media"
     },
     {
       "key": "film-w3",
@@ -360,17 +372,20 @@
     {
       "key": "story-w4-mon",
       "day": "2026-12-14",
-      "text": "Stories: Question or poll"
+      "text": "Stories: Question or poll",
+      "area": "Social Media"
     },
     {
       "key": "story-w4-wed",
       "day": "2026-12-16",
-      "text": "Stories: Results + replies"
+      "text": "Stories: Results + replies",
+      "area": "Social Media"
     },
     {
       "key": "story-w4-sat",
       "day": "2026-12-19",
-      "text": "Stories: Behind the scenes"
+      "text": "Stories: Behind the scenes",
+      "area": "Social Media"
     },
     {
       "key": "film-w4",
@@ -387,12 +402,14 @@
     {
       "key": "story-w5-mon",
       "day": "2026-12-21",
-      "text": "Stories: Thank you"
+      "text": "Stories: Thank you",
+      "area": "Social Media"
     },
     {
       "key": "story-w5-wed",
       "day": "2026-12-23",
-      "text": "Stories: Final numbers"
+      "text": "Stories: Final numbers",
+      "area": "Social Media"
     },
     {
       "key": "final-readout",

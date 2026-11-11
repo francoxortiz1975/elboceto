@@ -12,8 +12,8 @@ export const MAX_OPS_PER_REQUEST = 25;
 // Google only offers 11 fixed event colors (colorId), not free hex values. These
 // are the closest ones to AREA_COLORS, in the same order: sage green -> Basil,
 // blue -> Blueberry, ochre -> Tangerine, purple -> Grape, teal -> Peacock,
-// rose -> Flamingo, grey -> Graphite.
-const AREA_COLOR_IDS = ['10', '9', '6', '3', '7', '4', '8'];
+// rose -> Flamingo, grey -> Graphite, orange -> Banana.
+const AREA_COLOR_IDS = ['10', '9', '6', '3', '7', '4', '8', '5'];
 export const gcalColorId = (area) => (area ? AREA_COLOR_IDS[area.c % AREA_COLORS.length] : undefined);
 
 // Only dated items with a title go to Google ("Más adelante" items stay in the app).

@@ -35,6 +35,7 @@ deletions made in the app survive a re-import. Reels already in the stack keep t
   "items": [                            // other dated blocks (stories, filming, reports…)
     {
       "key": "story-w0-mon",            // required, unique inside the plan
+      "area": "Social Media",           // optional: another area for this block (created if missing); default is the plan's `area`
       "day": "2026-11-16",              // required
       "from": "09:00", "to": "10:00",   // optional: without `from` the block has no hour ("sin hora")
       "text": "Stories: …",             // required

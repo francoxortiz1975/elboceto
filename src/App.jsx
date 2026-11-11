@@ -918,8 +918,8 @@ function parseTextToBlocks(rawText) {
     const error = validateContentPlan(content);
     if (error) return { error };
     const result = importContentPlan(areaPlan, content);
-    if (result.added > 0 || JSON.stringify(result.plan.stacks) !== JSON.stringify(areaPlan.stacks)) setAreaPlan(result.plan);
-    return { added: result.added, total: result.total, area: content.area };
+    if (result.added > 0 || result.moved > 0 || JSON.stringify(result.plan.stacks) !== JSON.stringify(areaPlan.stacks)) setAreaPlan(result.plan);
+    return { added: result.added, moved: result.moved, total: result.total, area: content.area };
   };
 
   const [showDocDropdown, setShowDocDropdown] = useState(false);
