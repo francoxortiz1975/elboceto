@@ -760,7 +760,7 @@ function parseTextToBlocks(rawText) {
   useEffect(() => {
     const handleWheel = (e) => {
       // Scrolling the plan's own grids must not flip back to the canvas.
-      if (e.target.closest('.note-card') || e.target.closest('.freeform-node') || e.target.closest('.ap-wrap') || e.target.closest('.mc-wrap')) {
+      if (e.target.closest('.note-card') || e.target.closest('.freeform-node') || e.target.closest('.ap-wrap') || e.target.closest('.mc-wrap') || e.target.closest('.vertical-more-panel')) {
         return;
       }
 
