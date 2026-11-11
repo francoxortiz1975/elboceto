@@ -69,24 +69,52 @@ function filmText(stack, w) {
   return `Film + edit: Reel ${nums.join(' y ')} (${ids.map((id) => reelName(stack, id)).join(' · ')})`;
 }
 
-// Puts every stack block on its slot and refreshes the film notes.
+// A Story can be linked to a Reel as its pre-story (the day before) or after-story (the day after):
+// `reels[id].link = { stackId, reelId, role: 'pre' | 'post' }`. Linked Stories follow their Reel's date.
+function syncLinks(plan) {
+  if (!plan.stacks) return plan;
+  const dayOf = {};
+  plan.items.forEach((it) => { if (it.reel) dayOf[it.id] = it.day; });
+  const want = {};
+  Object.entries(plan.stacks).forEach(([sid, st]) => {
+    if (kindOf(st) !== 'story') return;
+    Object.values(st.reels).forEach((r) => {
+      const l = r.link;
+      const d = l && dayOf[reelItemId(l.stackId, l.reelId)];
+      if (d) want[reelItemId(sid, r.id)] = addDays(d, l.role === 'pre' ? -1 : 1);
+    });
+  });
+  let changed = false;
+  const items = plan.items.map((it) => {
+    if (want[it.id] && want[it.id] !== it.day) { changed = true; return { ...it, day: want[it.id] }; }
+    return it;
+  });
+  return changed ? { ...plan, items } : plan;
+}
+
+// Puts every stack block on its slot and refreshes the film notes. Linked Stories take no slot of
+// their own: their date comes from their Reel.
 export function applyStack(plan, stackId) {
   const stack = plan.stacks && plan.stacks[stackId];
   if (!stack) return plan;
-  const slot = Object.fromEntries(stack.order.map((id, i) => [reelItemId(stackId, id), i]));
-  return {
-    ...plan,
-    items: plan.items.map((it) => {
-      if (it.stackId !== stackId) return it;
-      if (it.reel && it.id in slot) {
-        const at = atOf(stack);
-        const { dur: _dur, ...rest } = it;
-        return { ...rest, day: slotDate(stack, slot[it.id]), at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
-      }
-      if (typeof it.film === 'number') return { ...it, text: filmText(stack, it.film) };
-      return it;
-    })
-  };
+  const free = stack.order.filter((id) => !(stack.reels[id] && stack.reels[id].link));
+  const slot = Object.fromEntries(free.map((id, i) => [reelItemId(stackId, id), i]));
+  const items = plan.items.map((it) => {
+    if (it.stackId !== stackId) return it;
+    if (it.reel && it.id in slot) {
+      const at = atOf(stack);
+      const { dur: _dur, ...rest } = it;
+      return { ...rest, day: slotDate(stack, slot[it.id]), at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
+    }
+    if (it.reel) {
+      const at = atOf(stack);
+      const { dur: _dur, ...rest } = it;
+      return { ...rest, at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
+    }
+    if (typeof it.film === 'number') return { ...it, text: filmText(stack, it.film) };
+    return it;
+  });
+  return syncLinks({ ...plan, items });
 }
 
 const isPosted = (plan, stackId, reelId) => {
@@ -216,6 +244,46 @@ export function migrateLegacyStories(plan) {
   return out;
 }
 
+// The Story linked to a Reel in a role, if any: { stackId, id }.
+export function linkedStory(plan, reelStackId, reelId, role) {
+  for (const [sid, st] of Object.entries(plan.stacks || {})) {
+    if (kindOf(st) !== 'story') continue;
+    const hit = Object.values(st.reels).find((r) => r.link && r.link.stackId === reelStackId && r.link.reelId === reelId && r.link.role === role);
+    if (hit) return { stackId: sid, id: hit.id };
+  }
+  return null;
+}
+
+const setLink = (plan, sid, pid, link) => {
+  const st = plan.stacks[sid];
+  const { link: _old, ...rest } = st.reels[pid];
+  const reel = link ? { ...rest, link } : rest;
+  return applyStack({ ...plan, stacks: { ...plan.stacks, [sid]: { ...st, reels: { ...st.reels, [pid]: reel } } } }, sid);
+};
+
+// Makes a Story the pre- or after-story of a Reel (the one that was there, if any, becomes loose again).
+export function linkStory(plan, storyStackId, pieceId, reelStackId, reelId, role) {
+  const st = plan.stacks && plan.stacks[storyStackId];
+  if (!st || !st.reels[pieceId] || !plan.stacks[reelStackId] || !plan.stacks[reelStackId].reels[reelId]) return plan;
+  let out = plan;
+  const there = linkedStory(out, reelStackId, reelId, role);
+  if (there && !(there.stackId === storyStackId && there.id === pieceId)) out = setLink(out, there.stackId, there.id, null);
+  return setLink(out, storyStackId, pieceId, { stackId: reelStackId, reelId, role });
+}
+
+export const unlinkStory = (plan, storyStackId, pieceId) => (plan.stacks && plan.stacks[storyStackId] && plan.stacks[storyStackId].reels[pieceId] ? setLink(plan, storyStackId, pieceId, null) : plan);
+
+// A new Story straight into the pre / after slot of a Reel (starts the Stories column if needed).
+export function addLinkedStory(plan, reelStackId, reelId, role) {
+  let out = createStack(plan, 'story');
+  const found = stackOfKind(out, 'story');
+  const reel = out.stacks[reelStackId].reels[reelId];
+  const name = `${role === 'pre' ? 'Pre-story' : 'After-story'}: ${reel.short || reel.title}`;
+  const made = addReel(out, found.id, name);
+  out = linkStory(made.plan, found.id, made.id, reelStackId, reelId, role);
+  return { plan: out, stackId: found.id, id: made.id };
+}
+
 // Opens the script panel of a Reel from anywhere (stack card, week, month, day, board).
 export const openReel = (item) => {
   if (item && item.reel && item.stackId) window.dispatchEvent(new CustomEvent('boceto:open-reel', { detail: { stackId: item.stackId, reelId: item.reel } }));
@@ -276,7 +344,10 @@ export function importContentPlan(plan, content) {
     const prev = stacks[stId];
     const reels = {};
     // `edits` (what you typed in the app) survive a re-import; the file only refreshes the base text.
-    s.reels.forEach((r) => { reels[r.id] = { ...r, ...(prev && prev.reels[r.id] && prev.reels[r.id].edits ? { edits: prev.reels[r.id].edits } : {}) }; });
+    s.reels.forEach((r) => {
+      const old = prev && prev.reels[r.id];
+      reels[r.id] = { ...r, ...(old && old.edits ? { edits: old.edits } : {}), ...(old && old.link && !r.link ? { link: old.link } : {}) };
+    });
     const known = prev ? prev.order.filter((id) => reels[id]) : [];
     const order = [...known, ...s.reels.map((r) => r.id).filter((id) => !known.includes(id))];
     stacks = {

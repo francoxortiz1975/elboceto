@@ -5,3 +5,48 @@
 .sm-title { margin: 0 0 8px; font-family: var(--font-title); font-weight: 400; font-size: 1.35rem; line-height: 1.1; }
 .sm-empty { display: grid; gap: 10px; justify-items: start; padding: 6px 2px 4px; }
 .sm-empty p { margin: 0; font-size: 0.8rem; color: var(--text-muted); }
+
+/* Layout switch */
+.sm-switch { margin-left: auto; }
+.ap-filters .sm-switch { margin-right: 0; }
+
+/* "Por Reel" layout (ReelRows.jsx): backlog on the left, one row per Reel */
+.rr { display: grid; grid-template-columns: minmax(230px, 280px) 1fr; gap: 14px; align-items: start; padding-bottom: 12px; }
+.rr-empty { padding: 20px; color: var(--text-muted); font-size: 0.86rem; }
+.rr-backlog { position: sticky; top: 0; padding: 12px; border: var(--border-strong); border-radius: var(--radius-md); background: var(--bg-note); max-height: calc(100vh - 220px); overflow: auto; }
+.rr-backlog.over { border-color: var(--c, var(--text-ink)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c, #888) 25%, transparent); }
+.rr-h { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 4px; font-family: var(--font-title); font-weight: 400; font-size: 1.15rem; }
+.rr-h span { font: 400 0.7rem var(--font-mono); color: var(--text-muted); }
+.rr-hint { margin: 0 0 10px; font-size: 0.72rem; line-height: 1.4; color: var(--text-muted); }
+.rr-loose { display: grid; gap: 6px; }
+.rr-rows { display: grid; gap: 8px; min-width: 0; }
+.rr-head, .rr-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px; align-items: stretch; }
+.rr-head { padding: 0 2px; font: 400 0.58rem var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.rr-row { position: relative; padding: 8px; border: var(--border-hairline); border-radius: var(--radius-md); background: var(--bg-note); }
+.rr-row.over { box-shadow: 0 -2px 0 var(--c); }
+.rr-slot { display: grid; align-content: center; gap: 4px; padding: 4px; border: 1.5px dashed transparent; border-radius: 6px; min-width: 0; }
+.rr-slot.over { border-color: var(--c); background: color-mix(in srgb, var(--c) 8%, transparent); }
+.rr-label { display: none; font: 400 0.56rem var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.rr-add { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 10px 6px; border: 1.5px dashed var(--text-subtle); border-radius: 6px; background: none; color: var(--text-muted); font: 500 0.72rem var(--font-body); cursor: pointer; }
+.rr-add:hover { border-color: var(--c); color: var(--text-ink); }
+.rr-reel, .rr-story { display: flex; align-items: flex-start; gap: 8px; padding: 8px 9px; border-left: 3px solid var(--c); border-radius: 4px; background: color-mix(in srgb, var(--c) 10%, var(--bg-note)); cursor: grab; min-width: 0; }
+.rr-reel { background: color-mix(in srgb, var(--c) 16%, var(--bg-note)); }
+.rr-story { --c: #D1892F; }
+.rr-reel.done, .rr-story.done { opacity: 0.5; cursor: default; }
+.rr-reel.done .rs-name, .rr-story.done .rs-name { text-decoration: line-through; }
+.rr-reel .rs-check, .rr-story .rs-check { margin-top: 2px; border-color: var(--c); }
+.rr-reel .rs-check.on, .rr-story .rs-check.on { background: var(--c); }
+.rr-open { flex: 1; min-width: 0; display: grid; gap: 1px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; color: var(--text-ink); }
+.rr-open .rs-name { white-space: normal; font-size: 0.84rem; }
+.rr-x { flex: none; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--text-subtle); cursor: pointer; opacity: 0.5; }
+.rr-story:hover .rr-x { opacity: 1; }
+.rr-x:hover { background: rgba(var(--ink-rgb), 0.08); color: var(--text-ink); }
+.rr-reel .rs-tools { flex-direction: column; }
+
+@media (max-width: 860px) {
+  .rr { grid-template-columns: 1fr; }
+  .rr-backlog { position: static; max-height: none; }
+  .rr-head { display: none; }
+  .rr-row { grid-template-columns: 1fr; }
+  .rr-label { display: block; }
+}
