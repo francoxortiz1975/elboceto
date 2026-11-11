@@ -50,3 +50,5 @@
   .rr-row { grid-template-columns: 1fr; }
   .rr-label { display: block; }
 }
+
+.rr-newreel { padding: 4px 0 0; max-width: 460px; }

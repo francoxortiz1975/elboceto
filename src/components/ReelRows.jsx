@@ -14,6 +14,7 @@ export function ReelRows({ plan, onChange }) {
   const [drag, setDrag] = useState(null); // { type: 'story' | 'reel', id }
   const [over, setOver] = useState(null);
   const [newName, setNewName] = useState('');
+  const [newReel, setNewReel] = useState('');
   const mutate = (fn) => onChange((p) => fn(p));
 
   const reelStackId = baseStackIds(plan)[0];
@@ -170,6 +171,20 @@ export function ReelRows({ plan, onChange }) {
             </div>
           );
         })}
+        <form
+          className="rs-add rr-newreel"
+          style={{ '--c': colorOf(reelStack) }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const out = addReel(plan, reelStackId, newReel);
+            if (!out.id) return;
+            mutate(() => out.plan); setNewReel('');
+            openReel({ stackId: reelStackId, reel: out.id });
+          }}
+        >
+          <input type="text" value={newReel} onChange={(e) => setNewReel(e.target.value)} placeholder="+ Nuevo Reel: ponle un nombre" aria-label="Nombre del nuevo Reel" />
+          <button type="submit">Añadir Reel</button>
+        </form>
       </div>
     </div>
   );
