@@ -16,6 +16,7 @@ import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import { useGcalSync } from './lib/useGcalSync';
 import { useTheme } from './lib/theme';
 import { validateContentPlan, importContentPlan } from './lib/contentPlan';
+import { ReelDetailHost } from './components/ReelDetailHost';
 import { collectLegacyEvents, legacyToItem, legacyRemovals } from './lib/legacyEvents';
 import {
   Plus,
@@ -1079,6 +1080,8 @@ function parseTextToBlocks(rawText) {
         areaPlan={areaPlan}
         onChangeAreaPlan={setAreaPlan}
       />
+
+      <ReelDetailHost plan={areaPlan} onChange={setAreaPlan} />
 
       {legacyOpen && (
         <UnassignedEvents

@@ -97,6 +97,25 @@ export function nudgeReel(plan, stackId, id, dir) {
   return target ? moveReel(plan, stackId, id, target) : plan;
 }
 
+// The text of a Reel as shown: the file's text with the edits made in the app on top.
+export const reelText = (r) => ({ ...r, ...(r.edits || {}) });
+
+// Saves what was typed for a Reel (script / cta / caption) without touching the imported base text.
+export function editReel(plan, stackId, reelId, patch) {
+  const stack = plan.stacks && plan.stacks[stackId];
+  if (!stack || !stack.reels[reelId]) return plan;
+  const r = stack.reels[reelId];
+  return {
+    ...plan,
+    stacks: { ...plan.stacks, [stackId]: { ...stack, reels: { ...stack.reels, [reelId]: { ...r, edits: { ...(r.edits || {}), ...patch } } } } }
+  };
+}
+
+// Opens the script panel of a Reel from anywhere (stack card, week, month, day, board).
+export const openReel = (item) => {
+  if (item && item.reel && item.stackId) window.dispatchEvent(new CustomEvent('boceto:open-reel', { detail: { stackId: item.stackId, reelId: item.reel } }));
+};
+
 export function togglePosted(plan, stackId, reelId) {
   const iid = reelItemId(stackId, reelId);
   return { ...plan, items: plan.items.map((it) => (it.id === iid ? { ...it, done: !it.done } : it)) };
@@ -144,7 +163,8 @@ export function importContentPlan(plan, content) {
   if (s) {
     const prev = stacks[sid];
     const reels = {};
-    s.reels.forEach((r) => { reels[r.id] = r; });
+    // `edits` (what you typed in the app) survive a re-import; the file only refreshes the base text.
+    s.reels.forEach((r) => { reels[r.id] = { ...r, ...(prev && prev.reels[r.id] && prev.reels[r.id].edits ? { edits: prev.reels[r.id].edits } : {}) }; });
     const known = prev ? prev.order.filter((id) => reels[id]) : [];
     const order = [...known, ...s.reels.map((r) => r.id).filter((id) => !known.includes(id))];
     stacks = {
@@ -159,7 +179,7 @@ export function importContentPlan(plan, content) {
       if (byId[id]) return;
       fresh.push({
         id, area: area.id, text: `Reel · ${r.short || r.hook || r.title}`, ...(r.title ? { note: r.title } : {}),
-        done: false, day: s.start, at: toMinutes(s.at), dur: s.minutes || 30, stackId: sid, reel: r.id
+        done: !!r.posted, day: s.start, at: toMinutes(s.at), dur: s.minutes || 30, stackId: sid, reel: r.id
       });
     });
   }
@@ -173,3 +193,41 @@ export function importContentPlan(plan, content) {
     total: (content.items || []).length + (s ? s.reels.length : 0)
   };
 }
+
+const fmtMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+// The plan as it is now, in the same file format it was imported from: Reels in stack order
+// with the edits made in the app applied, and which ones are posted. This is what goes back
+// to the conversation that writes the content.
+export function exportContentPlan(plan, stackId) {
+  const stack = plan.stacks && plan.stacks[stackId];
+  if (!stack) return null;
+  const areaName = (id) => (plan.areas.find((a) => a.id === id) || {}).name;
+  const own = plan.items.filter((it) => it.stackId === stackId);
+  const posted = new Set(own.filter((it) => it.reel && it.done).map((it) => it.reel));
+  const prefix = `${stackId}:`;
+  return {
+    format: 'boceto-content-plan',
+    version: 1,
+    id: stackId,
+    area: areaName(stack.area),
+    stack: {
+      title: stack.title, start: stack.start, weekdays: stack.weekdays, at: stack.at, minutes: stack.minutes,
+      reels: stack.order.filter((id) => stack.reels[id]).map((id) => {
+        const { edits, ...base } = stack.reels[id];
+        return { ...base, ...(edits || {}), ...(posted.has(id) ? { posted: true } : {}) };
+      })
+    },
+    items: own.filter((it) => !it.reel).map((it) => ({
+      key: it.id.startsWith(prefix) ? it.id.slice(prefix.length) : it.id,
+      day: it.day,
+      ...(typeof it.at === 'number' ? { from: fmtMin(it.at), to: fmtMin(it.at + durOfItem(it)) } : {}),
+      text: it.text,
+      ...(it.note ? { note: it.note } : {}),
+      ...(it.area !== stack.area ? { area: areaName(it.area) } : {}),
+      ...(typeof it.film === 'number' ? { film: it.film } : {})
+    }))
+  };
+}
+const durOfItem = (it) => it.dur || 60;
+

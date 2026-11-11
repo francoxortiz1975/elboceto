@@ -98,4 +98,6 @@ EL_BOCETO/
 - `src/lib/contentPlan.js` imports a `boceto-content-plan` JSON (format in `docs/CONTENT_PLAN_FORMAT.md`, example `docs/sumay-instagram.plan.json`) from the ⋮ menu. It adds the area, dated blocks and `plan.stacks[id]` (order + Reel details).
 - The stack UI is `components/ReelStack.jsx` (left panel, plan views) with `ReelDetail.jsx`. Reordering calls `moveReel`/`nudgeReel`, which re-dates the Reel blocks (`applyStack`); posted Reels (`done`) keep their slot.
 - Reel blocks carry `stackId` + `reel`; "Film + edit" blocks carry `film` (week number) and their text is regenerated from the stack order.
+- One script panel for the whole app: `components/ReelDetailHost.jsx` (mounted in `App.jsx`) listens for `openReel(item)` (`lib/contentPlan.js`), called from the stack cards, `AreaPlanner` (Día completo / Tablero), `WeeklyPlanner` and `MonthCalendar`. Fields are Hook / Body / CTA / Caption; edits live in `plan.stacks[id].reels[rid].edits` and survive re-imports.
+- `exportContentPlan(plan, stackId)` writes the plan back in the import format (ordered Reels with edits applied, `posted`), for the content conversation.
 

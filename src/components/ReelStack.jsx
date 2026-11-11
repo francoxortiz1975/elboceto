@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowUp, ArrowDown, GripVertical, Check } from 'lucide-react';
 import { AREA_COLORS, dayLabel } from '../lib/areaPlan';
-import { slotDate, moveReel, nudgeReel, togglePosted } from '../lib/contentPlan';
-import { ReelDetail } from './ReelDetail';
+import { slotDate, moveReel, nudgeReel, togglePosted, reelText, openReel } from '../lib/contentPlan';
 import './ReelStack.css';
 
 // The next posts to publish, in order. Each position has a date, so reordering the
@@ -11,7 +10,6 @@ function Stack({ plan, stackId, onChange }) {
   const stack = plan.stacks[stackId];
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
-  const [openId, setOpenId] = useState(null);
 
   const area = plan.areas.find((a) => a.id === stack.area);
   const color = area ? AREA_COLORS[area.c % AREA_COLORS.length] : AREA_COLORS[0];
@@ -28,7 +26,7 @@ function Stack({ plan, stackId, onChange }) {
       </div>
       <ol className="rs-list">
         {ids.map((id, i) => {
-          const r = stack.reels[id];
+          const r = reelText(stack.reels[id]);
           const done = doneOf(id);
           return (
             <li
@@ -45,7 +43,7 @@ function Stack({ plan, stackId, onChange }) {
                 aria-label={done ? 'Marcar como no publicado' : 'Marcar como publicado'}
                 onClick={() => mutate((p) => togglePosted(p, stackId, id))}
               >{done && <Check size={11} />}</button>
-              <button className="rs-body" onClick={() => setOpenId(id)} title="Ver guion, textos y notas">
+              <button className="rs-body" onClick={() => openReel({ stackId, reel: id })} title="Ver guion, textos y notas">
                 <span className="rs-meta">{i + 1} · {dayLabel(slotDate(stack, i))}{r.draft ? ' · borrador' : ''}</span>
                 <span className="rs-name">{r.short || r.hook || r.title}</span>
               </button>
@@ -60,13 +58,6 @@ function Stack({ plan, stackId, onChange }) {
           );
         })}
       </ol>
-      {openId && (
-        <ReelDetail
-          stack={stack} order={ids} id={openId} color={color}
-          dateOf={(rid) => dayLabel(slotDate(stack, ids.indexOf(rid)))}
-          onNavigate={setOpenId} onClose={() => setOpenId(null)}
-        />
-      )}
     </div>
   );
 }

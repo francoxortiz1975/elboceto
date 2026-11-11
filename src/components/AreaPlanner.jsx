@@ -4,6 +4,7 @@ import {
   AREA_COLORS, AREA_DRAG_TYPE, SLOTS, BANDS, SLOT_STEP, SNAP, DAY_FROM, DAY_TO,
   hasAreaDrag, placeAreaItem, uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
 } from '../lib/areaPlan';
+import { openReel } from '../lib/contentPlan';
 import { PlanTabs } from './PlanTabs';
 import './AreaPlanner.css';
 
@@ -283,7 +284,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
         />
         <textarea
           className="ap-txt" rows={1} defaultValue={it.text} placeholder="Escribe…" spellCheck={false}
-          readOnly={ghost} tabIndex={ghost ? -1 : 0}
+          readOnly={ghost || !!it.reel} tabIndex={ghost ? -1 : 0}
           autoFocus={focusId === it.id}
           ref={autoSize}
           onFocus={(ev) => {
@@ -298,7 +299,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
             else if (text !== it.text) patchItem(it.id, { text });
           }}
           onKeyDown={(ev) => onTextKeyDown(ev, it, eff)}
-          onClick={(ev) => ev.stopPropagation()}
+          onClick={(ev) => { ev.stopPropagation(); if (it.reel && Date.now() - gestureEnd.current > 400) openReel(it); }}
         />
         <button className="ap-del" aria-label="Borrar tarea" onClick={() => removeItem(it.id)}>×</button>
       </>

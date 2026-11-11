@@ -11,6 +11,7 @@ import {
 import { MonthCalendar } from './MonthCalendar';
 import { PlanTabs } from './PlanTabs';
 import { AreaPicker } from './AreaPicker';
+import { openReel } from '../lib/contentPlan';
 import { AREA_COLORS, AREA_DRAG_TYPE, BANDS, addDays, daysBetween, durOf, hasAreaDrag, placeAreaItem, rollingMonth, isoOf, uid as areaUid } from '../lib/areaPlan';
 import './AreaPlanner.css';
 import './CalendarFit.css';
@@ -92,6 +93,7 @@ export function WeeklyPlanner({
 
   const colRefs     = useRef({});
   const dragState   = useRef(null);
+  const clickFrom   = useRef(null); // where the pointer went down on a block, to tell a click from a drag
   const weekDaysRef = useRef([]);
 
   // Rolling window: seven days starting today (shifted by whole weeks), not Mon–Sun.
@@ -132,6 +134,8 @@ export function WeeklyPlanner({
       text: it.text,
       completed: !!it.done,
       isArea: true,
+      reel: it.reel,
+      stackId: it.stackId,
       areaName: areaById[it.area].name,
       areaColor: colorOf(areaById[it.area]),
       note: it.note,
@@ -708,7 +712,13 @@ export function WeeklyPlanner({
                         key={task.id}
                         className="planner-task-card"
                         title={`${task.timeSlot} — ${endStr}${task.isArea ? ` · ${task.areaName}` : ''}${task.note ? ` · ${task.note}` : ''}`}
-                        onMouseDown={(e) => startDragMove(e, task, day.key)}
+                        onMouseDown={(e) => { clickFrom.current = { x: e.clientX, y: e.clientY }; startDragMove(e, task, day.key); }}
+                        onClick={(e) => {
+                          // A click (not a drag) on a Reel block opens its script.
+                          const from = clickFrom.current;
+                          if (!task.reel || e.target.closest('button') || !from) return;
+                          if (Math.hypot(e.clientX - from.x, e.clientY - from.y) < 4) openReel(task);
+                        }}
                         onTouchStart={(e) => startDragMove(e, task, day.key)}
                         style={{
                           position: 'absolute',
@@ -750,7 +760,7 @@ export function WeeklyPlanner({
                                 fontSize: '0.78rem',
                                 flex: 1,
                                 minWidth: 0,
-                                cursor: 'text',
+                                cursor: task.reel ? 'pointer' : 'text',
                                 textDecoration: task.completed ? 'line-through' : 'none',
                                 color: task.isEvent ? 'var(--bg-book)' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
                                 padding: 0,
@@ -758,7 +768,8 @@ export function WeeklyPlanner({
                                 lineHeight: 1.2
                               }}
                               value={task.text}
-                              onMouseDown={e => e.stopPropagation()}
+                              readOnly={!!task.reel}
+                              onMouseDown={e => { clickFrom.current = { x: e.clientX, y: e.clientY }; e.stopPropagation(); }}
                               onChange={e => updateTask(task.id, { text: e.target.value })}
                               placeholder="Evento..."
                             />

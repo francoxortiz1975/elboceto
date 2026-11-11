@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { openReel } from '../lib/contentPlan';
 import { AREA_COLORS, AREA_DRAG_TYPE, addDays, fromIso, isoOf, fmtMin, hasAreaDrag, placeAreaItem, rollingMonth } from '../lib/areaPlan';
 import './MonthCalendar.css';
 
@@ -116,6 +117,11 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
                     style={chip.color ? { '--c': chip.color } : undefined}
                     title={`${chip.area}${chip.at !== null ? ` · ${fmtMin(chip.at)}` : ''}${chip.note ? ` · ${chip.note}` : ''}`}
                     onPointerDown={(e) => startMove(e, chip)}
+                    onClick={(e) => {
+                      if (!chip.item || !chip.item.reel) return;
+                      e.stopPropagation(); // do not also open the day
+                      if (Date.now() - gestureEnd.current > 400) openReel(chip.item);
+                    }}
                   >
                     {chip.at !== null && <span className="mc-time font-mono">{fmtMin(chip.at)}</span>}
                     <span className="mc-text">{chip.text || '…'}</span>

@@ -29,6 +29,7 @@ import { SCHEDULES } from '../data/schedules';
 import { SPRINTS, sprintSchedule } from '../data/sprints';
 import { isoOf } from '../lib/areaPlan';
 import sumayPlan from '../../docs/sumay-instagram.plan.json';
+import { exportContentPlan } from '../lib/contentPlan';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -92,6 +93,20 @@ export function DesktopAppLayout({
   const [scheduleResult, setScheduleResult] = useState({});
   const [contentResult, setContentResult] = useState(null);
   const contentFileRef = React.useRef(null);
+  // Downloads each stack as a content-plan file with the edits made here (to hand back to the content conversation).
+  const handleExportContent = () => {
+    const ids = Object.keys((areaPlan && areaPlan.stacks) || {});
+    if (!ids.length) { setContentResult({ error: 'No hay ningún plan de contenido importado.' }); return; }
+    ids.forEach((id) => {
+      const blob = new Blob([JSON.stringify(exportContentPlan(areaPlan, id), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${id}.plan.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    setContentResult({ exported: ids.length });
+  };
   const handleContentFile = (e) => {
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
@@ -467,10 +482,20 @@ export function DesktopAppLayout({
                   <Upload size={12} />
                   <span className="font-mono" style={{ fontSize: '0.75rem' }}>Importar plan de contenido (.json)</span>
                 </button>
+                <button
+                  className="btn-icon"
+                  style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
+                  onClick={handleExportContent}
+                >
+                  <Download size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.75rem' }}>Exportar plan con mis ediciones (.json)</span>
+                </button>
                 <input ref={contentFileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={handleContentFile} />
                 {contentResult && (
                   <span className="font-mono" style={{ fontSize: '0.68rem', color: contentResult.error ? 'var(--danger)' : 'var(--text-muted)', padding: '0 4px' }}>
-                    {contentResult.error
+                    {contentResult.exported
+                      ? '✓ Archivo descargado. Pásalo a la conversación de marketing.'
+                      : contentResult.error
                       ? contentResult.error
                       : contentResult.added > 0 || contentResult.moved > 0
                         ? `✓ ${contentResult.added} bloques añadidos a ${contentResult.area}${contentResult.moved ? `, ${contentResult.moved} movidos a otra área` : ''}. El stack está en el panel izquierdo.`
