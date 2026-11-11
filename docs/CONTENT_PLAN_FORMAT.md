@@ -53,6 +53,14 @@ deletions made in the app survive a re-import. Reels already in the stack keep t
 In the app, the stack appears in the left panel (plan views). Drag a card or use the arrows to reorder: the Reel blocks
 move to the new dates. Tick a card when it is posted: it stays on its date and is skipped when reordering.
 
+## Stories and Posts (optional `stories` and `posts`)
+Next to `stack` (the Reels) the file may carry `"stories": {…}` and `"posts": {…}`: same shape as `stack`, each with its own
+`start`, `weekdays`, `reels` (the pieces) and an optional `area` (name). Here `at` is optional: leave it out for pieces
+with no fixed time (usual for Stories). The three live in the **Redes** tab of the Plan (one column each, with their own
+days and time that the user can change there). Inside a piece, `script` / `cta` / `caption` are shown as: Story = first
+story / next stories / sticker or question / notes; Post = headline or cover / text or slides / call to action /
+caption and hashtags. Loose blocks whose `key` starts with `story-` are turned into Stories pieces automatically.
+
 ## What the user does with a Reel in the app
 - Clicking a Reel (stack card, or its block in Día completo, Tablero, Semana or Mes) opens one panel with four editable
   fields: **Hook** (first line of `script`), **Body** (the rest of `script`), **Call to action** (`cta`) and

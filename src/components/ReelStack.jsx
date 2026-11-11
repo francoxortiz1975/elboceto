@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { ArrowUp, ArrowDown, GripVertical, Check } from 'lucide-react';
 import { AREA_COLORS, dayLabel } from '../lib/areaPlan';
-import { slotDate, moveReel, nudgeReel, togglePosted, reelText, openReel, addReel } from '../lib/contentPlan';
+import { slotDate, moveReel, nudgeReel, togglePosted, reelText, openReel, addReel, setCadence, kindOf, KIND_LABEL } from '../lib/contentPlan';
 import './ReelStack.css';
 
 // The next posts to publish, in order. Each position has a date, so reordering the
 // list moves the blocks in the calendar. Posted ones keep their slot.
-function Stack({ plan, stackId, onChange }) {
+const DOW = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [0, 'D']];
+const NEW_LABEL = { reel: '+ Nuevo Reel', story: '+ Nueva Story', post: '+ Nuevo Post' };
+const firstLine = (t = '') => t.split('\n')[0];
+
+// `column` is the Social Media page: wider cards with a snippet of the text and the publishing days.
+export function Stack({ plan, stackId, onChange, column }) {
   const stack = plan.stacks[stackId];
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
@@ -18,13 +23,30 @@ function Stack({ plan, stackId, onChange }) {
   const ids = stack.order.filter((id) => stack.reels[id]);
   const pending = ids.filter((id) => !doneOf(id)).length;
   const mutate = (fn) => onChange((p) => fn(p));
+  const kind = kindOf(stack);
+  const toggleDay = (d) => {
+    const days = stack.weekdays.includes(d) ? stack.weekdays.filter((x) => x !== d) : [...stack.weekdays, d];
+    if (days.length) mutate((p) => setCadence(p, stackId, { weekdays: days.sort((a, b) => a - b) }));
+  };
 
   return (
-    <div className="rs" style={{ '--c': color }}>
+    <div className={`rs${column ? ' rs-col' : ''}`} style={{ '--c': color }}>
       <div className="rs-head">
         <span className="rs-title"><i />{stack.title} · {area ? area.name : ''}</span>
         <span className="rs-count">{pending} por publicar</span>
       </div>
+      {column && (
+        <div className="rs-cad">
+          <span className="rs-days" role="group" aria-label="Días de publicación">
+            {DOW.map(([d, l]) => <button key={d} aria-pressed={stack.weekdays.includes(d)} onClick={() => toggleDay(d)}>{l}</button>)}
+          </span>
+          <input
+            type="time" value={stack.at || ''} aria-label="Hora de publicación"
+            onChange={(e) => mutate((p) => setCadence(p, stackId, { at: e.target.value }))}
+          />
+          {stack.at && <button className="rs-notime" onClick={() => mutate((p) => setCadence(p, stackId, { at: '' }))} title="Sin hora fija">sin hora</button>}
+        </div>
+      )}
       <ol className="rs-list">
         {ids.map((id, i) => {
           const r = reelText(stack.reels[id]);
@@ -47,6 +69,7 @@ function Stack({ plan, stackId, onChange }) {
               <button className="rs-body" onClick={() => openReel({ stackId, reel: id })} title="Ver guion, textos y notas">
                 <span className="rs-meta">{i + 1} · {dayLabel(slotDate(stack, i))}{r.draft ? ' · borrador' : ''}</span>
                 <span className="rs-name">{r.short || r.hook || r.title}</span>
+                {column && firstLine(r.script) && <span className="rs-snip">{firstLine(r.script)}</span>}
               </button>
               {!done && (
                 <span className="rs-tools">
@@ -71,15 +94,16 @@ function Stack({ plan, stackId, onChange }) {
           openReel({ stackId, reel: out.id });
         }}
       >
-        <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="+ Nuevo Reel: ponle un nombre" aria-label="Nombre del nuevo Reel" />
-        <button type="submit" aria-label="Añadir Reel">Añadir</button>
+        <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={`${NEW_LABEL[kind]}: ponle un nombre`} aria-label={`Nombre ${kind === 'story' ? 'de la nueva' : 'del nuevo'} ${KIND_LABEL[kind]}`} />
+        <button type="submit" aria-label={`Añadir ${KIND_LABEL[kind]}`}>Añadir</button>
       </form>
     </div>
   );
 }
 
 export function ReelStack({ plan, onChange }) {
-  const stacks = plan && plan.stacks ? Object.keys(plan.stacks) : [];
+  // The left panel only carries the Reels; Stories and Posts live in the Social Media page.
+  const stacks = plan && plan.stacks ? Object.keys(plan.stacks).filter((id) => kindOf(plan.stacks[id]) === 'reel') : [];
   if (!stacks.length || !onChange) return null;
   return <>{stacks.map((id) => <Stack key={id} plan={plan} stackId={id} onChange={onChange} />)}</>;
 }

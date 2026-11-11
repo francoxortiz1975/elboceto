@@ -4,10 +4,26 @@
 // their position in the stack. Reordering the stack moves the blocks in the
 // calendar; posted ones stay where they are.
 
-import { AREA_COLORS, addDays, fromIso, uid } from './areaPlan';
+import { AREA_COLORS, addDays, fromIso, isoOf, uid } from './areaPlan';
 
 const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const reelItemId = (stackId, reelId) => `${stackId}:reel:${reelId}`;
+
+// A stack holds one kind of piece: Reels, Stories or Posts. Older stacks have no kind (= Reels).
+// `at` is optional: without it the blocks are not tied to a time of day.
+export const KINDS = ['reel', 'story', 'post'];
+export const KIND_LABEL = { reel: 'Reel', story: 'Story', post: 'Post' };
+const KIND_SUFFIX = { reel: '', story: '-stories', post: '-posts' };
+const KIND_DAYS = { reel: [2, 5], story: [1, 3, 6], post: [4] };
+export const kindOf = (stack) => (stack && stack.kind) || 'reel';
+const atOf = (stack) => (stack.at ? toMinutes(stack.at) : 'any');
+// The stacks that come from a content-plan file's main "stack" (the Reels).
+export const baseStackIds = (plan) => Object.keys((plan && plan.stacks) || {}).filter((id) => kindOf(plan.stacks[id]) === 'reel');
+// Each kind's stack (id + stack) for a plan, if it has one.
+export const stackOfKind = (plan, kind) => {
+  const ids = Object.keys((plan && plan.stacks) || {}).filter((id) => kindOf(plan.stacks[id]) === kind);
+  return ids.length ? { id: ids[0], stack: plan.stacks[ids[0]] } : null;
+};
 
 // Returns an error message, or '' when the file looks like a content plan.
 export function validateContentPlan(c) {
@@ -19,11 +35,12 @@ export function validateContentPlan(c) {
     if (!it.key || !it.day || !it.text) return 'Cada bloque necesita "key", "day" y "text".';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(it.day)) return `Fecha no válida: ${it.day}`;
   }
-  const s = c.stack;
-  if (s) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.start || '') || !/^\d{2}:\d{2}$/.test(s.at || '')) return 'El stack necesita "start" (AAAA-MM-DD) y "at" (HH:MM).';
-    if (!Array.isArray(s.weekdays) || !s.weekdays.length) return 'El stack necesita "weekdays" (0 = domingo … 6 = sábado).';
-    if (!Array.isArray(s.reels) || s.reels.some((r) => !r.id)) return 'Cada Reel del stack necesita un "id".';
+  for (const key of ['stack', 'stories', 'posts']) {
+    const s = c[key];
+    if (!s) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.start || '') || (s.at && !/^\d{2}:\d{2}$/.test(s.at))) return `"${key}" necesita "start" (AAAA-MM-DD) y, si lleva hora, "at" (HH:MM).`;
+    if (!Array.isArray(s.weekdays) || !s.weekdays.length) return `"${key}" necesita "weekdays" (0 = domingo … 6 = sábado).`;
+    if (!Array.isArray(s.reels) || s.reels.some((r) => !r.id)) return `Cada pieza de "${key}" necesita un "id".`;
   }
   return '';
 }
@@ -61,7 +78,11 @@ export function applyStack(plan, stackId) {
     ...plan,
     items: plan.items.map((it) => {
       if (it.stackId !== stackId) return it;
-      if (it.reel && it.id in slot) return { ...it, day: slotDate(stack, slot[it.id]), at: toMinutes(stack.at) };
+      if (it.reel && it.id in slot) {
+        const at = atOf(stack);
+        const { dur: _dur, ...rest } = it;
+        return { ...rest, day: slotDate(stack, slot[it.id]), at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
+      }
       if (typeof it.film === 'number') return { ...it, text: filmText(stack, it.film) };
       return it;
     })
@@ -111,16 +132,18 @@ export function editReel(plan, stackId, reelId, patch) {
   };
 }
 
-// Adds an empty Reel at the end of the stack (next free slot); returns the new plan and the Reel id.
+// Adds an empty piece (Reel, Story or Post) at the end of the stack (next free slot); returns the new plan and its id.
 export function addReel(plan, stackId, name) {
   const stack = plan.stacks && plan.stacks[stackId];
   if (!stack) return { plan, id: null };
-  const short = name.trim() || 'Nuevo Reel';
+  const label = KIND_LABEL[kindOf(stack)];
+  const short = name.trim() || `Nuevo ${label}`;
   const id = `r_${uid().slice(3)}`;
   const reel = { id, short, title: short, script: '', cta: '', caption: '' };
+  const at = atOf(stack);
   const item = {
-    id: reelItemId(stackId, id), area: stack.area, text: `Reel · ${short}`, note: short, done: false,
-    day: stack.start, at: toMinutes(stack.at), dur: stack.minutes || 30, stackId, reel: id
+    id: reelItemId(stackId, id), area: stack.area, text: `${label} · ${short}`, note: short, done: false,
+    day: stack.start, at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}), stackId, reel: id
   };
   const next = {
     ...plan,
@@ -128,6 +151,69 @@ export function addReel(plan, stackId, name) {
     stacks: { ...plan.stacks, [stackId]: { ...stack, order: [...stack.order, id], reels: { ...stack.reels, [id]: reel } } }
   };
   return { plan: applyStack(next, stackId), id };
+}
+
+// Changes when a stack publishes (weekdays and/or time of day; `at: ''` = no time) and moves the blocks.
+export function setCadence(plan, stackId, patch) {
+  const stack = plan.stacks && plan.stacks[stackId];
+  if (!stack) return plan;
+  const next = { ...stack, ...patch };
+  if (!next.at) delete next.at;
+  if (!next.weekdays || !next.weekdays.length) return plan;
+  return applyStack({ ...plan, stacks: { ...plan.stacks, [stackId]: next } }, stackId);
+}
+
+// Starts the stack of a kind (Stories / Posts / Reels) in the social-media area, next to the Reels one.
+export function createStack(plan, kind) {
+  if (stackOfKind(plan, kind)) return plan;
+  const base = baseStackIds(plan)[0];
+  const baseStack = base && plan.stacks[base];
+  let areas = plan.areas;
+  let areaId = baseStack && baseStack.area;
+  if (!areaId) {
+    let a = areas.find((x) => x.name.trim().toLowerCase() === 'social media');
+    if (!a) {
+      const used = areas.map((x) => x.c);
+      const free = AREA_COLORS.findIndex((_, i) => !used.includes(i));
+      a = { id: uid(), name: 'Social Media', c: free < 0 ? areas.length % AREA_COLORS.length : free };
+      areas = [...areas, a];
+    }
+    areaId = a.id;
+  }
+  const sid = `${base || 'social'}${KIND_SUFFIX[kind]}`;
+  const stack = {
+    title: `${KIND_LABEL[kind]}s`, kind, area: areaId, start: baseStack ? baseStack.start : isoOf(new Date()),
+    weekdays: KIND_DAYS[kind], ...(kind === 'story' ? {} : { at: kind === 'post' ? '12:00' : '19:00' }),
+    minutes: kind === 'story' ? 15 : 30, order: [], reels: {}
+  };
+  return { ...plan, areas, stacks: { ...(plan.stacks || {}), [sid]: stack } };
+}
+
+// Stories that an earlier import stored as loose blocks ("<plan>:story-…") become the pieces of a
+// Stories stack, so they can be opened, edited, reordered and exported like the Reels.
+export function migrateLegacyStories(plan) {
+  let out = plan;
+  baseStackIds(plan).forEach((sid) => {
+    const legacy = out.items.filter((it) => it.stackId === sid && !it.reel && it.id.startsWith(`${sid}:story-`)).sort((a, b) => (a.day < b.day ? -1 : 1));
+    if (!legacy.length) return;
+    const stId = `${sid}-stories`;
+    const prev = out.stacks[stId];
+    const days = [...new Set(legacy.map((it) => fromIso(it.day).getDay()))].sort((a, b) => a - b);
+    const stack = prev || { title: 'Stories', kind: 'story', area: legacy[0].area, start: legacy[0].day, weekdays: days, minutes: 15, order: [], reels: {} };
+    const reels = { ...stack.reels };
+    const order = [...stack.order];
+    const added = legacy.map((it) => {
+      const pid = it.id.slice(sid.length + 1).replace(/^story-/, 's-');
+      const short = it.text.replace(/^Stories?:\s*/i, '');
+      reels[pid] = { id: pid, short, title: it.text, script: it.note || '', cta: '', caption: '', fromId: it.id };
+      if (!order.includes(pid)) order.push(pid);
+      return { id: reelItemId(stId, pid), area: it.area, text: `Story · ${short}`, note: it.text, done: !!it.done, day: it.day, at: 'any', stackId: stId, reel: pid };
+    });
+    const gone = new Set(legacy.map((it) => it.id));
+    out = { ...out, items: [...out.items.filter((it) => !gone.has(it.id)), ...added], stacks: { ...out.stacks, [stId]: { ...stack, order, reels } } };
+    out = applyStack(out, stId);
+  });
+  return out;
 }
 
 // Opens the script panel of a Reel from anywhere (stack card, week, month, day, board).
@@ -160,11 +246,14 @@ export function importContentPlan(plan, content) {
   const byId = Object.fromEntries(plan.items.map((i) => [i.id, i]));
   const fresh = [];
   const moves = {}; // blocks still in the plan's main area that the file now puts in another one
+  // Stories that were turned into pieces of a stack must not come back as loose blocks.
+  const migrated = new Set(Object.values(plan.stacks || {}).flatMap((st) => Object.values(st.reels).map((r) => r.fromId).filter(Boolean)));
 
   (content.items || []).forEach((ev) => {
     const id = `${sid}:${ev.key}`;
     const target = ev.area ? areaFor(ev.area) : area;
     const have = byId[id];
+    if (migrated.has(id)) return;
     if (have) {
       if (have.stackId === sid && have.area === area.id && target.id !== area.id) moves[id] = target.id;
       return;
@@ -178,9 +267,13 @@ export function importContentPlan(plan, content) {
   });
 
   let stacks = plan.stacks || {};
-  const s = content.stack;
-  if (s) {
-    const prev = stacks[sid];
+  const touched = [];
+  [['stack', 'reel'], ['stories', 'story'], ['posts', 'post']].forEach(([key, kind]) => {
+    const s = content[key];
+    if (!s) return;
+    const stId = sid + KIND_SUFFIX[kind];
+    const stArea = s.area ? areaFor(s.area) : area;
+    const prev = stacks[stId];
     const reels = {};
     // `edits` (what you typed in the app) survive a re-import; the file only refreshes the base text.
     s.reels.forEach((r) => { reels[r.id] = { ...r, ...(prev && prev.reels[r.id] && prev.reels[r.id].edits ? { edits: prev.reels[r.id].edits } : {}) }; });
@@ -188,28 +281,32 @@ export function importContentPlan(plan, content) {
     const order = [...known, ...s.reels.map((r) => r.id).filter((id) => !known.includes(id))];
     stacks = {
       ...stacks,
-      [sid]: {
-        title: s.title || 'Stack', area: area.id, start: s.start, weekdays: s.weekdays, at: s.at,
-        minutes: s.minutes || 30, order, reels
+      [stId]: {
+        title: s.title || KIND_LABEL[kind] + 's', kind, area: stArea.id, start: s.start, weekdays: s.weekdays,
+        ...(s.at ? { at: s.at } : {}), minutes: s.minutes || 30, order, reels
       }
     };
+    touched.push(stId);
+    const at = s.at ? toMinutes(s.at) : 'any';
     s.reels.forEach((r) => {
-      const id = reelItemId(sid, r.id);
+      const id = reelItemId(stId, r.id);
       if (byId[id]) return;
       fresh.push({
-        id, area: area.id, text: `Reel · ${r.short || r.hook || r.title}`, ...(r.title ? { note: r.title } : {}),
-        done: !!r.posted, day: s.start, at: toMinutes(s.at), dur: s.minutes || 30, stackId: sid, reel: r.id
+        id, area: stArea.id, text: `${KIND_LABEL[kind]} · ${r.short || r.hook || r.title}`, ...(r.title ? { note: r.title } : {}),
+        done: !!r.posted, day: s.start, at, ...(s.at ? { dur: s.minutes || 30 } : {}), stackId: stId, reel: r.id
       });
     });
-  }
+  });
 
   const items = plan.items.map((it) => (moves[it.id] ? { ...it, area: moves[it.id] } : it));
-  const merged = applyStack({ ...plan, areas, items: [...items, ...fresh], stacks }, sid);
+  let merged = { ...plan, areas, items: [...items, ...fresh], stacks };
+  touched.forEach((id) => { merged = applyStack(merged, id); });
+  merged = migrateLegacyStories(merged);
   return {
     plan: merged,
     added: fresh.length,
     moved: Object.keys(moves).length,
-    total: (content.items || []).length + (s ? s.reels.length : 0)
+    total: (content.items || []).length + ['stack', 'stories', 'posts'].reduce((n, k) => n + (content[k] ? content[k].reels.length : 0), 0)
   };
 }
 
@@ -223,20 +320,32 @@ export function exportContentPlan(plan, stackId) {
   if (!stack) return null;
   const areaName = (id) => (plan.areas.find((a) => a.id === id) || {}).name;
   const own = plan.items.filter((it) => it.stackId === stackId);
-  const posted = new Set(own.filter((it) => it.reel && it.done).map((it) => it.reel));
   const prefix = `${stackId}:`;
+  // One stack as the file describes it: pieces in order, edits applied, which ones are posted.
+  const stackOut = (id) => {
+    const st = plan.stacks[id];
+    const posted = new Set(plan.items.filter((it) => it.stackId === id && it.reel && it.done).map((it) => it.reel));
+    return {
+      title: st.title, ...(st.area !== stack.area ? { area: areaName(st.area) } : {}), start: st.start, weekdays: st.weekdays,
+      ...(st.at ? { at: st.at } : {}), minutes: st.minutes,
+      reels: st.order.filter((rid) => st.reels[rid]).map((rid) => {
+        const { edits, ...base } = st.reels[rid];
+        return { ...base, ...(edits || {}), ...(posted.has(rid) ? { posted: true } : {}) };
+      })
+    };
+  };
+  const extra = (kind, key) => {
+    const id = stackId + KIND_SUFFIX[kind];
+    return plan.stacks[id] ? { [key]: stackOut(id) } : {};
+  };
   return {
     format: 'boceto-content-plan',
     version: 1,
     id: stackId,
     area: areaName(stack.area),
-    stack: {
-      title: stack.title, start: stack.start, weekdays: stack.weekdays, at: stack.at, minutes: stack.minutes,
-      reels: stack.order.filter((id) => stack.reels[id]).map((id) => {
-        const { edits, ...base } = stack.reels[id];
-        return { ...base, ...(edits || {}), ...(posted.has(id) ? { posted: true } : {}) };
-      })
-    },
+    stack: stackOut(stackId),
+    ...extra('story', 'stories'),
+    ...extra('post', 'posts'),
     items: own.filter((it) => !it.reel).map((it) => ({
       key: it.id.startsWith(prefix) ? it.id.slice(prefix.length) : it.id,
       day: it.day,

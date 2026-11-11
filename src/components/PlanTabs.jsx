@@ -4,7 +4,8 @@ const TABS = [
   ['day', 'Día completo'],
   ['board', 'Tablero'],
   ['week', 'Semana'],
-  ['month', 'Mes']
+  ['month', 'Mes'],
+  ['social', 'Redes']
 ];
 
 // Switch between the three ways of looking at the same plan.

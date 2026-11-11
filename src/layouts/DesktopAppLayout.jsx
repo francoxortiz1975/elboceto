@@ -29,7 +29,7 @@ import { SCHEDULES } from '../data/schedules';
 import { SPRINTS, sprintSchedule } from '../data/sprints';
 import { isoOf } from '../lib/areaPlan';
 import sumayPlan from '../../docs/sumay-instagram.plan.json';
-import { exportContentPlan } from '../lib/contentPlan';
+import { exportContentPlan, baseStackIds } from '../lib/contentPlan';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -95,7 +95,7 @@ export function DesktopAppLayout({
   const contentFileRef = React.useRef(null);
   // Downloads each stack as a content-plan file with the edits made here (to hand back to the content conversation).
   const handleExportContent = () => {
-    const ids = Object.keys((areaPlan && areaPlan.stacks) || {});
+    const ids = baseStackIds(areaPlan); // Stories and Posts travel inside their plan's file
     if (!ids.length) { setContentResult({ error: 'No hay ningún plan de contenido importado.' }); return; }
     ids.forEach((id) => {
       const blob = new Blob([JSON.stringify(exportContentPlan(areaPlan, id), null, 2)], { type: 'application/json' });
