@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowUp, ArrowDown, GripVertical, Check } from 'lucide-react';
 import { AREA_COLORS, dayLabel } from '../lib/areaPlan';
-import { slotDate, moveReel, nudgeReel, togglePosted, reelText, openReel } from '../lib/contentPlan';
+import { slotDate, moveReel, nudgeReel, togglePosted, reelText, openReel, addReel } from '../lib/contentPlan';
 import './ReelStack.css';
 
 // The next posts to publish, in order. Each position has a date, so reordering the
@@ -10,6 +10,7 @@ function Stack({ plan, stackId, onChange }) {
   const stack = plan.stacks[stackId];
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
+  const [newName, setNewName] = useState('');
 
   const area = plan.areas.find((a) => a.id === stack.area);
   const color = area ? AREA_COLORS[area.c % AREA_COLORS.length] : AREA_COLORS[0];
@@ -58,6 +59,21 @@ function Stack({ plan, stackId, onChange }) {
           );
         })}
       </ol>
+      <form
+        className="rs-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          // The id is made here so the script panel can open on the Reel that was just added.
+          const out = addReel(plan, stackId, newName);
+          if (!out.id) return;
+          mutate(() => out.plan);
+          setNewName('');
+          openReel({ stackId, reel: out.id });
+        }}
+      >
+        <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="+ Nuevo Reel: ponle un nombre" aria-label="Nombre del nuevo Reel" />
+        <button type="submit" aria-label="Añadir Reel">Añadir</button>
+      </form>
     </div>
   );
 }

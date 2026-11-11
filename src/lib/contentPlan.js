@@ -111,6 +111,25 @@ export function editReel(plan, stackId, reelId, patch) {
   };
 }
 
+// Adds an empty Reel at the end of the stack (next free slot); returns the new plan and the Reel id.
+export function addReel(plan, stackId, name) {
+  const stack = plan.stacks && plan.stacks[stackId];
+  if (!stack) return { plan, id: null };
+  const short = name.trim() || 'Nuevo Reel';
+  const id = `r_${uid().slice(3)}`;
+  const reel = { id, short, title: short, script: '', cta: '', caption: '' };
+  const item = {
+    id: reelItemId(stackId, id), area: stack.area, text: `Reel · ${short}`, note: short, done: false,
+    day: stack.start, at: toMinutes(stack.at), dur: stack.minutes || 30, stackId, reel: id
+  };
+  const next = {
+    ...plan,
+    items: [...plan.items, item],
+    stacks: { ...plan.stacks, [stackId]: { ...stack, order: [...stack.order, id], reels: { ...stack.reels, [id]: reel } } }
+  };
+  return { plan: applyStack(next, stackId), id };
+}
+
 // Opens the script panel of a Reel from anywhere (stack card, week, month, day, board).
 export const openReel = (item) => {
   if (item && item.reel && item.stackId) window.dispatchEvent(new CustomEvent('boceto:open-reel', { detail: { stackId: item.stackId, reelId: item.reel } }));
