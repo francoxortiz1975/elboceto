@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AREA_COLORS, dayLabel } from '../lib/areaPlan';
-import { slotDate, editReel } from '../lib/contentPlan';
+import { slotDate, editReel, setDate } from '../lib/contentPlan';
 import { ReelDetail } from './ReelDetail';
 import './ReelStack.css';
 
@@ -23,7 +23,9 @@ export function ReelDetailHost({ plan, onChange }) {
   return (
     <ReelDetail
       stack={stack} order={order} id={open.reelId} color={color}
-      dateOf={(rid) => dayLabel(slotDate(stack, order.indexOf(rid)))}
+      dateOf={(rid) => { const it = plan.items.find((i) => i.id === `${open.stackId}:reel:${rid}`); return dayLabel(it ? it.day : slotDate(stack, order.indexOf(rid))); }}
+      dateIso={(rid) => { const it = plan.items.find((i) => i.id === `${open.stackId}:reel:${rid}`); return it ? it.day : ''; }}
+      onDate={(rid, iso) => onChange((p) => setDate(p, open.stackId, rid, iso))}
       onEdit={(rid, patch) => onChange((p) => editReel(p, open.stackId, rid, patch))}
       onNavigate={(rid) => setOpen({ stackId: open.stackId, reelId: rid })}
       onClose={() => setOpen(null)}

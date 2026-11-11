@@ -80,7 +80,7 @@ function syncLinks(plan) {
     if (kindOf(st) !== 'story') return;
     Object.values(st.reels).forEach((r) => {
       const l = r.link;
-      const d = l && dayOf[reelItemId(l.stackId, l.reelId)];
+      const d = l && !r.date && dayOf[reelItemId(l.stackId, l.reelId)];
       if (d) want[reelItemId(sid, r.id)] = addDays(d, l.role === 'pre' ? -1 : 1);
     });
   });
@@ -97,6 +97,8 @@ function syncLinks(plan) {
 export function applyStack(plan, stackId) {
   const stack = plan.stacks && plan.stacks[stackId];
   if (!stack) return plan;
+  // Linked Stories follow their Reel. A piece with a date picked by hand (`date`) keeps that date but still
+  // holds its place in the order, so the other pieces do not shift.
   const free = stack.order.filter((id) => !(stack.reels[id] && stack.reels[id].link));
   const slot = Object.fromEntries(free.map((id, i) => [reelItemId(stackId, id), i]));
   const items = plan.items.map((it) => {
@@ -104,12 +106,14 @@ export function applyStack(plan, stackId) {
     if (it.reel && it.id in slot) {
       const at = atOf(stack);
       const { dur: _dur, ...rest } = it;
-      return { ...rest, day: slotDate(stack, slot[it.id]), at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
+      const pinned = stack.reels[it.reel] && stack.reels[it.reel].date;
+      return { ...rest, day: pinned || slotDate(stack, slot[it.id]), at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
     }
     if (it.reel) {
       const at = atOf(stack);
       const { dur: _dur, ...rest } = it;
-      return { ...rest, at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
+      const pinned = stack.reels[it.reel] && stack.reels[it.reel].date;
+      return { ...rest, ...(pinned ? { day: pinned } : {}), at, ...(typeof at === 'number' ? { dur: stack.minutes || 30 } : {}) };
     }
     if (typeof it.film === 'number') return { ...it, text: filmText(stack, it.film) };
     return it;
@@ -244,6 +248,34 @@ export function migrateLegacyStories(plan) {
   return out;
 }
 
+// Picks the date of a Reel / Story by hand (ISO date); '' goes back to the automatic one.
+export function setDate(plan, stackId, pieceId, iso) {
+  const st = plan.stacks && plan.stacks[stackId];
+  if (!st || !st.reels[pieceId]) return plan;
+  const { date: _old, ...rest } = st.reels[pieceId];
+  const reel = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? { ...rest, date: iso } : rest;
+  return applyStack({ ...plan, stacks: { ...plan.stacks, [stackId]: { ...st, reels: { ...st.reels, [pieceId]: reel } } } }, stackId);
+}
+
+// A Reel / Story block that was moved to another day by hand (dragged in Semana, Mes, Día…) becomes a
+// piece with its own date, so reordering or changing the days of its stack no longer puts it back.
+export function pinMovedPieces(plan) {
+  if (!plan.stacks) return plan;
+  let out = plan;
+  const rank = (id) => ({ reel: 0, post: 1, story: 2 }[kindOf(out.stacks[id])]);
+  Object.keys(plan.stacks).sort((a, b) => rank(a) - rank(b)).forEach((sid) => {
+    const want = {};
+    applyStack(out, sid).items.forEach((it) => { if (it.stackId === sid && it.reel) want[it.id] = it.day; });
+    const moved = out.items.filter((it) => it.stackId === sid && it.reel && want[it.id] && want[it.id] !== it.day);
+    if (!moved.length) return;
+    const st = out.stacks[sid];
+    const reels = { ...st.reels };
+    moved.forEach((it) => { if (reels[it.reel]) reels[it.reel] = { ...reels[it.reel], date: it.day }; });
+    out = applyStack({ ...out, stacks: { ...out.stacks, [sid]: { ...st, reels } } }, sid);
+  });
+  return out;
+}
+
 // The Story linked to a Reel in a role, if any: { stackId, id }.
 export function linkedStory(plan, reelStackId, reelId, role) {
   for (const [sid, st] of Object.entries(plan.stacks || {})) {
@@ -346,7 +378,7 @@ export function importContentPlan(plan, content) {
     // `edits` (what you typed in the app) survive a re-import; the file only refreshes the base text.
     s.reels.forEach((r) => {
       const old = prev && prev.reels[r.id];
-      reels[r.id] = { ...r, ...(old && old.edits ? { edits: old.edits } : {}), ...(old && old.link && !r.link ? { link: old.link } : {}) };
+      reels[r.id] = { ...r, ...(old && old.edits ? { edits: old.edits } : {}), ...(old && old.link && !r.link ? { link: old.link } : {}), ...(old && old.date && !r.date ? { date: old.date } : {}) };
     });
     const known = prev ? prev.order.filter((id) => reels[id]) : [];
     const order = [...known, ...s.reels.map((r) => r.id).filter((id) => !known.includes(id))];

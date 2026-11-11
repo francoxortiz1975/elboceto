@@ -15,7 +15,7 @@ import { loadAreaPlan, saveAreaPlan, importSchedule } from './lib/areaPlan';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import { useGcalSync } from './lib/useGcalSync';
 import { useTheme } from './lib/theme';
-import { validateContentPlan, importContentPlan } from './lib/contentPlan';
+import { validateContentPlan, importContentPlan, pinMovedPieces } from './lib/contentPlan';
 import { ReelDetailHost } from './components/ReelDetailHost';
 import { collectLegacyEvents, legacyToItem, legacyRemovals } from './lib/legacyEvents';
 import {
@@ -136,6 +136,11 @@ export default function App() {
   // Area planner ("Plan por áreas"): local-first, persisted in localStorage.
   const [areaPlan, setAreaPlan] = useState(loadAreaPlan);
   useEffect(() => { saveAreaPlan(areaPlan); }, [areaPlan]);
+  // A Reel / Story dragged to another day in the calendar keeps that day (it becomes a pinned date).
+  useEffect(() => {
+    const next = pinMovedPieces(areaPlan);
+    if (next !== areaPlan) setAreaPlan(next);
+  }, [areaPlan]);
 
   // Which look of the plan is open: the full day, the area board, the week or the month.
   const [theme, setTheme] = useTheme();

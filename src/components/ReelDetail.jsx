@@ -29,7 +29,7 @@ const splitScript = (script = '') => {
 const joinScript = (hook, body) => (body ? `${hook}\n${body}` : hook);
 
 // One post, editable in place: hook, body, call to action, caption and hashtags.
-export function ReelDetail({ stack, order, id, color, dateOf, onEdit, onNavigate, onClose }) {
+export function ReelDetail({ stack, order, id, color, dateOf, dateIso, onDate, onEdit, onNavigate, onClose }) {
   const r = reelText(stack.reels[id] || {});
   const [hook, setHook] = useState('');
   const [body, setBody] = useState('');
@@ -68,6 +68,14 @@ export function ReelDetail({ stack, order, id, color, dateOf, onEdit, onNavigate
           <button className="rd-close" onClick={onClose}>Cerrar</button>
         </div>
         <h2>{r.short || r.title}</h2>
+        <div className="rd-date">
+          <label>Fecha
+            <input type="date" value={dateIso(id)} onChange={(e) => onDate(id, e.target.value)} />
+          </label>
+          {stack.reels[id].date
+            ? <button onClick={() => onDate(id, '')} title="Que la fecha vuelva a seguir el orden">Automática</button>
+            : <span>{stack.reels[id].link ? 'sigue a su Reel' : 'según el orden'}</span>}
+        </div>
         {hasBrackets && <div className="rd-draft">Falta rellenar lo que está entre [CORCHETES] con datos reales.</div>}
 
         <h4>{L.hook}</h4>
