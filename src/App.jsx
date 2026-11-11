@@ -15,6 +15,7 @@ import { loadAreaPlan, saveAreaPlan, importSchedule } from './lib/areaPlan';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import { useGcalSync } from './lib/useGcalSync';
 import { useTheme } from './lib/theme';
+import { validateContentPlan, importContentPlan } from './lib/contentPlan';
 import { collectLegacyEvents, legacyToItem, legacyRemovals } from './lib/legacyEvents';
 import {
   Plus,
@@ -912,6 +913,15 @@ function parseTextToBlocks(rawText) {
     return { added: result.added, total: result.total };
   };
 
+  // Adds a content plan (area, blocks and a stack of posts) to the plan; returns what happened for the menu.
+  const handleImportContentPlan = (content) => {
+    const error = validateContentPlan(content);
+    if (error) return { error };
+    const result = importContentPlan(areaPlan, content);
+    if (result.added > 0 || JSON.stringify(result.plan.stacks) !== JSON.stringify(areaPlan.stacks)) setAreaPlan(result.plan);
+    return { added: result.added, total: result.total, area: content.area };
+  };
+
   const [showDocDropdown, setShowDocDropdown] = useState(false);
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
 
@@ -1028,6 +1038,7 @@ function parseTextToBlocks(rawText) {
           handleExportJSON={handleExportJSON}
           handleImportJSON={handleImportJSON}
           onImportSchedule={handleImportSchedule}
+          onImportContentPlan={handleImportContentPlan}
           theme={theme}
           onThemeChange={setTheme}
           gcal={gcal}

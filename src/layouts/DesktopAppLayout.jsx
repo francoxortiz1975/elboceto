@@ -28,6 +28,7 @@ import { PlanView } from '../components/PlanView';
 import { SCHEDULES } from '../data/schedules';
 import { SPRINTS, sprintSchedule } from '../data/sprints';
 import { isoOf } from '../lib/areaPlan';
+import sumayPlan from '../../docs/sumay-instagram.plan.json';
 import { AuthButton } from '../components/AuthButton';
 import { SaveButton } from '../components/SaveButton';
 import { LoadButton } from '../components/LoadButton';
@@ -76,6 +77,7 @@ export function DesktopAppLayout({
   handleExportJSON,
   handleImportJSON,
   onImportSchedule,
+  onImportContentPlan,
   theme,
   onThemeChange,
   gcal,
@@ -88,6 +90,19 @@ export function DesktopAppLayout({
 }) {
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
   const [scheduleResult, setScheduleResult] = useState({});
+  const [contentResult, setContentResult] = useState(null);
+  const contentFileRef = React.useRef(null);
+  const handleContentFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { setContentResult(onImportContentPlan(JSON.parse(reader.result))); }
+      catch { setContentResult({ error: 'No se pudo leer el archivo (JSON no válido).' }); }
+    };
+    reader.readAsText(file);
+  };
 
   // Views are stacked vertically; each sits at its distance from the active one.
   const VIEW_ORDER = ['notes', 'board', 'planner'];
@@ -357,7 +372,7 @@ export function DesktopAppLayout({
                     key={id}
                     className="btn-icon"
                     aria-pressed={theme === id}
-                    style={{ flex: 1, justifyContent: 'center', ...(theme === id ? { background: 'var(--bg-active)', border: 'var(--border-strong)' } : {}) }}
+                    style={{ flex: 1, minWidth: 0, justifyContent: 'center', padding: '4px 6px', gap: '4px', ...(theme === id ? { background: 'var(--bg-active)', border: 'var(--border-strong)' } : {}) }}
                     onClick={() => onThemeChange(id)}
                   >
                     <Icon size={12} />
@@ -431,6 +446,37 @@ export function DesktopAppLayout({
                     </React.Fragment>
                   );
                 })}
+              </div>
+
+              {/* Content plans */}
+              <div className="panel-section-title font-mono">PLAN DE CONTENIDO</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                <button
+                  className="btn-icon"
+                  style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
+                  onClick={() => setContentResult(onImportContentPlan(sumayPlan))}
+                >
+                  <Calendar size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.75rem' }}>{sumayPlan.label}</span>
+                </button>
+                <button
+                  className="btn-icon"
+                  style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
+                  onClick={() => contentFileRef.current && contentFileRef.current.click()}
+                >
+                  <Upload size={12} />
+                  <span className="font-mono" style={{ fontSize: '0.75rem' }}>Importar plan de contenido (.json)</span>
+                </button>
+                <input ref={contentFileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={handleContentFile} />
+                {contentResult && (
+                  <span className="font-mono" style={{ fontSize: '0.68rem', color: contentResult.error ? 'var(--danger)' : 'var(--text-muted)', padding: '0 4px' }}>
+                    {contentResult.error
+                      ? contentResult.error
+                      : contentResult.added > 0
+                        ? `✓ ${contentResult.added} bloques añadidos a ${contentResult.area}. El stack está en el panel izquierdo.`
+                        : 'Ya estaba importado, no se añadió nada.'}
+                  </span>
+                )}
               </div>
 
               {/* Loginet sprints */}

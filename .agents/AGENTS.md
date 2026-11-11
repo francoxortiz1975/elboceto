@@ -94,3 +94,8 @@ EL_BOCETO/
 - Old events without an area (dated Planificador tasks and canvas notes with a date) are listed by `UnassignedEvents` (auto-opens once per session, or from the ⋮ menu); each becomes a normal block only when you pick an area (`src/lib/legacyEvents.js`).
 - A note's check that was dragged onto the week keeps `areaItemId` on its block, which hides it from "Pendientes" while that block exists.
 
+## Content plans (stack of posts)
+- `src/lib/contentPlan.js` imports a `boceto-content-plan` JSON (format in `docs/CONTENT_PLAN_FORMAT.md`, example `docs/sumay-instagram.plan.json`) from the ⋮ menu. It adds the area, dated blocks and `plan.stacks[id]` (order + Reel details).
+- The stack UI is `components/ReelStack.jsx` (left panel, plan views) with `ReelDetail.jsx`. Reordering calls `moveReel`/`nudgeReel`, which re-dates the Reel blocks (`applyStack`); posted Reels (`done`) keep their slot.
+- Reel blocks carry `stackId` + `reel`; "Film + edit" blocks carry `film` (week number) and their text is regenerated from the stack order.
+

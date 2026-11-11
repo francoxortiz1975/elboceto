@@ -1,0 +1,404 @@
+{
+  "format": "boceto-content-plan",
+  "version": 1,
+  "id": "sumay-instagram",
+  "area": "Sumay",
+  "label": "Sumay · Instagram (16 Nov – 24 Dec)",
+  "stack": {
+    "title": "Reels",
+    "start": "2026-11-17",
+    "weekdays": [
+      2,
+      5
+    ],
+    "at": "19:00",
+    "minutes": 30,
+    "reels": [
+      {
+        "id": "p1",
+        "short": "Intro V1",
+        "hook": "Intro: 20 invitations to test a coffee app in Paris",
+        "kind": "connection",
+        "format": "Reel · face at the start and end, screen in the middle · about 24 s",
+        "title": "Intro: I'm sending 20 invitations to test a coffee app in Paris",
+        "script": "I'm sending 20 invitations to test a coffee app in Paris.\nHey, I'm Franco, a student here in Paris, and I'm building Sumay because I love coffee.\nYou discover the story behind each café, and cafés hand-picked for you.\nIt's early: today the cafés are from Quito, and Paris is next.\nIf you want one of the 20 spots, the link is in my bio.",
+        "screen": [
+          "0:00 20 invitations to test a coffee app in Paris",
+          "0:03 Hey, I'm Franco, a student in Paris",
+          "0:07 The story behind each café",
+          "0:11 Cafés hand-picked for you",
+          "0:15 It's early: Quito cafés first, Paris next",
+          "0:20 20 spots. Link in bio"
+        ],
+        "cta": "Reserve your spot: link in bio",
+        "caption": "20 spots to test Sumay, a coffee club born in Quito and now being built in Paris ☕ Link in bio.\n\nFR: 20 places pour tester Sumay, un club du café né à Quito et en construction à Paris ☕ Lien en bio.\n\n#coffeeinparis #parisCafes #cafecito #buildinpublic",
+        "note": "SHOTS\n0:00 to 0:03 Face to camera: the hook. A café table behind you, natural light.\n0:03 to 0:20 Your voice over screen recordings of the app: a café page with its story, the page turn in the book, the bean card, the list of Quito cafés.\n0:20 to 0:24 Face again: the ask.\n\nBEFORE YOU POST\n1. The bio link is live and tested (tag ig).\n2. Decide how the 20 are chosen. Suggested: the first 20 Paris signups. Only say 20 if it is true.\n3. Pin this comment: “If you sign up, I'll email you if you're one of the first 20.”\n\nThe Quito line (“today the cafés are from Quito”) is optional. Delete it if you prefer, but testers will find only Quito cafés and Spanish screens. The line about a future community for coffee lovers was cut for time; add it as on-screen text if you want it. Intro V2 and Intro V3 re-introduce you from other angles later in the stack.",
+        "draft": false
+      },
+      {
+        "id": "p2",
+        "short": "Loyalty card",
+        "hook": "Feature 1: every coffee is a bean",
+        "kind": "connection",
+        "format": "Reel · face + screen + voice",
+        "title": "Feature 1: every coffee is a bean, ten make a cup",
+        "script": "Every coffee is a bean. Ten beans make a cup.\nThis is the loyalty card in Sumay. [WHY you built it: what annoyed you about paper cards?]\nYou scratch the box to reveal your bean, and the tenth box turns into a cup. [ONE REAL DETAIL about how you designed it: what you tried, what you threw away].\nWhich bean are you on? Tell me in the comments.",
+        "screen": [
+          "0:00 Every coffee is a bean. Ten make a cup.",
+          "0:05 The Sumay loyalty card",
+          "0:12 Scratch to reveal your bean",
+          "0:18 [REAL DETAIL about the design]",
+          "0:25 Which bean are you on?"
+        ],
+        "cta": "Which bean are you on? Comment below.",
+        "caption": "Every coffee is a bean. Ten beans make a cup ☕🫘\n\nFR: Chaque café est un grain. Dix grains font une tasse.\n\n#cafecito #coffeeinparis #appdesign #satisfying",
+        "note": "Say “ten beans make a cup” and nothing about free coffee. Who funds a cup is not decided. Use the scratch sound as the audio.",
+        "draft": true
+      },
+      {
+        "id": "p3",
+        "short": "Why not Google Maps",
+        "hook": "Why not just use Google Maps?",
+        "kind": "reach",
+        "format": "Reel · face + screen + voice",
+        "title": "Why not just use Google Maps?",
+        "script": "Why not just use Google Maps?\nGoogle Maps and TripAdvisor give you photos and stars. That's about it.\nSumay is local and tailored. It shows you [WHAT the café page shows today: the story, the specialty, the occasion], so you know where you're going and why it's worth it.\nAnd once you've picked the café, Sumay sends you to Google Maps to get there.\nIf you want to try it, the link is in my bio.",
+        "screen": [
+          "0:00 Why not just use Google Maps?",
+          "0:04 Maps and TripAdvisor: photos and stars",
+          "0:10 Sumay: local and tailored",
+          "0:16 [WHAT the café page shows today]",
+          "0:22 Pick the café, then Maps takes you there",
+          "0:27 Link in bio"
+        ],
+        "cta": "Try it: link in bio",
+        "caption": "We don't replace Google Maps. We help you pick the café first ☕\n\nFR: On ne remplace pas Google Maps. On t'aide d'abord à choisir le café.\n\n#coffeeinparis #parisCafes #cafecito",
+        "note": "Your Why-not-Maps versions 1 and 2 are merged here, and so is the map idea: the app has a Google Maps link on each café page, not a map of its own. Say only what the app shows today. If it does not yet show how the coffee is made, talk about the story and the occasion. The “cafés, reach out” line from your draft is left out on purpose.",
+        "draft": true
+      },
+      {
+        "id": "p4",
+        "short": "Help me pick",
+        "hook": "Help me pick the first cafés for Paris",
+        "kind": "connection",
+        "format": "Reel · face + screen + voice",
+        "title": "Help me pick the first cafés for Paris",
+        "script": "Sumay has 3 cafés today. All in Quito.\nParis is next, and I don't want to pick the first ones alone.\nSo tell me: which café in Paris deserves page 1? Drop it in the comments. I'll read every single one.\n[ONE LINE on what you will do with them, for example: I'll go to the ones that come up most and tell you what I find].",
+        "screen": [
+          "0:00 Sumay has 3 cafés. All in Quito.",
+          "0:05 Paris is next",
+          "0:11 Which café deserves page 1?",
+          "0:18 Drop it in the comments",
+          "0:24 I'll read every one"
+        ],
+        "cta": "Name one café in the comments.",
+        "caption": "Which Paris café deserves page 1? ☕ Want the quiz link? Comment PARIS and I'll DM it.\n\nFR: Quel café parisien mérite la page 1 ? Dis-le en commentaire.\n\n#coffeeinparis #parisCafes #cafesparis",
+        "note": "Do not promise to add any café. “I'll read every one” is the promise. Links you send in DMs use the tag igdm. The check on Fri 27 Nov: if strict Paris signups are under 60, turn on the escalation rule (Paris groups and 10 creator DMs). Keep a list of the cafés people name: it feeds Café test #1.",
+        "draft": true
+      },
+      {
+        "id": "p5",
+        "short": "Invitations",
+        "hook": "Feature 2: I stopped texting “coffee?”",
+        "kind": "reach",
+        "format": "Reel · screen + voice (your face first and last)",
+        "title": "Feature 2: I stopped texting “coffee?”",
+        "script": "I stopped texting “coffee?” I send this.\n[SHOW the sealed envelope.] You scratch the wax stamp... [SHOW the letter come out.] And there it is: the café, the day, and who's inviting.\nYou pick the café, the date and the person, and Sumay builds the invitation. One tap to send it on WhatsApp.\n[LETTER LINE: the sentence on the letter that makes someone say yes].\nSend this to someone you owe a coffee.",
+        "screen": [
+          "0:00 I stopped texting “coffee?” I send this.",
+          "0:04 Scratch the wax stamp",
+          "0:10 The letter comes out",
+          "0:15 Café. Date. Who's asking.",
+          "0:21 Send it on WhatsApp",
+          "0:25 Send this to someone you owe a coffee"
+        ],
+        "cta": "Send this to someone you owe a coffee.",
+        "caption": "A coffee invitation should feel like getting a letter 💌☕\n\nFR: Une invitation café, ça devrait ressembler à une lettre.\n\n#cafecito #coffeeinparis #appdesign #satisfying",
+        "note": "Preparation needed: write the line on the letter, film the reveal in good light, and show the reveal, not the café name. An invitation can only name a Quito café today. Record the scratch sound, it is the ASMR.",
+        "draft": true
+      },
+      {
+        "id": "p6",
+        "short": "First date (French)",
+        "hook": "First date in Paris: 3 cafés (in French)",
+        "kind": "resource",
+        "format": "Reel · in FRENCH (test) · face + café clips · English subtitles",
+        "title": "Où emmener un premier rendez-vous à Paris ?",
+        "script": "Où emmener un premier rendez-vous à Paris sans que ce soit gênant ?\nTrois cafés. Un : [CAFÉ 1], parce que [RAISON RÉELLE]. Deux : [CAFÉ 2], parce que [RAISON RÉELLE]. Trois : [CAFÉ 3], parce que [RAISON RÉELLE].\nSur Sumay, les cafés sont classés par occasion : en couple, pour travailler, entre amis.\nSauvegarde ce Reel pour ton prochain rendez-vous.",
+        "screen": [
+          "0:00 Où emmener un premier rendez-vous à Paris ?",
+          "0:04 1. [CAFÉ 1]",
+          "0:11 2. [CAFÉ 2]",
+          "0:18 3. [CAFÉ 3]",
+          "0:25 Sumay classe les cafés par occasion",
+          "0:29 Sauvegarde-le pour ton prochain rendez-vous"
+        ],
+        "cta": "Sauvegarde-le pour ton prochain rendez-vous.",
+        "caption": "Where to take a first date in Paris, without it being awkward ☕ (Reel in French, English subtitles). Link in bio.\n\nFR: Où emmener un premier rendez-vous à Paris, sans que ce soit gênant. Lien en bio.\n\n#cafesparis #coffeeinparis #sortiesparis #parisCafes",
+        "note": "This is the French test Reel. Visit all three cafés yourself and say only what you really saw. Film your table and your cup, not other customers' faces. Honest opinion, no deal with the café. Compare its signups per view with your English Reels.",
+        "draft": true
+      },
+      {
+        "id": "p7",
+        "short": "Intro V2",
+        "hook": "Intro V2: almost no café puts effort into the digital side",
+        "kind": "connection",
+        "format": "Reel · face at the start and end, screen in the middle · about 25 s",
+        "title": "Intro V2: almost no coffee shop puts effort into the digital side",
+        "script": "I love coffee shops, but almost none put effort into the digital experience.\nHey, I'm Franco, a master's student here in Paris, and a big coffee shop lover. I also love digital experiences, so I'm building Sumay Coffee Club.\nA place to discover the history and culture of a coffee shop, and, in the future, to get rewards.\n[UPDATE since the first Reel: a real number or milestone].\nIf you want to follow the journey, follow along.",
+        "screen": [
+          "0:00 Almost no coffee shop puts effort into the digital side",
+          "0:05 Hey, I'm Franco, a master's student in Paris",
+          "0:10 Sumay Coffee Club",
+          "0:14 The history and culture of each café",
+          "0:19 [REAL UPDATE]",
+          "0:23 Follow the journey"
+        ],
+        "cta": "Follow the journey.",
+        "caption": "I love coffee shops. Almost none of them put effort into the digital side. So I'm building Sumay ☕ Follow the journey.\n\nFR: J'adore les cafés, mais presque aucun ne soigne l'expérience numérique. Alors je construis Sumay ☕\n\n#buildinpublic #coffeeinparis #cafecito #parisCafes",
+        "note": "Your Intro V2. Your own observation moves to the first 2 seconds because it is the hook. It differs from Reel 1: this one is about you and the problem, not about the 20 spots. Rewards are a future idea: promise nothing.",
+        "draft": true
+      },
+      {
+        "id": "p8",
+        "short": "Discover swipe",
+        "hook": "Feature 4: a book instead of a list",
+        "kind": "connection",
+        "format": "Reel · face + screen + voice",
+        "title": "Feature 4: I can't pick a café, so I built a book",
+        "script": "I can't pick a café. So I built a book.\nYou swipe and the page turns, and every page is a café. [ONE REAL DETAIL: how many times you rebuilt the page turn, and why it mattered].\nTick the ones you like and you have your list. Or let Sumay pick for you at random.\nSo: swipe or random? Which one are you? Tell me in the comments.",
+        "screen": [
+          "0:00 I can't pick a café, so I built a book",
+          "0:05 Swipe: the page turns",
+          "0:12 [REAL DETAIL about the page turn]",
+          "0:18 Tick the ones you like",
+          "0:22 Or let Sumay pick at random",
+          "0:26 Swipe or random?"
+        ],
+        "cta": "Swipe or random? Comment below.",
+        "caption": "I can't pick a café, so I built a book ☕\n\nFR: Je n'arrive pas à choisir un café, alors j'ai construit un livre.\n\n#coffeeinparis #cafecito #appdemo #satisfying",
+        "note": "Your own commit history shows the page turn was rebuilt several times. Count them and use the real number.",
+        "draft": true
+      },
+      {
+        "id": "p9",
+        "short": "Intro V3",
+        "hook": "Intro V3: Parisians love coffee",
+        "kind": "connection",
+        "format": "Reel · face at the start and end, screen in the middle · about 25 s",
+        "title": "Intro V3: if there's one thing Parisians love, it's coffee",
+        "script": "If there's one thing Parisians love, it's coffee.\nI'm Franco, a master's student in computer science, and a creative person. I moved to Paris, and here we are, starting a coffee community: Sumay Coffee Club.\nIt's being built as a space where coffee lovers get more insight into a coffee shop: its history, its background, even some coffee secrets. To make coffee a full experience.\n[UPDATE since the last intro: a real number or milestone].\nThe link is in my bio.",
+        "screen": [
+          "0:00 If there's one thing Parisians love, it's coffee",
+          "0:05 I'm Franco, a master's student in computer science",
+          "0:10 A coffee community: Sumay Coffee Club",
+          "0:15 History, background, coffee secrets",
+          "0:21 [REAL UPDATE]",
+          "0:25 Link in bio"
+        ],
+        "cta": "Join the waitlist: link in bio.",
+        "caption": "If there's one thing Parisians love, it's coffee ☕ So I'm building a coffee club for it. Link in bio.\n\nFR: S'il y a une chose que les Parisiens aiment, c'est le café ☕ Alors je construis un club du café. Lien en bio.\n\n#coffeeinparis #parisCafes #cafecito #buildinpublic",
+        "note": "Your Intro V3 with your best line first. Say “coffee secrets” only if the app shows something like that today; otherwise say “the story behind each café”. It differs from Reels 1 and 7: this one speaks to Parisians.",
+        "draft": true
+      },
+      {
+        "id": "p10",
+        "short": "Café test #1",
+        "hook": "Café test #1: I tried [café] so you don't have to",
+        "kind": "resource",
+        "format": "Reel · face + café clips + voice",
+        "title": "Café test #1: I tried [CAFÉ] so you don't have to",
+        "script": "I tried [CAFÉ] so you don't have to.\n[WHAT YOU NOTICED: the space, the light, the noise, wifi or outlets].\nI ordered [WHAT YOU ORDERED] and it cost [REAL PRICE].\n[ONE REAL FACT about the café or its coffee, the story behind it].\nMy verdict: [ONE LINE].\nSave this if you're looking for a [OCCASION] café.",
+        "screen": [
+          "0:00 I tried [CAFÉ] so you don't have to",
+          "0:05 [WHAT YOU NOTICED]",
+          "0:12 [ORDER] · [PRICE]",
+          "0:18 [REAL FACT, the story]",
+          "0:24 Verdict: [ONE LINE]",
+          "0:28 Save it for a [OCCASION] café"
+        ],
+        "cta": "Save it.",
+        "caption": "I tried [CAFÉ] so you don't have to ☕\n\nFR: J'ai testé [CAFÉ] pour que tu n'aies pas à le faire.\n\n#cafesparis #coffeeinparis #parisCafes #cafecito",
+        "note": "Start with a café someone named in the “Help me pick” comments if you can. Honest review, no deal with the café, no free coffee. Film your table and your cup, not other customers' faces. If the café asks you to stop filming, stop.",
+        "draft": true
+      },
+      {
+        "id": "p11",
+        "short": "Intro V4",
+        "hook": "Intro V4: technology can be human",
+        "kind": "connection",
+        "format": "Reel · face + voice · about 25 s",
+        "title": "Intro: technology can be human",
+        "script": "I'm a software engineer, and I believe technology can be human.\nIf you're tired of AI slop, here's a different idea: technology that connects communities. In this case, coffee.\nThere's a whole world behind your cup: the process, the origins, the recipes that almost nobody reads because we never have time.\nSo I'm building a coffee club where every café visit is a small journey: you learn something about the place and the coffee.\n[UPDATE: a real result so far, for example how many people joined or how many cafés you were sent].\nIf you want to follow along, the link is in my bio.",
+        "screen": [
+          "0:00 Technology can be human",
+          "0:05 Tired of AI slop?",
+          "0:10 Technology that connects communities. Here: coffee.",
+          "0:16 Every café visit, a small journey",
+          "0:21 [REAL UPDATE]",
+          "0:25 Link in bio"
+        ],
+        "cta": "Follow the journey: link in bio.",
+        "caption": "Technology made with purpose ☕ Link in bio.\n\nFR: La technologie peut être humaine. Lien en bio.\n\n#buildinpublic #coffeeinparis #cafecito #humantech",
+        "note": "Your Intro V4, cut to about 25 seconds. Keep the update only if it is true and good, and add a short thank-you if you want one. Do not announce an opening date: say “opening in Paris soon”.",
+        "draft": true
+      }
+    ]
+  },
+  "items": [
+    {
+      "key": "story-w0-mon",
+      "day": "2026-11-16",
+      "text": "Stories: Do you care about the story behind your coffee?",
+      "note": "Story 1 (poll): Do you go to coffee shops? Yes / Yes, all the time.\nStory 2 (poll): Last time you were in a café, did you wonder where the beans came from? Yes / No.\nStory 3 (question box): Reply with a café whose story I should tell.\n\nYour own wording for Story 2 also works: “When you go to a coffee shop, are you interested in the story behind it, how it's made?” The version about what people did is harder to answer just to be nice. Write down the real numbers. You can use them in Wednesday's Stories and in a Reel, only if they are good."
+    },
+    {
+      "key": "story-w0-wed",
+      "day": "2026-11-18",
+      "text": "Stories: Monday's results + the WhatsApp round",
+      "note": "Stories: show Monday's real poll numbers, for example “[N]% of you wondered where your beans come from.” Say what you are building next.\n\nWhatsApp round (not a Story): message your ~20 contacts in Paris with the link ?ref=wa and everyone else with ?ref=wain. Suggested message: “Hey! I'm testing Sumay, a coffee app I'm building. Could you do the 1-minute quiz and send it to one friend in Paris? [link]”\n\nSend the Paris link only to people in Paris. Everyone else gets the wain link. That is what keeps the Paris count honest."
+    },
+    {
+      "key": "story-w0-sat",
+      "day": "2026-11-21",
+      "text": "Stories: Behind the scenes in a café",
+      "note": "Show yourself in a café, filming or editing. One line about what you are working on next. Then answer every DM and comment from the week.\n\nReplies are signals too. If someone replies with a café, thank them and note it for the “Help me pick” Reel."
+    },
+    {
+      "key": "film-w0",
+      "day": "2026-11-22",
+      "text": "Film + edit",
+      "film": 0
+    },
+    {
+      "key": "report-w0",
+      "day": "2026-11-20",
+      "text": "Friday report (10 min)",
+      "note": "Run the signups query and fill the report."
+    },
+    {
+      "key": "story-w1-mon",
+      "day": "2026-11-23",
+      "text": "Stories: Question or poll"
+    },
+    {
+      "key": "story-w1-wed",
+      "day": "2026-11-25",
+      "text": "Stories: Results + replies"
+    },
+    {
+      "key": "story-w1-sat",
+      "day": "2026-11-28",
+      "text": "Stories: Behind the scenes"
+    },
+    {
+      "key": "film-w1",
+      "day": "2026-11-29",
+      "text": "Film + edit",
+      "film": 1
+    },
+    {
+      "key": "report-w1",
+      "day": "2026-11-27",
+      "text": "Friday report (10 min) + the 60 check",
+      "note": "Run the signups query and fill the report."
+    },
+    {
+      "key": "story-w2-mon",
+      "day": "2026-11-30",
+      "text": "Stories: Question or poll"
+    },
+    {
+      "key": "story-w2-wed",
+      "day": "2026-12-02",
+      "text": "Stories: Results + replies"
+    },
+    {
+      "key": "story-w2-sat",
+      "day": "2026-12-05",
+      "text": "Stories: Behind the scenes"
+    },
+    {
+      "key": "film-w2",
+      "day": "2026-12-06",
+      "text": "Film + edit",
+      "film": 2
+    },
+    {
+      "key": "report-w2",
+      "day": "2026-12-04",
+      "text": "Friday report (10 min)",
+      "note": "Run the signups query and fill the report."
+    },
+    {
+      "key": "story-w3-mon",
+      "day": "2026-12-07",
+      "text": "Stories: Question or poll"
+    },
+    {
+      "key": "story-w3-wed",
+      "day": "2026-12-09",
+      "text": "Stories: Results + replies"
+    },
+    {
+      "key": "story-w3-sat",
+      "day": "2026-12-12",
+      "text": "Stories: Behind the scenes"
+    },
+    {
+      "key": "film-w3",
+      "day": "2026-12-13",
+      "text": "Film + edit",
+      "film": 3
+    },
+    {
+      "key": "report-w3",
+      "day": "2026-12-11",
+      "text": "Friday report (10 min)",
+      "note": "Run the signups query and fill the report."
+    },
+    {
+      "key": "story-w4-mon",
+      "day": "2026-12-14",
+      "text": "Stories: Question or poll"
+    },
+    {
+      "key": "story-w4-wed",
+      "day": "2026-12-16",
+      "text": "Stories: Results + replies"
+    },
+    {
+      "key": "story-w4-sat",
+      "day": "2026-12-19",
+      "text": "Stories: Behind the scenes"
+    },
+    {
+      "key": "film-w4",
+      "day": "2026-12-20",
+      "text": "Film + edit",
+      "film": 4
+    },
+    {
+      "key": "report-w4",
+      "day": "2026-12-18",
+      "text": "Friday report (10 min)",
+      "note": "Run the signups query and fill the report."
+    },
+    {
+      "key": "story-w5-mon",
+      "day": "2026-12-21",
+      "text": "Stories: Thank you"
+    },
+    {
+      "key": "story-w5-wed",
+      "day": "2026-12-23",
+      "text": "Stories: Final numbers"
+    },
+    {
+      "key": "final-readout",
+      "day": "2026-12-24",
+      "text": "Final read-out (30 min)",
+      "note": "Run the signups query, fill the report, check the 5 green-light checks, write the decisions."
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Plus, GripVertical, Check, CheckSquare } from 'lucide-react';
 import { AreaBacklog } from './AreaBacklog';
+import { ReelStack } from './ReelStack';
 import { AreaPicker } from './AreaPicker';
 import { AREA_COLORS, isoOf, uid } from '../lib/areaPlan';
 
@@ -588,6 +589,7 @@ function BoardTasksPanel({ boardNotes, plannerTasks, onUpdatePlannerTasks, onUpd
 
       {/* list */}
       <div style={{ flex: 1, overflowY: 'auto', paddingTop: '4px' }}>
+        <ReelStack plan={plan} onChange={onChangeAreaPlan} />
         {hasBacklog && <AreaBacklog plan={plan} onChange={onChangeAreaPlan} showCompleted={showCompleted} />}
         {hasBacklog && totalVisibleCount > 0 && <div className="ab-sub">notas y tareas sueltas</div>}
         {totalVisibleCount === 0 ? (hasBacklog && backlogShown > 0 ? null : (
