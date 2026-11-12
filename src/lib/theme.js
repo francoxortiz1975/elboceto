@@ -39,10 +39,19 @@ export function useTheme() {
 // (about the height of a Mac window toolbar). Option + arrow up/down adjusts it from the keyboard, so it
 // can be fixed even when the menu itself is hidden behind the toolbar.
 const TOP_KEY = 'el_boceto_top_extra_v1';
-const AUTO_TOP = 44;
+const AUTO_TOP = 48;
 const savedTop = () => { try { const v = localStorage.getItem(TOP_KEY); return v === null ? null : Math.max(0, parseInt(v, 10) || 0); } catch { return null; } };
 const isInstalled = () => {
-  try { return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches || window.navigator.standalone === true; } catch { return false; }
+  try { return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches || window.matchMedia('(display-mode: fullscreen)').matches || window.navigator.standalone === true; } catch { return false; }
+};
+// Safari's installed apps on a Mac (windowed): the page is drawn under the window toolbar, so the window is no
+// taller than the page (outer height ~ inner height). A normal Safari tab has a tall toolbar + tab bar instead.
+const looksOverlapped = () => {
+  try {
+    const ua = navigator.userAgent;
+    const safari = /safari/i.test(ua) && !/chrome|chromium|crios|android|electron/i.test(ua);
+    return safari && /mac/i.test(navigator.platform) && Math.abs(window.outerHeight - window.innerHeight) <= 30;
+  } catch { return false; }
 };
 const reportedInset = () => {
   const probe = document.createElement('div');
@@ -69,10 +78,14 @@ export function useTopExtra() {
   const [px, setPx] = useState(() => { const s = savedTop(); return s === null ? 0 : s; });
   const [manual, setManual] = useState(() => savedTop() !== null);
 
-  // First run on an installed app: apply the default unless the browser already reports the inset.
+  // No saved value: add the default when the page looks hidden under the window toolbar, unless the browser
+  // already reports the inset. Re-checked on resize (entering / leaving full screen changes the toolbar).
   useEffect(() => {
-    if (manual || !isInstalled()) return;
-    if (reportedInset() === 0) setPx(AUTO_TOP);
+    if (manual) return undefined;
+    const check = () => setPx(reportedInset() === 0 && (isInstalled() || looksOverlapped()) ? AUTO_TOP : 0);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, [manual]);
 
   useEffect(() => {
