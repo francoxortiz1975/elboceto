@@ -12,7 +12,7 @@ import { MonthCalendar } from './MonthCalendar';
 import { PlanTabs } from './PlanTabs';
 import { AreaPicker } from './AreaPicker';
 import { openReel } from '../lib/contentPlan';
-import { AREA_COLORS, AREA_DRAG_TYPE, BANDS, addDays, daysBetween, durOf, hasAreaDrag, placeAreaItem, rollingMonth, isoOf, uid as areaUid } from '../lib/areaPlan';
+import { AREA_COLORS, AREA_DRAG_TYPE, BANDS, addDays, daysBetween, durOf, hasAreaDrag, placeAreaItem, pickArea, rollingMonth, isoOf, uid as areaUid } from '../lib/areaPlan';
 import './AreaPlanner.css';
 import './CalendarFit.css';
 
@@ -483,11 +483,8 @@ export function WeeklyPlanner({
                 className="ap-chip"
                 style={{ '--c': colorOf(a) }}
                 aria-pressed={!plan.hidden.includes(a.id)}
-                title="Mostrar u ocultar esta área"
-                onClick={() => changeArea(p => ({
-                  ...p,
-                  hidden: p.hidden.includes(a.id) ? p.hidden.filter(x => x !== a.id) : [...p.hidden, a.id]
-                }))}
+                title="Clic: ver solo esta área · Mayús/Cmd + clic: añadir o quitar otra · Clic otra vez: todas"
+                onClick={(e) => changeArea(p => pickArea(p, a.id, e.shiftKey || e.metaKey || e.ctrlKey))}
               >
                 <i />{a.name}
               </button>

@@ -220,6 +220,19 @@ export function importSchedule(plan, schedule) {
 export const AREA_DRAG_TYPE = 'application/x-boceto-area-item';
 export const hasAreaDrag = (e) => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes(AREA_DRAG_TYPE);
 
+// Area filter: a click shows only that area; Shift / Cmd / Ctrl + click adds or removes areas from what is shown;
+// clicking the only area that is shown brings all of them back. Hidden areas are stored in plan.hidden.
+export function pickArea(plan, id, additive = false) {
+  const all = plan.areas.map((a) => a.id);
+  const shown = all.filter((x) => !plan.hidden.includes(x));
+  let next;
+  if (additive) next = shown.includes(id) ? shown.filter((x) => x !== id) : [...shown, id];
+  else if (shown.length === 1 && shown[0] === id) next = all;
+  else next = [id];
+  if (!next.length) next = all;
+  return { ...plan, hidden: all.filter((x) => !next.includes(x)) };
+}
+
 // Puts an item at a new day/time (and optionally another area). Timed drops
 // keep the item's duration; untimed ones drop it.
 export function placeAreaItem(plan, id, { day, at, area }) {

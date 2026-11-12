@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronUp } from 'lucide-react';
 import {
   AREA_COLORS, AREA_DRAG_TYPE, SLOTS, BANDS, SLOT_STEP, SNAP, DAY_FROM, DAY_TO,
-  hasAreaDrag, placeAreaItem, uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
+  hasAreaDrag, placeAreaItem, pickArea, uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
 } from '../lib/areaPlan';
 import { openReel } from '../lib/contentPlan';
 import { PlanTabs } from './PlanTabs';
@@ -250,15 +250,6 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     mutate((p) => ({ ...p, areas: [...p.areas, area] }));
     setFocusId(area.id);
   };
-  const toggleChip = (id) => mutate((p) => ({
-    ...p,
-    hidden: p.hidden.includes(id) ? p.hidden.filter((x) => x !== id) : [...p.hidden, id]
-  }));
-  const soloArea = (area) => {
-    mutate((p) => ({ ...p, hidden: p.areas.map((a) => a.id).filter((x) => x !== area.id) }));
-    flash(`Solo ${area.name} · el resto aparece como ocupado`);
-  };
-
   // ── render pieces ──────────────────────────────────────────────────────
   const renderItem = (e, col, lane) => {
     const { it, eff } = e;
@@ -371,9 +362,8 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
           <button
             key={a.id} className="ap-chip" style={{ '--c': colorOf(a) }}
             aria-pressed={!isHidden(a.id)}
-            title="Clic: mostrar u ocultar · Doble clic: solo esta área"
-            onClick={() => toggleChip(a.id)}
-            onDoubleClick={() => soloArea(a)}
+            title="Clic: ver solo esta área · Mayús/Cmd + clic: añadir o quitar otra · Clic otra vez: todas"
+            onClick={(e) => mutate((p) => pickArea(p, a.id, e.shiftKey || e.metaKey || e.ctrlKey))}
           >
             <i />{a.name}
           </button>
