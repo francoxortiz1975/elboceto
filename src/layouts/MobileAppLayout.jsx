@@ -54,7 +54,7 @@ export function MobileAppLayout({
   const currentDoc = documents.find(d => d.id === activeDocId) || documents[0];
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: 'var(--bg-book)' }}>
+    <div style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative', background: 'var(--bg-book)' }}>
       {/* Mobile Top Header */}
       <header className="mobile-header" style={{
         position: 'fixed',

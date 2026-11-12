@@ -641,7 +641,7 @@ export function LeftEdgePanel({ activeView, plannerTasks, onUpdatePlannerTasks, 
     <>
       {/* invisible hotzone */}
       <div
-        style={{ position: 'fixed', top: 0, left: 0, width: '16px', height: '100vh', zIndex: 190 }}
+        style={{ position: 'fixed', top: 0, left: 0, width: '16px', height: '100%', zIndex: 190 }}
         onMouseEnter={open}
         onMouseLeave={close}
       />

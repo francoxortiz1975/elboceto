@@ -81,6 +81,8 @@ export function DesktopAppLayout({
   onImportContentPlan,
   theme,
   onThemeChange,
+  topExtra,
+  onTopExtraChange,
   gcal,
   legacyCount,
   onOpenLegacy,
@@ -125,7 +127,7 @@ export function DesktopAppLayout({
     `translateY(${(VIEW_ORDER.indexOf(view) - VIEW_ORDER.indexOf(activeView)) * 100}vh)`;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
       {/* Permanent Top-Left Brand Title */}
       <div className="brand-header-top-left">
         <span className="brand-title">el boceto</span>
@@ -395,6 +397,15 @@ export function DesktopAppLayout({
                   </button>
                 ))}
               </div>
+
+              <div className="panel-section-title font-mono">APP INSTALADA</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <span className="font-mono" style={{ fontSize: '0.7rem', flex: 1 }}>Margen superior</span>
+                <button className="btn-icon" aria-label="Menos margen" onClick={() => onTopExtraChange(topExtra - 4)}>−</button>
+                <span className="font-mono" style={{ fontSize: '0.7rem', minWidth: '34px', textAlign: 'center' }}>{topExtra} px</span>
+                <button className="btn-icon" aria-label="Más margen" onClick={() => onTopExtraChange(topExtra + 4)}>+</button>
+              </div>
+              <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>Si la barra del título tapa la parte de arriba de la app, sube este valor hasta que se vea.</div>
 
               <div className="panel-section-title font-mono">GOOGLE CALENDAR</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>

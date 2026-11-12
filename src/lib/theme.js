@@ -33,3 +33,15 @@ export function useTheme() {
 
   return [theme, setTheme];
 }
+
+// Extra top margin for an installed app whose window toolbar sits on top of the page. 0 = none.
+const TOP_KEY = 'el_boceto_top_extra_v1';
+const loadTop = () => { try { return Math.max(0, parseInt(localStorage.getItem(TOP_KEY), 10) || 0); } catch { return 0; } };
+export function useTopExtra() {
+  const [px, setPx] = useState(loadTop);
+  useEffect(() => {
+    document.documentElement.style.setProperty('--top-extra', `${px}px`);
+    try { localStorage.setItem(TOP_KEY, String(px)); } catch { /* storage unavailable */ }
+  }, [px]);
+  return [px, (v) => setPx(Math.min(120, Math.max(0, v)))];
+}

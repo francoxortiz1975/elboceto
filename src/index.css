@@ -59,6 +59,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* The app sits in a box that starts below the window toolbar when one overlaps the page
+   (installed app): the safe-area inset the browser reports plus the margin set in the menu. */
+:root { --top-extra: 0px; --top-inset: calc(env(safe-area-inset-top, 0px) + var(--top-extra)); }
+
 html,
 body,
 #root {
@@ -73,6 +77,17 @@ body,
   font-family: var(--font-body);
   font-size: 14px;
   user-select: none;
+}
+#root {
+  position: fixed;
+  top: var(--top-inset);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  overflow: hidden;
+  transform: translateZ(0); /* fixed children (top bar, side panels) anchor to this box */
 }
 
 
@@ -134,8 +149,8 @@ h3,
 /* Canvas Viewport */
 .canvas-viewport {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   cursor: default;
   touch-action: none;
@@ -766,7 +781,7 @@ h3,
   top: 0;
   right: 0;
   width: 320px;
-  height: 100vh;
+  height: 100%;
   background: var(--bg-book);
   border-left: var(--border-hairline);
   z-index: 200;
@@ -862,7 +877,7 @@ h3,
   top: 0;
   left: 0;
   width: 240px;
-  height: 100vh;
+  height: 100%;
   background: rgba(var(--book-rgb), 0.97);
   backdrop-filter: blur(14px);
   border-right: var(--border-hairline);
@@ -914,7 +929,7 @@ h3,
 /* ── Freeform Document Editor & Fluent Blocks ───────────────────────────────── */
 .freeform-doc-view {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   position: relative;

@@ -17,8 +17,9 @@
 .wk-dayhead { container: wkhead / inline-size; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; gap: 4px 6px; min-height: 38px; min-width: 0; }
 .wk-daytitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; min-width: 0; }
 .wk-daytitle .font-mono { white-space: nowrap; }
+/* The "sin hora" row has no drag grip: three columns (check, text, delete), at every pointer type. */
+.wk-untimed { grid-template-columns: 16px minmax(0, 1fr) 18px; }
 @media (pointer: coarse) {
-  .wk-untimed { grid-template-columns: 16px minmax(0, 1fr) 18px; }
   .wk-untimed .ap-del { opacity: 1; }
 }
 

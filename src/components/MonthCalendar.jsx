@@ -4,7 +4,7 @@ import { AREA_COLORS, AREA_DRAG_TYPE, addDays, fromIso, isoOf, fmtMin, hasAreaDr
 import './MonthCalendar.css';
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const MAX_CHIPS = 4;
+const MAX_CHIPS = 5; // events shown per day; with more, the last slot says how many are hidden
 
 // Rolling month (today up to one month ahead) of the area plan, plus the
 // planner's dated tasks in neutral. Days outside that window are dimmed.
@@ -86,11 +86,13 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
 
   return (
     <div className="mc-wrap">
-      <div className="mc-grid" style={{ gridTemplateRows: `auto repeat(${rows}, minmax(92px, 1fr))` }}>
+      <div className="mc-grid" style={{ gridTemplateRows: `auto repeat(${rows}, minmax(252px, 1fr))` }}>
         {WEEKDAYS.map((w) => <div key={w} className="mc-weekday font-mono">{w}</div>)}
         {cells.map((c) => {
           const chips = chipsFor(c.iso);
-          const extra = chips.length - MAX_CHIPS;
+          const overflow = chips.length > MAX_CHIPS;
+          const shown = overflow ? chips.slice(0, MAX_CHIPS - 1) : chips;
+          const extra = chips.length - shown.length;
           return (
             <div
               key={c.iso}
@@ -110,7 +112,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
             >
               <span className="mc-num font-mono">{c.label}</span>
               <div className="mc-chips">
-                {chips.slice(0, MAX_CHIPS).map((chip) => (
+                {shown.map((chip) => (
                   <div
                     key={chip.key}
                     className={`mc-chip${chip.done ? ' done' : ''}${chip.item ? '' : ' plain'}${movingId === chip.key ? ' moving' : ''}`}
@@ -127,7 +129,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
                     <span className="mc-text">{chip.text || '…'}</span>
                   </div>
                 ))}
-                {extra > 0 && <div className="mc-more font-mono">+{extra}<span className="mc-more-label"> más</span></div>}
+                {overflow && <div className="mc-more font-mono">+{extra}<span className="mc-more-label"> más</span></div>}
               </div>
             </div>
           );
