@@ -62,7 +62,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     toastTimer.current = setTimeout(() => setToast(''), 2200);
   };
 
-  const entries = plan.items.map((it) => ({ it, eff: effectiveSlot(it, today) }));
+  const entries = plan.items.filter((it) => !(plan.hideDone && it.done)).map((it) => ({ it, eff: effectiveSlot(it, today) }));
   const visibleAreas = plan.areas.filter((a) => !isHidden(a.id));
   const areaMode = (lens || plan.view) === 'areas';
 
@@ -372,6 +372,11 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
           className="ap-chip all" aria-pressed={plan.hidden.length === 0}
           onClick={() => mutate((p) => ({ ...p, hidden: [] }))}
         >Todas</button>
+        <button
+          className="ap-chip" style={{ '--c': 'var(--text-ink)' }} aria-pressed={!!plan.hideDone}
+          title="Al marcar una tarea como hecha, se oculta en todas las vistas"
+          onClick={() => mutate((p) => ({ ...p, hideDone: !p.hideDone }))}
+        ><i />Ocultar hechas</button>
         {!areaMode && visibleAreas.length > 0 && (
           <label className="ap-flabel ap-target">
             Nuevo en

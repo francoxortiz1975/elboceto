@@ -148,7 +148,7 @@ export function WeeklyPlanner({
   const plan = areaPlan || { areas: [], items: [], hidden: [] };
   const areaById = Object.fromEntries(plan.areas.map(a => [a.id, a]));
   const colorOf = (a) => AREA_COLORS[a.c % AREA_COLORS.length];
-  const areaItemsOn = (iso) => plan.items.filter(it => it.day === iso && areaById[it.area] && !plan.hidden.includes(it.area));
+  const areaItemsOn = (iso) => plan.items.filter(it => it.day === iso && areaById[it.area] && !plan.hidden.includes(it.area) && !(plan.hideDone && it.done));
   const timedAreaTasks = (dayObj) => areaItemsOn(dayObj.isoDate)
     .filter(it => typeof it.at === 'number')
     .map(it => ({
@@ -516,6 +516,13 @@ export function WeeklyPlanner({
               aria-pressed={plan.hidden.length === 0}
               onClick={() => changeArea(p => ({ ...p, hidden: [] }))}
             >Todas</button>
+            <button
+              className="ap-chip"
+              style={{ '--c': 'var(--text-ink)' }}
+              aria-pressed={!!plan.hideDone}
+              title="Al marcar una tarea como hecha, se oculta en todas las vistas"
+              onClick={() => changeArea(p => ({ ...p, hideDone: !p.hideDone }))}
+            ><i />Ocultar hechas</button>
           </div>
         )}
       </div>

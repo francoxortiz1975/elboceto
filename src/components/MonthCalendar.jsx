@@ -32,14 +32,14 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
 
   const chipsFor = (iso) => {
     const fromAreas = (areaPlan?.items || [])
-      .filter((it) => it.day === iso && areaById[it.area] && !hidden.includes(it.area))
+      .filter((it) => it.day === iso && areaById[it.area] && !hidden.includes(it.area) && !(areaPlan?.hideDone && it.done))
       .map((it) => ({
         key: it.id, item: it, text: it.text, done: !!it.done,
         color: colorOf(areaById[it.area]), area: areaById[it.area].name, note: it.note,
         at: typeof it.at === 'number' ? it.at : null
       }));
     const fromPlanner = (plannerTasks || [])
-      .filter((t) => t.dayIso === iso && t.timeSlot && t.timeSlot !== 'all_day')
+      .filter((t) => t.dayIso === iso && t.timeSlot && t.timeSlot !== 'all_day' && !(areaPlan?.hideDone && t.completed))
       .map((t) => ({
         key: t.id, item: null, text: t.text, done: !!t.completed, color: null, area: 'Planificador',
         at: Number(t.timeSlot.slice(0, 2)) * 60 + Number(t.timeSlot.slice(3, 5))
