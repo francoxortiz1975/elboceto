@@ -86,7 +86,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
 
   return (
     <div className="mc-wrap">
-      <div className="mc-grid" style={{ gridTemplateRows: `auto repeat(${rows}, minmax(252px, 1fr))` }}>
+      <div className="mc-grid" style={{ gridTemplateRows: `auto repeat(${rows}, minmax(92px, 1fr))` }}>
         {WEEKDAYS.map((w) => <div key={w} className="mc-weekday font-mono">{w}</div>)}
         {cells.map((c) => {
           const chips = chipsFor(c.iso);
@@ -111,7 +111,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
               title={fromIso(c.iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
             >
               <span className="mc-num font-mono">{c.label}</span>
-              <div className="mc-chips">
+              <div className={`mc-chips${shown.length + (overflow ? 1 : 0) >= 4 ? ' dense' : ''}`} style={{ '--n': shown.length + (overflow ? 1 : 0) }}>
                 {shown.map((chip) => (
                   <div
                     key={chip.key}

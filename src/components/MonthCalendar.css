@@ -2,7 +2,7 @@
 .mc-wrap { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 16px; }
 .mc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); min-width: 560px; height: 100%; border: var(--border-strong); border-radius: var(--radius-md); background: var(--bg-note); overflow: hidden; }
 .mc-weekday { padding: 6px 8px; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); background: var(--bg-book); border-bottom: var(--border-strong); border-right: var(--border-hairline); }
-.mc-cell { position: relative; padding: 5px 6px 6px; border-right: var(--border-hairline); border-bottom: var(--border-hairline); cursor: pointer; min-width: 0; display: flex; flex-direction: column; gap: 3px; transition: background 0.12s; }
+.mc-cell { position: relative; padding: 4px 5px 5px; border-right: var(--border-hairline); border-bottom: var(--border-hairline); cursor: pointer; min-width: 0; display: flex; flex-direction: column; gap: 3px; transition: background 0.12s; }
 .mc-cell:hover { background: var(--bg-hover); }
 .mc-cell.out { background: rgba(var(--book-rgb), 0.6); }
 .mc-cell.out .mc-num { color: var(--text-subtle); }
@@ -10,14 +10,16 @@
 .mc-cell.first .mc-num { color: var(--text-ink); font-weight: 600; }
 .mc-cell.today { background: var(--ap-now-wash); }
 .mc-cell.today .mc-num { background: var(--ap-now); color: var(--bg-book); }
-.mc-num { align-self: flex-start; font-size: 0.78rem; line-height: 1; padding: 3px 5px; border-radius: 999px; color: var(--text-muted); }
-.mc-chips { flex: 1; min-height: 0; display: grid; grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 3px; min-width: 0; }
-.mc-chip { display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; min-height: 0; max-height: 58px; overflow: hidden; font-size: 0.8rem; line-height: 1.25; padding: 3px 7px; border-radius: 3px; border-left: 3px solid var(--c, rgba(var(--ink-rgb), 0.3)); background: color-mix(in srgb, var(--c, #6B6B6B) 14%, var(--bg-note)); color: var(--text-ink); cursor: grab; user-select: none; }
+.mc-num { align-self: flex-start; font-size: 0.68rem; line-height: 1; padding: 3px 5px; border-radius: 999px; color: var(--text-muted); }
+.mc-chips { flex: 1; min-height: 0; display: grid; grid-template-rows: repeat(var(--n, 1), minmax(0, 1fr)); gap: 2px; min-width: 0; }
+.mc-chip { display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; min-height: 0; max-height: 60px; overflow: hidden; font-size: 0.78rem; line-height: 1.25; padding: 3px 7px; border-radius: 3px; border-left: 3px solid var(--c, rgba(var(--ink-rgb), 0.3)); background: color-mix(in srgb, var(--c, #6B6B6B) 14%, var(--bg-note)); color: var(--text-ink); cursor: grab; user-select: none; }
 .mc-chip.plain { cursor: default; }
 .mc-chip.done { opacity: 0.55; text-decoration: line-through; }
 .mc-chip.moving { pointer-events: none; opacity: 0.8; box-shadow: var(--shadow-floating); }
 .mc-time { font-size: 0.62rem; color: var(--text-muted); flex: none; line-height: 1.1; }
 .mc-text { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; word-break: break-word; }
+.mc-chips.dense .mc-text { -webkit-line-clamp: 1; }
+.mc-chips.dense .mc-chip { font-size: 0.72rem; padding: 1px 6px; }
 .mc-more { align-self: center; font-size: 0.7rem; color: var(--text-muted); padding-left: 4px; }
 @media (max-width: 768px) {
   .mc-wrap { padding: 8px; }

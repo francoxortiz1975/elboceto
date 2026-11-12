@@ -35,13 +35,66 @@ export function useTheme() {
 }
 
 // Extra top margin for an installed app whose window toolbar sits on top of the page. 0 = none.
+// Without a saved value, an installed app (standalone window) that reports no safe-area inset gets a default
+// (about the height of a Mac window toolbar). Option + arrow up/down adjusts it from the keyboard, so it
+// can be fixed even when the menu itself is hidden behind the toolbar.
 const TOP_KEY = 'el_boceto_top_extra_v1';
-const loadTop = () => { try { return Math.max(0, parseInt(localStorage.getItem(TOP_KEY), 10) || 0); } catch { return 0; } };
+const AUTO_TOP = 44;
+const savedTop = () => { try { const v = localStorage.getItem(TOP_KEY); return v === null ? null : Math.max(0, parseInt(v, 10) || 0); } catch { return null; } };
+const isInstalled = () => {
+  try { return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches || window.navigator.standalone === true; } catch { return false; }
+};
+const reportedInset = () => {
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)';
+  document.body.appendChild(probe);
+  const px = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+  probe.remove();
+  return px;
+};
+const toast = (text) => {
+  let el = document.getElementById('top-extra-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'top-extra-toast';
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;padding:6px 12px;border-radius:6px;background:rgba(24,24,27,.9);color:#fff;font:500 12px system-ui,sans-serif;pointer-events:none;transition:opacity .2s';
+    document.body.appendChild(el);
+  }
+  el.textContent = text; el.style.opacity = '1';
+  clearTimeout(el._t); el._t = setTimeout(() => { el.style.opacity = '0'; }, 1400);
+};
+const clampTop = (v) => Math.min(120, Math.max(0, v));
+
 export function useTopExtra() {
-  const [px, setPx] = useState(loadTop);
+  const [px, setPx] = useState(() => { const s = savedTop(); return s === null ? 0 : s; });
+  const [manual, setManual] = useState(() => savedTop() !== null);
+
+  // First run on an installed app: apply the default unless the browser already reports the inset.
+  useEffect(() => {
+    if (manual || !isInstalled()) return;
+    if (reportedInset() === 0) setPx(AUTO_TOP);
+  }, [manual]);
+
   useEffect(() => {
     document.documentElement.style.setProperty('--top-extra', `${px}px`);
-    try { localStorage.setItem(TOP_KEY, String(px)); } catch { /* storage unavailable */ }
+    if (manual) { try { localStorage.setItem(TOP_KEY, String(px)); } catch { /* storage unavailable */ } }
+  }, [px, manual]);
+
+  const set = (v) => { setManual(true); setPx(clampTop(v)); };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      e.preventDefault();
+      const next = clampTop(px + (e.key === 'ArrowDown' ? 4 : -4));
+      setManual(true); setPx(next);
+      toast(`Margen superior: ${next} px`);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [px]);
-  return [px, (v) => setPx(Math.min(120, Math.max(0, v)))];
+
+  return [px, set];
 }
