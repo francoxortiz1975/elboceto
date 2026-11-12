@@ -107,3 +107,8 @@
 .sc-dline { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; align-items: center; }
 .sc-dline:not(:has(input)) { grid-template-columns: minmax(0, 1fr); }
 .sc-drow.mv { border-left: 3px solid var(--ap-now); }
+
+.sc-prop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 0.82rem; }
+.sc-prop.no { color: var(--ap-now); }
+.sc-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-acts.alts { padding-top: 2px; border-top: 1px dashed rgba(var(--ink-rgb), 0.16); padding-top: 8px; }

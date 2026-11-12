@@ -1,15 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronUp } from 'lucide-react';
 import { PlanTabs } from './PlanTabs';
-import { AREA_COLORS, addDays, dayLabel, isoOf } from '../lib/areaPlan';
+import { AREA_COLORS, addDays, dayLabel, daysBetween, isoOf } from '../lib/areaPlan';
 import {
   EFFORT, WEIGHTS, PLANNED, runEngine, areaScore, freeHours, fmtMin, toMin, activeOn, cycleWeek, signature, slotKey, SLOT
 } from '../lib/scheduler/engine';
 import { getScheduler, attrsOf, buildEngineInput, nowMinutes, mondayOfIso, newFixed, proposalChanges, applyChanges, undoChanges } from '../lib/scheduler/config';
+import { overdueItems, resolveItem, undoResolve } from '../lib/scheduler/overdue';
 import './SchedulerPage.css';
 
 const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-const PANELS = [['perfil', 'Perfil'], ['fijo', 'Calendario fijo'], ['areas', 'Áreas'], ['tareas', 'Tareas'], ['pesos', 'Pesos'], ['sim', 'Simulación']];
+const PANELS = [['ayer', 'Pendientes'], ['perfil', 'Perfil'], ['fijo', 'Calendario fijo'], ['areas', 'Áreas'], ['tareas', 'Tareas'], ['pesos', 'Pesos'], ['sim', 'Simulación']];
 
 const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -53,7 +54,7 @@ function In({ cfg, patch, path, type = 'text', value, num, options, min, max, st
 }
 
 export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChange }) {
-  const [panel, setPanel] = useState('perfil');
+  const [panel, setPanel] = useState(() => (overdueItems(plan, isoOf(new Date())).length ? 'ayer' : 'perfil'));
   const [selId, setSelId] = useState(null);
   const [baseSig, setBaseSig] = useState(null);
   const [includeLater, setIncludeLater] = useState(false);
@@ -70,6 +71,7 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
   const areaById = useMemo(() => Object.fromEntries(plan.areas.map((a) => [a.id, a])), [plan.areas]);
   const colorOf = (areaId) => { const a = areaById[areaId]; return AREA_COLORS[(a ? a.c : 6) % AREA_COLORS.length]; };
   const areaName = (id) => (areaById[id] ? areaById[id].name : '—');
+  const overdue = useMemo(() => overdueItems(plan, today), [plan.items, today]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctx = { plan, cfg, patch, update, today, res, colorOf, areaName, areaById };
 
   const goPanel = (id) => { setPanel(id); if (id === 'pesos') setBaseSig(signature(runEngine(cfg, input.tasks, { today, nowMin, blocks: input.blocks }))); };
@@ -88,10 +90,11 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
       <div className="ap-filters">
         {onTabChange && <PlanTabs value={tab} onChange={onTabChange} />}
         <div className="ap-seg" role="group" aria-label="Ventana del motor">
-          {PANELS.map(([id, l]) => <button key={id} aria-pressed={panel === id} onClick={() => goPanel(id)}>{l}</button>)}
+          {PANELS.map(([id, l]) => <button key={id} aria-pressed={panel === id} onClick={() => goPanel(id)}>{id === 'ayer' && overdue.length ? `${l} (${overdue.length})` : l}</button>)}
         </div>
       </div>
       <div className="sc-wrap">
+        {panel === 'ayer' && <PendingPanel {...ctx} overdue={overdue} onChange={onChange} />}
         {panel === 'perfil' && <ProfilePanel {...ctx} />}
         {panel === 'fijo' && <FixedPanel {...ctx} />}
         {panel === 'areas' && <AreasPanel {...ctx} />}
@@ -100,6 +103,91 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
         {panel === 'sim' && <SimPanel {...ctx} selId={selId} setSelId={setSelId} includeLater={includeLater} setIncludeLater={setIncludeLater} onChange={onChange} />}
       </div>
     </div>
+  );
+}
+
+/* ---------- Pendientes de ayer ---------- */
+const FACTOR_WORDS = { wMove: 'cerca de su día', wEnergy: 'tu energía', wSoon: 'cuanto antes', wSlack: 'holgura antes del límite', wDeepCap: 'tope de trabajo profundo', wBalance: 'reparto entre áreas' };
+const why = (parts) => parts.filter((p) => p.contrib > 0.5).sort((a, b) => b.contrib - a.contrib).slice(0, 2).map((p) => FACTOR_WORDS[p.id] || p.label.toLowerCase()).join(' y ');
+const clock = (day, at) => (typeof at === 'number' ? `${dayLabel(day)} ${fmtMin(at)}` : dayLabel(day));
+
+function PendingPanel({ res, today, overdue, onChange, colorOf, areaName }) {
+  const [last, setLast] = useState(null); // { undo, text } of the last action
+  const [hidden, setHidden] = useState(() => new Set());
+  const [alts, setAlts] = useState(null); // item id whose alternatives are open
+  const act = (it, opts, text) => {
+    let undo = null;
+    onChange((p) => { const out = resolveItem(p, it.id, { ...opts, today }); undo = out.undo; return out.plan; });
+    setLast({ undo, text });
+    setAlts(null);
+  };
+  const place = (id) => res.placed.find((p) => p.task.id === id);
+  const noRoom = (id) => res.unplaced.find((p) => p.task.id === id);
+  const target = (p, c) => ({ day: res.G.days[c.d], at: c.start, dur: p.task.dur });
+  const rows = overdue.filter((it) => !hidden.has(it.id));
+  const yesterday = rows.filter((it) => it.day === addDays(today, -1));
+  const older = rows.filter((it) => it.day !== addDays(today, -1));
+  const acceptAll = () => {
+    const todo = rows.filter((it) => place(it.id));
+    onChange((p) => todo.reduce((acc, it) => { const pl = place(it.id); return resolveItem(acc, it.id, { action: 'move', via: 'accept', target: target(pl, pl.choice), today }).plan; }, p));
+    setLast({ undo: null, text: `${todo.length} propuestas aceptadas.` });
+  };
+
+  const card = (it) => {
+    const pl = place(it.id); const nr = noRoom(it.id); const late = daysBetween(it.day, today);
+    return (
+      <div className="sc-card" key={it.id}>
+        <div className="sc-head">
+          <i className="sc-dot" style={{ background: colorOf(it.area) }} />
+          <b className="sc-ttl">{it.text}</b>
+          <span className="sc-stat">{areaName(it.area)} · era {clock(it.day, it.at)} · {late === 1 ? 'ayer' : `hace ${late} días`}</span>
+        </div>
+        {pl && (
+          <div className="sc-prop">
+            <span>Propuesta: <b>{clock(res.G.days[pl.choice.d], pl.choice.start)}</b></span>
+            {why(pl.choice.parts) && <span className="sc-stat">por {why(pl.choice.parts)}</span>}
+          </div>
+        )}
+        {nr && <div className="sc-prop no">{nr.reason} Elige qué hacer con ella.</div>}
+        <div className="sc-acts">
+          {pl && <button className="ap-btn primary" onClick={() => act(it, { action: 'move', via: 'accept', target: target(pl, pl.choice) }, `“${it.text}” movida a ${clock(res.G.days[pl.choice.d], pl.choice.start)}.`)}>Aceptar</button>}
+          {pl && pl.alts.length > 0 && <button className="ap-btn" aria-expanded={alts === it.id} onClick={() => setAlts(alts === it.id ? null : it.id)}>Otro hueco</button>}
+          <button className="ap-btn" onClick={() => act(it, { action: 'done' }, `“${it.text}” marcada como hecha.`)}>Ya está hecha</button>
+          <button className="ap-btn" onClick={() => act(it, { action: 'later' }, `“${it.text}” pasa a Más adelante.`)}>A “Más adelante”</button>
+          <button className="ap-btn" onClick={() => { act(it, { action: 'skip' }, `“${it.text}” se queda como está.`); setHidden((h) => new Set(h).add(it.id)); }}>Dejar</button>
+        </div>
+        {pl && alts === it.id && (
+          <div className="sc-acts alts">
+            {pl.alts.map((a, i) => <button key={i} className="ap-btn" onClick={() => act(it, { action: 'move', via: 'alt', target: target(pl, a) }, `“${it.text}” movida a ${clock(res.G.days[a.d], a.start)}.`)}>{clock(res.G.days[a.d], a.start)}</button>)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <p className="sc-note">Lo que estaba planeado para días pasados y no se marcó como hecho. Para cada cosa, el motor propone un nuevo hueco con su motivo; tú decides. Todo queda registrado para que aprenda de lo que aceptas y de lo que no.</p>
+      {last && (
+        <div className="sc-apply">
+          <span>{last.text}</span>
+          {last.undo && <button className="ap-btn" onClick={() => { onChange((p) => undoResolve(p, last.undo)); setHidden((h) => { const n = new Set(h); n.delete(last.undo.id); return n; }); setLast(null); }}>Deshacer</button>}
+          <button className="ap-btn" onClick={() => setLast(null)}>Cerrar</button>
+        </div>
+      )}
+      {!rows.length ? (
+        <div className="sc-empty">Nada pendiente de días anteriores. Buen día.</div>
+      ) : (
+        <div className="sc-stack">
+          <div className="sc-filters">
+            <span className="sc-stat">{rows.length} {rows.length === 1 ? 'pendiente' : 'pendientes'}</span>
+            <button className="ap-btn" disabled={!rows.some((it) => place(it.id))} onClick={acceptAll}>Aceptar todas las propuestas</button>
+          </div>
+          {yesterday.length > 0 && <><div className="sc-stage" style={{ borderTop: 0, paddingTop: 0 }}>De ayer</div>{yesterday.map(card)}</>}
+          {older.length > 0 && <><div className="sc-stage" style={yesterday.length ? undefined : { borderTop: 0, paddingTop: 0 }}>Anteriores</div>{older.map(card)}</>}
+        </div>
+      )}
+    </>
   );
 }
 

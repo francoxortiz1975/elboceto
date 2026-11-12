@@ -32,3 +32,4 @@ Status: prototype only (`docs/scheduler-prototype/`: `engine.js` is the pure eng
 - Settings live in `plan.scheduler` (profile, fixed events, areaOrder, weights, per-item attrs), so they sync like the rest of the plan.
 - Fixed events can rotate: every week, alternate weeks, or an N-week cycle (`cycle`, `weeks`, `anchor`), with a valid range and skipped dates.
 - The simulation proposes; "Aplicar" moves the chosen tasks (with an in-page confirm and an undo right after) and logs every move in `plan.scheduler.history`.
+- **Pendientes** (first Motor window, opens by default when something is overdue): items dated before today and not done, each with the engine's proposed slot and reason, and one action: Aceptar, Otro hueco (3 alternatives), Ya está hecha, A "Más adelante", Dejar. Every action is logged in `plan.scheduler.history` (`accept | alt | done | later | skip | undo`, with days late) and the last one can be undone. Code: `src/lib/scheduler/overdue.js`.
