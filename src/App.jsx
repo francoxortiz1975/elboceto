@@ -147,7 +147,7 @@ export default function App() {
   const [planTab, setPlanTab] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_PLAN_TAB);
-      if (saved === 'day' || saved === 'board' || saved === 'week' || saved === 'month' || saved === 'social') return saved;
+      if (saved === 'day' || saved === 'board' || saved === 'week' || saved === 'month' || saved === 'social' || saved === 'motor') return saved;
     } catch { /* storage unavailable */ }
     return 'board';
   });
@@ -766,7 +766,7 @@ function parseTextToBlocks(rawText) {
   useEffect(() => {
     const handleWheel = (e) => {
       // Scrolling the plan's own grids must not flip back to the canvas.
-      if (e.target.closest('.note-card') || e.target.closest('.freeform-node') || e.target.closest('.ap-wrap') || e.target.closest('.mc-wrap') || e.target.closest('.sm-wrap') || e.target.closest('.vertical-more-panel')) {
+      if (e.target.closest('.note-card') || e.target.closest('.freeform-node') || e.target.closest('.ap-wrap') || e.target.closest('.mc-wrap') || e.target.closest('.sm-wrap') || e.target.closest('.sc-wrap') || e.target.closest('.vertical-more-panel')) {
         return;
       }
 

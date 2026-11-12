@@ -25,3 +25,10 @@ Status: prototype only (`docs/scheduler-prototype/`: `engine.js` is the pure eng
 - `src/lib/scheduler/` pure module (profile, grid, constraints, urgency, scoring, planner, explain, history), shared by the app and the MCP server.
 - Replay: past weeks can be re-run through new rules to check the new version would have decided better.
 - Claude only for ambiguity, explanations and the morning routine; the core needs no model.
+
+## In the app (first cut)
+- Plan tab **Motor** (`src/components/SchedulerPage.jsx`): Perfil, Calendario fijo, Áreas, Tareas, Pesos, Simulación.
+- Engine: `src/lib/scheduler/engine.js` (pure); settings and real-plan mapping: `src/lib/scheduler/config.js`.
+- Settings live in `plan.scheduler` (profile, fixed events, areaOrder, weights, per-item attrs), so they sync like the rest of the plan.
+- Fixed events can rotate: every week, alternate weeks, or an N-week cycle (`cycle`, `weeks`, `anchor`), with a valid range and skipped dates.
+- The simulation only proposes; nothing is moved in the calendar yet.

@@ -5,7 +5,8 @@ const TABS = [
   ['board', 'Tablero'],
   ['week', 'Semana'],
   ['month', 'Mes'],
-  ['social', 'Redes']
+  ['social', 'Redes'],
+  ['motor', 'Motor']
 ];
 
 // Switch between the three ways of looking at the same plan.
