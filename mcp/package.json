@@ -1,0 +1,17 @@
+{
+  "name": "boceto-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/server.mjs --bundle --platform=node --format=esm --outfile=dist/server.mjs --banner:js=\"import {createRequire} from 'module';const require=createRequire(import.meta.url);\"",
+    "test": "node test/run.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
