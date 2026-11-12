@@ -61,4 +61,21 @@ const content = JSON.parse(fs.readFileSync(new URL('../../docs/sumay-instagram.p
 t = await call('import_content_plan', { plan: content }); ok(/39 bloques nuevos/.test(t) && db.plan.stacks['sumay-instagram-stories'], 'import_content_plan');
 t = await call('get_range', { from: iso(today), to: '2030-01-01', area: 'Sumay' }); ok(t.includes('Reel ·'), 'get_range by area');
 t = await call('get_overdue'); ok(t.includes('ATRASADO (0)'), 'overdue empty after completing');
+// ---- scheduler tools ----
+db.plan.items.push({ id: 'od1', area: 'loginet', text: 'Factura atrasada', done: false, day: iso(yday), at: 'any' });
+db.plan.items.push({ id: 'od2', area: 'life', text: 'Llamar al banco', done: false, day: iso(new Date(today.getTime() - 3 * 864e5)), at: 600, dur: 30 });
+db.plan.items.push({ id: 'od3', area: 'life', text: 'Revisar correo', done: false, day: iso(yday), at: 'any' });
+db.plan.items.push({ id: 'od4', area: 'life', text: 'Idea vieja', done: false, day: iso(yday), at: 'any' });
+t = await call('get_overdue_proposals'); ok(t.includes('Factura atrasada') && t.includes('propuesta:') && t.includes('alternativas:'), 'get_overdue_proposals lists proposal + alternatives');
+t = await call('get_scheduler_settings'); ok(t.includes('Pila de áreas') && t.includes('Pesos:'), 'get_scheduler_settings');
+t = await call('resolve_overdue', { id: 'od1', action: 'accept' });
+let od1 = db.plan.items.find((i) => i.id === 'od1'); ok(!t.startsWith('ERROR') && od1.day >= iso(today) && typeof od1.at === 'number', 'resolve accept moves to a future slot');
+ok(db.plan.scheduler.history.at(-1).kind === 'accept' && db.plan.scheduler.history.at(-1).by === 'claude', 'history records accept by claude');
+t = await call('resolve_overdue', { id: 'od2', action: 'move', day: 'tomorrow', time: '16:00' });
+let od2 = db.plan.items.find((i) => i.id === 'od2'); ok(od2.at === 960 && od2.dur === 30, 'resolve move to a given day/time keeps duration');
+t = await call('resolve_overdue', { id: 'od3', action: 'done' }); ok(db.plan.items.find((i) => i.id === 'od3').done === true, 'resolve done');
+t = await call('resolve_overdue', { id: 'od4', action: 'later' }); ok(db.plan.items.find((i) => i.id === 'od4').day === 'later', 'resolve later');
+t = await call('resolve_overdue', { id: 'od4', action: 'move' }); ok(t.startsWith('ERROR'), 'move without day is an error');
+t = await call('resolve_overdue', { id: 'nope', action: 'done' }); ok(t.startsWith('ERROR'), 'unknown id is an error');
+t = await call('get_overdue_proposals'); ok(!t.includes('Factura atrasada'), 'resolved items leave the overdue list');
 await client.close(); srv.close();

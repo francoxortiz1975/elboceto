@@ -6,7 +6,7 @@ import {
   EFFORT, WEIGHTS, PLANNED, runEngine, areaScore, freeHours, fmtMin, toMin, activeOn, cycleWeek, signature, slotKey, SLOT
 } from '../lib/scheduler/engine';
 import { getScheduler, attrsOf, buildEngineInput, nowMinutes, mondayOfIso, newFixed, proposalChanges, applyChanges, undoChanges } from '../lib/scheduler/config';
-import { overdueItems, resolveItem, undoResolve } from '../lib/scheduler/overdue';
+import { overdueItems, resolveItem, undoResolve, whyPlaced } from '../lib/scheduler/overdue';
 import './SchedulerPage.css';
 
 const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -107,8 +107,6 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
 }
 
 /* ---------- Pendientes de ayer ---------- */
-const FACTOR_WORDS = { wMove: 'cerca de su día', wEnergy: 'tu energía', wSoon: 'cuanto antes', wSlack: 'holgura antes del límite', wDeepCap: 'tope de trabajo profundo', wBalance: 'reparto entre áreas' };
-const why = (parts) => parts.filter((p) => p.contrib > 0.5).sort((a, b) => b.contrib - a.contrib).slice(0, 2).map((p) => FACTOR_WORDS[p.id] || p.label.toLowerCase()).join(' y ');
 const clock = (day, at) => (typeof at === 'number' ? `${dayLabel(day)} ${fmtMin(at)}` : dayLabel(day));
 
 function PendingPanel({ res, today, overdue, onChange, colorOf, areaName }) {
@@ -145,7 +143,7 @@ function PendingPanel({ res, today, overdue, onChange, colorOf, areaName }) {
         {pl && (
           <div className="sc-prop">
             <span>Propuesta: <b>{clock(res.G.days[pl.choice.d], pl.choice.start)}</b></span>
-            {why(pl.choice.parts) && <span className="sc-stat">por {why(pl.choice.parts)}</span>}
+            {whyPlaced(pl.choice.parts) && <span className="sc-stat">por {whyPlaced(pl.choice.parts)}</span>}
           </div>
         )}
         {nr && <div className="sc-prop no">{nr.reason} Elige qué hacer con ella.</div>}

@@ -6,6 +6,10 @@ import { z } from 'zod';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { addDays, isoOf, fmtMin, durOf, placeAreaItem, uid, BANDS } from '../../src/lib/areaPlan';
 import { validateContentPlan, importContentPlan } from '../../src/lib/contentPlan';
+import { buildEngineInput, nowMinutes } from '../../src/lib/scheduler/config';
+import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
+import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
+import { daysBetween } from '../../src/lib/areaPlan';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const BAND_LABEL = Object.fromEntries(BANDS.map((b) => [b.id, b.label.toLowerCase()]));
@@ -207,6 +211,87 @@ server.registerTool('import_content_plan', {
     return { plan: r.plan, result: `${r.added} bloques nuevos, ${r.moved} movidos, ${r.total} en el archivo (área ${content.area}).` };
   });
   return text(`Plan de contenido importado: ${out}`);
+}));
+
+// ---- Scheduler: the same engine as the app's Motor tab ----
+const propose = (plan) => {
+  const t = today();
+  const inp = buildEngineInput(plan, t);
+  return { t, inp, res: runEngine(inp.cfg, inp.tasks, { today: t, nowMin: nowMinutes(), blocks: inp.blocks }) };
+};
+const span = (res, c, dur) => `${res.G.days[c.d]} ${hhmm(c.start)}–${hhmm(c.start + dur)}`;
+const areaName = (plan, id) => (plan.areas.find((a) => a.id === id) || {}).name || '?';
+
+server.registerTool('get_overdue_proposals', {
+  description: 'Lo atrasado (días pasados sin hacer) con la propuesta del motor de planificación de El Boceto: nuevo hueco, motivo y alternativas. Úsalo antes de resolver con resolve_overdue.',
+  inputSchema: {}
+}, safe(async () => {
+  const { plan } = await readPlan(cfg);
+  const { t, res } = propose(plan);
+  const od = overdueItems(plan, t);
+  if (!od.length) return text(`Hoy es ${t}. Nada atrasado.`);
+  const lines = od.map((it) => {
+    const pl = res.placed.find((p) => p.task.id === it.id);
+    const nr = res.unplaced.find((p) => p.task.id === it.id);
+    const head = `${it.text} · ${areaName(plan, it.area)} · era ${when(it)} (hace ${daysBetween(it.day, t)} d) · id ${it.id}`;
+    if (pl) {
+      const why = whyPlaced(pl.choice.parts);
+      return `${head}\n   propuesta: ${span(res, pl.choice, pl.task.dur)}${why ? ` (por ${why})` : ''}\n   alternativas: ${pl.alts.map((a) => span(res, a, pl.task.dur)).join(' | ') || '(ninguna)'}`;
+    }
+    return `${head}\n   sin hueco: ${nr ? nr.reason : 'no entra en la propuesta'} Opciones: later, done o move a mano.`;
+  });
+  return text(`Hoy es ${t}. ATRASADO (${od.length})\n${lines.join('\n')}`);
+}));
+
+server.registerTool('resolve_overdue', {
+  description: 'Resuelve una tarea atrasada: "accept" aplica la propuesta actual del motor, "move" la lleva a un día y hora concretos, "done" la marca hecha, "later" la pasa a Más adelante, "skip" la deja como está (queda registrado). Confirma con el usuario antes de mover cosas en bloque.',
+  inputSchema: {
+    id: z.string(),
+    action: z.enum(['accept', 'move', 'done', 'later', 'skip']),
+    day: z.string().optional().describe('Solo con move: AAAA-MM-DD'),
+    time: z.string().optional().describe('Solo con move: HH:MM')
+  }
+}, safe(async ({ id, action, day, time }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const it = plan.items.find((i) => i.id === id);
+    if (!it) throw new Error(`No hay ninguna tarea con id ${id}.`);
+    const t = today();
+    let opts;
+    if (action === 'accept') {
+      const { res } = propose(plan);
+      const pl = res.placed.find((p) => p.task.id === id);
+      if (!pl) throw new Error('El motor no tiene propuesta para esta tarea (no hay hueco, o no está atrasada). Usa move, later, done o skip.');
+      opts = { action: 'move', via: 'accept', target: { day: res.G.days[pl.choice.d], at: pl.choice.start, dur: pl.task.dur } };
+    } else if (action === 'move') {
+      const d = resolveDay(day);
+      if (!d || d === 'later') throw new Error('Con move hace falta day (AAAA-MM-DD).');
+      const at = parseTime(time);
+      opts = { action: 'move', via: 'manual', target: { day: d, at, dur: it.dur || 60 } };
+    } else opts = { action };
+    const r = resolveItem(plan, id, { ...opts, today: t, by: 'claude' });
+    const moved = r.plan.items.find((i) => i.id === id);
+    return { plan: r.plan, result: lineOf(r.plan, moved) };
+  });
+  return text(`Hecho (${action}):\n${out}`);
+}));
+
+server.registerTool('get_scheduler_settings', {
+  description: 'Los ajustes del motor de planificación: perfil (sueño, comidas, energía, topes), eventos fijos con sus semanas rotativas, pila de áreas y pesos. Solo lectura.',
+  inputSchema: {}
+}, safe(async () => {
+  const { plan } = await readPlan(cfg);
+  const { inp } = propose(plan);
+  const c = inp.cfg; const P = c.profile; const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  const fixed = c.fixed.map((f) => `${f.name}: ${f.days.map((d) => days[d]).join('')} ${f.from}–${f.to}${f.place ? ` @${f.place}` : ''}${(f.cycle || 1) > 1 ? ` · ciclo ${f.cycle} semanas, activo en ${f.weeks.map((w) => w + 1).join(',')} (semana 1 desde ${f.anchor})` : ''}${f.skip && f.skip.length ? ` · sin: ${f.skip.join(', ')}` : ''}`);
+  return text([
+    `Despierto ${P.wake}–${P.bed}. Trabajo flexible ${P.window.from}–${P.window.to}, días abiertos: ${P.open.map((o, i) => (o ? days[i] : '')).join('')}.`,
+    `Comidas: ${P.meals.filter((m) => m.on).map((m) => `${m.name} ${m.start} (${m.dur} min)`).join(', ')}.`,
+    `Energía (1–5): mañana ${P.energy.am}, tarde ${P.energy.pm}, noche ${P.energy.ev}. Máx. ${P.deepCap} h profundas/día; colchón ${P.buffer} min (${P.bufferFixed} tras algo fijo).`,
+    `Traslados: ${P.places.map((p) => `${p.name} ${p.min} min`).join(', ')}.`,
+    `Pila de áreas (de más a menos prioritaria): ${c.areaOrder.map((id) => areaName(plan, id)).join(' > ')}.`,
+    `Eventos fijos (${fixed.length}):${fixed.length ? `\n${fixed.join('\n')}` : ' ninguno'}`,
+    `Pesos: ${WEIGHTS.map((w) => `${w.label} ${c.weights[w.id]}`).join('; ')}.`
+  ].join('\n'));
 }));
 
 await server.connect(new StdioServerTransport());

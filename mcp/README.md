@@ -13,7 +13,9 @@ Revoke: `update public.mcp_tokens set revoked_at = now() where label = 'claude-c
 
 ## Tools
 `get_today`, `get_range`, `get_overdue`, `list_backlog`, `list_areas`, `add_item`, `move_item`,
-`complete_item`, `edit_item`, `delete_item`, `import_content_plan`.
+`complete_item`, `edit_item`, `delete_item`, `import_content_plan`, and the scheduler tools (same engine as the
+app's Motor tab): `get_overdue_proposals`, `resolve_overdue` (accept / move / done / later / skip, logged in
+`plan.scheduler.history` with `by: claude`), `get_scheduler_settings`.
 
 ## How it works
 It calls two Postgres functions (`mcp_plan_get`, `mcp_plan_set`) with the personal token; only the
