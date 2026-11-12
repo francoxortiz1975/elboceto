@@ -5,7 +5,7 @@ import { AREA_COLORS, addDays, dayLabel, isoOf } from '../lib/areaPlan';
 import {
   EFFORT, WEIGHTS, PLANNED, runEngine, areaScore, freeHours, fmtMin, toMin, activeOn, cycleWeek, signature, slotKey, SLOT
 } from '../lib/scheduler/engine';
-import { getScheduler, attrsOf, buildEngineInput, nowMinutes, mondayOfIso, newFixed } from '../lib/scheduler/config';
+import { getScheduler, attrsOf, buildEngineInput, nowMinutes, mondayOfIso, newFixed, proposalChanges, applyChanges, undoChanges } from '../lib/scheduler/config';
 import './SchedulerPage.css';
 
 const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -97,7 +97,7 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
         {panel === 'areas' && <AreasPanel {...ctx} />}
         {panel === 'tareas' && <TasksPanel {...ctx} includeLater={includeLater} />}
         {panel === 'pesos' && <WeightsPanel {...ctx} selId={selId} setSelId={setSelId} baseSig={baseSig} setBaseSig={setBaseSig} />}
-        {panel === 'sim' && <SimPanel {...ctx} selId={selId} setSelId={setSelId} includeLater={includeLater} setIncludeLater={setIncludeLater} />}
+        {panel === 'sim' && <SimPanel {...ctx} selId={selId} setSelId={setSelId} includeLater={includeLater} setIncludeLater={setIncludeLater} onChange={onChange} />}
       </div>
     </div>
   );
@@ -381,17 +381,22 @@ function TasksPanel({ plan, cfg, patch, res, colorOf, areaById, today, includeLa
 }
 
 /* ---------- shared decision views ---------- */
-function Decisions({ res, selId, setSelId, baseSig }) {
+function Decisions({ res, selId, setSelId, baseSig, changes, skip, toggle }) {
+  const changing = changes ? new Set(changes.map((c) => c.id)) : null;
   return (
     <div className="sc-dec">
       {res.placed.map((p) => {
         const at = slotKey(res.G, p.choice);
         const ch = baseSig && baseSig[p.task.id] && baseSig[p.task.id] !== at;
+        const moves = changing && changing.has(p.task.id);
         return (
-          <button key={p.task.id} className={`sc-drow${ch ? ' chg' : ''}${selId === p.task.id ? ' sel' : ''}`} onClick={() => setSelId(p.task.id)}>
+          <div key={p.task.id} className="sc-dline">
+            {changing && <input type="checkbox" disabled={!moves} checked={!!moves && !skip.has(p.task.id)} onChange={() => toggle(p.task.id)} aria-label={`Aplicar el cambio de ${p.task.title}`} />}
+          <button className={`sc-drow${ch ? ' chg' : ''}${moves ? ' mv' : ''}${selId === p.task.id ? ' sel' : ''}`} onClick={() => setSelId(p.task.id)}>
             <span className="sc-n">#{p.rank + 1}</span><span className="sc-tt">{p.task.title}</span>
             <span className="sc-at">{dayLabel(at.slice(0, 10))} {at.slice(11)}{ch ? ` (antes ${dayLabel(baseSig[p.task.id].slice(0, 10))} ${baseSig[p.task.id].slice(11)})` : ''}</span>
           </button>
+          </div>
         );
       })}
       {res.unplaced.map((p) => (
@@ -519,18 +524,37 @@ function Week({ res, selId, setSelId, colorOf }) {
   );
 }
 
-function SimPanel({ res, selId, setSelId, colorOf, includeLater, setIncludeLater }) {
+function SimPanel({ plan, res, selId, setSelId, colorOf, includeLater, setIncludeLater, onChange }) {
+  const [skip, setSkip] = useState(() => new Set());
+  const [confirm, setConfirm] = useState(false);
+  const [done, setDone] = useState(null); // { changes } of the last apply, to undo it
+  const changes = useMemo(() => proposalChanges(plan, res), [plan, res]);
+  const chosen = changes.filter((c) => !skip.has(c.id));
+  const toggle = (id) => setSkip((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const apply = () => { onChange((p) => applyChanges(p, chosen)); setDone({ changes: chosen }); setConfirm(false); setSkip(new Set()); };
+  const undo = () => { onChange((p) => undoChanges(p, done.changes)); setDone(null); };
   return (
     <>
-      <p className="sc-note">Lo que el motor haría hoy con tus tareas pendientes en los próximos 7 días. Es una propuesta: no cambia tu calendario. Pulsa un bloque o una decisión para ver por qué.</p>
+      <p className="sc-note">Lo que el motor haría hoy con tus tareas pendientes en los próximos 7 días. Pulsa un bloque o una decisión para ver por qué. Nada cambia en tu calendario hasta que pulses “Aplicar”.</p>
       <div className="sc-filters">
         <span className="sc-chk"><input type="checkbox" checked={includeLater} onChange={(e) => setIncludeLater(e.target.checked)} /> Incluir “Más adelante”</span>
         <span className="sc-stat">{res.placed.length} colocadas · {res.unplaced.length} sin hueco · {freeHours(res.G).toFixed(1)} h libres</span>
       </div>
+      <div className="sc-apply">
+        {done ? (
+          <><span>Aplicado: {done.changes.length} {done.changes.length === 1 ? 'tarea movida' : 'tareas movidas'}.</span><button className="ap-btn" onClick={undo}>Deshacer</button></>
+        ) : confirm ? (
+          <><span>Esto moverá {chosen.length} {chosen.length === 1 ? 'tarea' : 'tareas'} en tu calendario. Podrás deshacerlo justo después.</span><button className="ap-btn primary" onClick={apply}>Sí, aplicar</button><button className="ap-btn" onClick={() => setConfirm(false)}>Cancelar</button></>
+        ) : (
+          <><span>{changes.length ? `${changes.length} ${changes.length === 1 ? 'cambio propuesto' : 'cambios propuestos'}${skip.size ? `, ${chosen.length} elegidos` : ''}.` : 'Tu calendario ya coincide con la propuesta.'}</span><button className="ap-btn primary" disabled={!chosen.length} onClick={() => setConfirm(true)}>Aplicar {chosen.length || ''}</button></>
+        )}
+      </div>
       <div className="sc-cols sim">
         <div className="sc-stack"><Week res={res} selId={selId} setSelId={setSelId} colorOf={colorOf} /></div>
         <div className="sc-stack">
-          <Win title="Decisiones"><Decisions res={res} selId={selId} setSelId={setSelId} /></Win>
+          <Win title="Decisiones">
+            <Decisions res={res} selId={selId} setSelId={setSelId} changes={changes} skip={skip} toggle={toggle} />
+          </Win>
           <Win title="Por qué"><Detail res={res} selId={selId} /></Win>
         </div>
       </div>

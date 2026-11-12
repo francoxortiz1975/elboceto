@@ -35,7 +35,8 @@ export function getScheduler(plan) {
     fixed: s.fixed || [],
     areaOrder: [...order, ...areaIds.filter((id) => !order.includes(id))],
     weights: { ...Object.fromEntries(WEIGHTS.map((w) => [w.id, w.def])), ...(s.weights || {}) },
-    attrs: s.attrs || {}
+    attrs: s.attrs || {},
+    history: s.history || []
   };
 }
 
@@ -74,3 +75,63 @@ export function buildEngineInput(plan, today, { includeLater = false } = {}) {
 }
 
 export const nowMinutes = (d = new Date()) => Math.ceil((d.getHours() * 60 + d.getMinutes()) / 30) * 30;
+
+// ---- Applying a proposal to the real calendar ----
+// What would change if the simulation were applied: placed tasks whose day or time differs from the item now.
+export function proposalChanges(plan, res) {
+  const byId = Object.fromEntries(plan.items.map((i) => [i.id, i]));
+  const out = [];
+  res.placed.forEach((p) => {
+    const it = byId[p.task.id];
+    if (!it) return;
+    const day = res.G.days[p.choice.d];
+    const at = p.choice.start;
+    if (it.day === day && it.at === at) return;
+    out.push({
+      id: it.id, title: it.text,
+      from: { day: it.day, at: it.at, dur: it.dur, flex: !!((plan.scheduler && plan.scheduler.attrs && plan.scheduler.attrs[it.id]) || {}).flex },
+      to: { day, at, dur: p.task.dur }
+    });
+  });
+  return out;
+}
+
+const MAX_HISTORY = 500;
+// Moves the chosen tasks to their proposed slots. They are marked movable, so the next replan can still move
+// them, and every move is logged in plan.scheduler.history (the data the learning layers will use later).
+export function applyChanges(plan, changes, now = new Date().toISOString()) {
+  const ids = new Set(changes.map((c) => c.id));
+  const to = Object.fromEntries(changes.map((c) => [c.id, c.to]));
+  const cfg = getScheduler(plan);
+  const attrs = { ...cfg.attrs };
+  changes.forEach((c) => { attrs[c.id] = { ...(attrs[c.id] || {}), flex: true }; });
+  const history = [...(((plan.scheduler || {}).history) || []), ...changes.map((c) => ({ t: now, kind: 'apply', id: c.id, title: c.title, from: { day: c.from.day, at: c.from.at }, to: { day: c.to.day, at: c.to.at } }))].slice(-MAX_HISTORY);
+  return {
+    ...plan,
+    items: plan.items.map((it) => (ids.has(it.id) ? { ...it, day: to[it.id].day, at: to[it.id].at, dur: to[it.id].dur } : it)),
+    scheduler: { ...cfg, attrs, history }
+  };
+}
+
+export function undoChanges(plan, changes, now = new Date().toISOString()) {
+  const ids = new Set(changes.map((c) => c.id));
+  const from = Object.fromEntries(changes.map((c) => [c.id, c.from]));
+  const cfg = getScheduler(plan);
+  const attrs = { ...cfg.attrs };
+  changes.forEach((c) => {
+    const a = { ...(attrs[c.id] || {}) };
+    if (c.from.flex) a.flex = true; else delete a.flex;
+    if (Object.keys(a).length) attrs[c.id] = a; else delete attrs[c.id];
+  });
+  const history = [...(((plan.scheduler || {}).history) || []), ...changes.map((c) => ({ t: now, kind: 'undo', id: c.id, title: c.title, from: { day: c.to.day, at: c.to.at }, to: { day: c.from.day, at: c.from.at } }))].slice(-MAX_HISTORY);
+  return {
+    ...plan,
+    items: plan.items.map((it) => {
+      if (!ids.has(it.id)) return it;
+      const f = from[it.id];
+      const { dur: _d, ...rest } = it;
+      return { ...rest, day: f.day, at: f.at, ...(f.dur !== undefined ? { dur: f.dur } : {}) };
+    }),
+    scheduler: { ...cfg, attrs, history }
+  };
+}

@@ -31,4 +31,4 @@ Status: prototype only (`docs/scheduler-prototype/`: `engine.js` is the pure eng
 - Engine: `src/lib/scheduler/engine.js` (pure); settings and real-plan mapping: `src/lib/scheduler/config.js`.
 - Settings live in `plan.scheduler` (profile, fixed events, areaOrder, weights, per-item attrs), so they sync like the rest of the plan.
 - Fixed events can rotate: every week, alternate weeks, or an N-week cycle (`cycle`, `weeks`, `anchor`), with a valid range and skipped dates.
-- The simulation only proposes; nothing is moved in the calendar yet.
+- The simulation proposes; "Aplicar" moves the chosen tasks (with an in-page confirm and an undo right after) and logs every move in `plan.scheduler.history`.
