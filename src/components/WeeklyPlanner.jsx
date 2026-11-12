@@ -27,6 +27,28 @@ const DAYS_ES = [
 ];
 
 // Timeline: 07:00 to 24:00 = 17 hours = 1020 minutes
+// Side-by-side lanes for blocks that overlap in time within one day column: { [id]: { lane, n } }.
+// (Same idea as the day view: overlapping blocks share the width instead of covering each other.)
+function laneMap(tasks) {
+  const blocks = tasks.map((t) => { const a = timeStrToMinutes(t.timeSlot); return { id: t.id, a, b: a + (t.durationMin || 60) }; })
+    .sort((x, y) => x.a - y.a || y.b - x.b);
+  const out = {};
+  let cluster = [];
+  let ends = [];
+  let clusterEnd = -1;
+  const flush = () => { cluster.forEach((id) => { out[id].n = ends.length; }); cluster = []; ends = []; };
+  blocks.forEach((blk) => {
+    if (blk.a >= clusterEnd) { flush(); clusterEnd = -1; }
+    let lane = ends.findIndex((e) => e <= blk.a);
+    if (lane < 0) { lane = ends.length; ends.push(blk.b); } else ends[lane] = blk.b;
+    out[blk.id] = { lane, n: 1 };
+    cluster.push(blk.id);
+    clusterEnd = Math.max(clusterEnd, blk.b);
+  });
+  flush();
+  return out;
+}
+
 const DAY_START_MIN  = 7 * 60;   // 420
 const DAY_END_MIN    = 24 * 60;  // 1440
 const DAY_TOTAL_MIN  = DAY_END_MIN - DAY_START_MIN; // 1020
@@ -620,7 +642,7 @@ export function WeeklyPlanner({
 
           {/* Scrollable time grid */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', height: '700px', position: 'relative' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? `48px repeat(${visibleDays.length}, 1fr)` : '48px repeat(7, 1fr)', height: '1224px', position: 'relative' }}>
 
             {/* Time gutter */}
             <div style={{ borderRight: 'var(--border-hairline)', position: 'relative', background: 'rgba(var(--book-rgb), 0.6)' }}>
@@ -640,6 +662,7 @@ export function WeeklyPlanner({
             {/* Day columns */}
             {visibleDays.map((day) => {
               const tasks = getTasksForDay(day);
+              const lanes = laneMap(tasks);
               return (
                 <div
                   key={day.key}
@@ -699,6 +722,7 @@ export function WeeklyPlanner({
                   {tasks.map(task => {
                     const startMin   = timeStrToMinutes(task.timeSlot);
                     const durationMin = task.durationMin || 60;
+                    const lane       = lanes[task.id] || { lane: 0, n: 1 };
                     const yPct       = ((startMin - DAY_START_MIN) / DAY_TOTAL_MIN) * 100;
                     const heightPct  = (durationMin / DAY_TOTAL_MIN) * 100;
                     const endStr     = minutesToTimeStr(startMin + durationMin);
@@ -720,10 +744,10 @@ export function WeeklyPlanner({
                         style={{
                           position: 'absolute',
                           top: `${yPct}%`,
-                          left: '2px',
-                          right: '2px',
+                          left: `calc(${lane.lane} * 100% / ${lane.n} + 2px)`,
+                          width: `calc(100% / ${lane.n} - 4px)`,
                           height: `${heightPct}%`,
-                          minHeight: '26px',
+                          minHeight: '18px',
                           background: cardBg,
                           '--wk-bg': task.completed && !task.isArea ? 'var(--bg-note)' : cardBg,
                           color: task.isEvent ? 'var(--bg-book)' : (task.completed ? 'var(--text-muted)' : 'var(--text-ink)'),
