@@ -1,0 +1,588 @@
+<title>Motor de planificación</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one control-panel window per tab; forms on the left, live decisions on the right.
+   Tokens: grey-green neutrals, one teal accent, ochre for warnings. */
+:root {
+  --bg: #EDF0EE; --surface: #F6F8F7; --card: #FFFFFF; --ink: #15211F; --muted: #56655F; --line: #CBD4D0;
+  --accent: #0E6B66; --accent-ink: #FFFFFF; --warn: #B4531A; --ok: #2C7A4B; --blocked: #DDE3E0; --hatch: #C7D0CC;
+  --a0: #0E8F86; --a1: #4B63C9; --a2: #C48A1A; --a3: #C2477A; --a4: #4F9A3C; --a5: #8A55C2; --a6: #6B7C78; --a7: #D0662A;
+  --f-head: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif; --f-body: 'IBM Plex Sans', system-ui, sans-serif; --f-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F1615; --surface: #162120; --card: #1A2827; --ink: #E3ECE9; --muted: #93A59F; --line: #2C3C39;
+  --accent: #4FC3B7; --accent-ink: #06211E; --warn: #E39A62; --ok: #6CC38C; --blocked: #202E2C; --hatch: #2B3C39; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0F1615; --surface: #162120; --card: #1A2827; --ink: #E3ECE9; --muted: #93A59F; --line: #2C3C39;
+  --accent: #4FC3B7; --accent-ink: #06211E; --warn: #E39A62; --ok: #6CC38C; --blocked: #202E2C; --hatch: #2B3C39; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; }
+.wrap { max-width: 1240px; margin: 0 auto; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 20px; margin-bottom: 14px; }
+h1 { font-family: var(--f-head); font-weight: 700; font-size: 1.9rem; letter-spacing: -0.01em; margin: 0; line-height: 1; text-wrap: balance; }
+.sub { color: var(--muted); font-family: var(--f-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.top .spacer { flex: 1; }
+button { font: 500 0.8rem var(--f-body); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 5px; padding: 6px 11px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.ghost { background: none; }
+button.small { padding: 3px 8px; font-size: 0.72rem; }
+nav.tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 2px solid var(--line); margin-bottom: 16px; scrollbar-width: thin; }
+nav.tabs a { flex: none; padding: 9px 14px; font: 600 0.82rem var(--f-head); letter-spacing: 0.02em; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs a:hover { color: var(--ink); }
+.note { color: var(--muted); font-size: 0.8rem; max-width: 70ch; margin: 0 0 14px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.stack { display: grid; gap: 14px; min-width: 0; }
+.win { background: var(--card); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.win > h2 { margin: 0; padding: 8px 12px; font: 700 0.78rem var(--f-head); letter-spacing: 0.08em; text-transform: uppercase; background: var(--surface); border-bottom: 1px solid var(--line); border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.win .body { padding: 12px; display: grid; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; }
+label.f { display: grid; gap: 3px; font-size: 0.74rem; color: var(--muted); min-width: 0; }
+label.f > span.l { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+input[type=text], input[type=time], input[type=date], input[type=number], select { width: 100%; min-width: 0; font: 400 0.86rem var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; }
+input[type=number] { font-family: var(--f-mono); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.chk { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--ink); }
+.tag { font: 500 0.58rem var(--f-mono); letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.on { color: var(--ok); border-color: var(--ok); }
+.tag.plan { color: var(--warn); border-color: var(--warn); }
+.chips { display: flex; gap: 3px; flex-wrap: wrap; }
+.chips button { width: 28px; height: 26px; padding: 0; font: 500 0.72rem var(--f-mono); }
+.chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) 76px 76px; gap: 8px; align-items: center; }
+.stat { font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); }
+.stat b { color: var(--ink); font-weight: 500; }
+.sl { display: grid; gap: 2px; }
+.sl .t { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.84rem; font-weight: 500; }
+.sl .t .val { font-family: var(--f-mono); color: var(--accent); min-width: 2.2em; text-align: right; }
+.sl .h { font-size: 0.72rem; color: var(--muted); }
+.stage { font: 700 0.7rem var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin: 4px 0 -2px; }
+.card { border: 1px solid var(--line); border-radius: 5px; background: var(--surface); padding: 10px; display: grid; gap: 9px; min-width: 0; }
+.card.done { opacity: 0.55; }
+.card .head { display: flex; gap: 8px; align-items: center; }
+.card .head input { font-weight: 600; flex: 1; }
+.arealist { display: grid; gap: 6px; }
+.arow { display: grid; grid-template-columns: 26px 12px minmax(0, 1fr) 90px auto; gap: 9px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+.arow .rk { font: 500 0.9rem var(--f-mono); color: var(--muted); }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.dec { display: grid; gap: 4px; }
+.drow { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: left; width: 100%; font: 400 0.8rem var(--f-body); }
+.drow .n { font: 500 0.7rem var(--f-mono); color: var(--muted); }
+.drow .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drow .at { font: 500 0.74rem var(--f-mono); }
+.drow.chg { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); }
+.drow.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.drow.no { border-color: var(--warn); }
+.wk { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+.wkg { display: grid; grid-template-columns: 44px repeat(7, minmax(92px, 1fr)); min-width: 720px; }
+.wkg .dh { position: sticky; top: 0; padding: 6px 4px; font: 600 0.74rem var(--f-head); text-align: center; background: var(--surface); border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
+.wkg .dh.today { color: var(--accent); }
+.wkg .hr { height: 16px; font: 400 0.58rem var(--f-mono); color: var(--muted); text-align: right; padding-right: 4px; line-height: 16px; }
+.wkg .c { height: 16px; border-left: 1px solid var(--line); font: 500 0.62rem var(--f-body); line-height: 16px; padding-inline: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.c.free { background: var(--card); } .c.meal { background: var(--blocked); } .c.rest, .c.out { background: var(--hatch); } .c.past { background: var(--hatch); opacity: 0.6; }
+.c.fix { background: color-mix(in srgb, var(--muted) 38%, var(--card)); color: var(--ink); }
+.c.trav { background: repeating-linear-gradient(135deg, var(--blocked), var(--blocked) 4px, var(--hatch) 4px, var(--hatch) 8px); }
+.c.buf { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.c.tk { color: var(--ink); cursor: pointer; background: color-mix(in srgb, var(--ac) 36%, var(--card)); border-left-color: var(--ac); border-left-width: 3px; }
+.c.tk.sel { outline: 2px solid var(--ink); outline-offset: -2px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin: 8px 0 0; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line); }
+table.parts { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+table.parts th { text-align: left; font: 600 0.66rem var(--f-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 3px 4px; border-bottom: 1px solid var(--line); }
+table.parts td { padding: 4px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.parts td.n { font-family: var(--f-mono); text-align: right; white-space: nowrap; }
+.cb { height: 7px; border-radius: 2px; background: var(--ok); min-width: 1px; } .cb.neg { background: var(--warn); }
+.alt { display: flex; justify-content: space-between; gap: 8px; font-size: 0.78rem; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.pipe { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; counter-reset: s; }
+.step { border: 1px solid var(--line); border-radius: 6px; background: var(--card); padding: 10px 12px; display: grid; gap: 4px; align-content: start; }
+.step h3 { margin: 0; font: 700 0.95rem var(--f-head); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.step p { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.step code, .mono { font-family: var(--f-mono); font-size: 0.74rem; }
+.layers { display: grid; gap: 6px; }
+.layer { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); font-size: 0.8rem; }
+.layer b { font-family: var(--f-head); font-size: 0.9rem; }
+dialog-box { display: block; }
+textarea.json { width: 100%; height: 260px; font: 400 0.74rem var(--f-mono); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 8px; }
+.empty { color: var(--muted); font-size: 0.82rem; padding: 6px 2px; }
+@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } .layer { grid-template-columns: 1fr; } .arow { grid-template-columns: 22px 12px minmax(0, 1fr) auto; } .arow .bar { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+</style>
+<div class="wrap">
+  <header class="top">
+    <div><div class="sub">El Boceto · prototipo con datos de ejemplo</div><h1>Motor de planificación</h1></div>
+    <div class="spacer"></div>
+    <button data-act="json">Configuración (JSON)</button>
+    <button data-act="reset" class="ghost">Restablecer ejemplo</button>
+  </header>
+  <div id="jsonbox" hidden class="win" style="margin-bottom:14px"><h2><span>Configuración</span><button class="small" data-act="copy">Copiar</button></h2><div class="body"><textarea id="jsonta" class="json" readonly aria-label="Configuración en JSON"></textarea></div></div>
+  <nav class="tabs" id="tabs" aria-label="Ventanas"></nav>
+  <main id="panel"></main>
+</div>
+<script>
+/* ===== Engine: pure functions, no DOM ===== */
+const DEMO_TODAY = '2026-11-12';   // Thursday
+const DEMO_NOW = 600;              // 10:00
+const SLOT = 30;
+const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+const DAYFULL = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+const EFFORT = { deep: { label: 'Profundo', need: 0.9 }, light: { label: 'Ligero', need: 0.6 }, admin: { label: 'Administrativo', need: 0.4 } };
+
+const toMin = (s) => { const m = /^(\d{1,2}):(\d{2})$/.exec(s || ''); return m ? +m[1] * 60 + +m[2] : 0; };
+const fmt = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const isoAdd = (iso, n) => { const [y, mo, d] = iso.split('-').map(Number); const dt = new Date(Date.UTC(y, mo - 1, d + n)); return dt.toISOString().slice(0, 10); };
+const dowOf = (iso) => { const [y, mo, d] = iso.split('-').map(Number); return (new Date(Date.UTC(y, mo - 1, d)).getUTCDay() + 6) % 7; }; // Monday = 0
+const diffDays = (a, b) => Math.round((Date.UTC(...b.split('-').map((x, i) => (i === 1 ? +x - 1 : +x))) - Date.UTC(...a.split('-').map((x, i) => (i === 1 ? +x - 1 : +x)))) / 864e5);
+const dayLabel = (iso) => { const d = +iso.slice(8); return `${DAYFULL[dowOf(iso)]} ${d}`; };
+
+// Weights: stage A decides who picks first, stage B decides where it lands.
+const WEIGHTS = [
+  { id: 'wPriority', stage: 'A', label: 'Prioridad de la tarea', hint: '1–5 que le pones a cada tarea.', def: 70 },
+  { id: 'wArea', stage: 'A', label: 'Lugar del área en la pila', hint: 'La posición del área en tu orden de prioridad.', def: 50 },
+  { id: 'wDeadline', stage: 'A', label: 'Cercanía de la fecha límite', hint: 'Más peso cuanto menos días queden. Las duras pesan más.', def: 60 },
+  { id: 'wOverdue', stage: 'A', label: 'Atraso acumulado', hint: 'Lo que lleva días sin hacerse sube en la cola.', def: 40 },
+  { id: 'wMove', stage: 'B', label: 'Cercanía al día original', hint: 'Penaliza alejar la tarea de donde estaba.', def: 60 },
+  { id: 'wEnergy', stage: 'B', label: 'Energía acorde al esfuerzo', hint: 'Lo profundo a tus horas fuertes, lo administrativo a las flojas.', def: 50 },
+  { id: 'wSoon', stage: 'B', label: 'Lo antes posible', hint: 'Prefiere huecos tempranos de la semana.', def: 30 },
+  { id: 'wSlack', stage: 'B', label: 'Holgura antes del límite', hint: 'Evita dejarlo justo el día antes de la fecha límite.', def: 50 },
+  { id: 'wDeepCap', stage: 'B', label: 'Tope de trabajo profundo al día', hint: 'Penaliza pasar del máximo de horas profundas del perfil.', def: 70 },
+  { id: 'wBalance', stage: 'B', label: 'Reparto entre áreas', hint: 'Evita llenar un día con una sola área.', def: 20 }
+];
+const PLANNED = [
+  ['Tareas divisibles', 'Partir una tarea larga en bloques de tamaño mínimo.'],
+  ['Dependencias', 'Una tarea que no puede empezar hasta que termine otra.'],
+  ['Duración aprendida', 'Corrige tus estimaciones con lo que de verdad tardas por tipo de tarea.'],
+  ['Éxito por franja (historial)', 'Probabilidad de que cumplas algo según día y hora, aprendida de tus datos.'],
+  ['Traslados encadenados', 'Agrupar tareas del mismo lugar para no ir y volver.'],
+  ['Cuota semanal por área', 'Horas mínimas que cada área debe recibir cada semana.']
+];
+
+function defaultState() {
+  return {
+    profile: {
+      wake: '07:30', bed: '23:30',
+      meals: [
+        { name: 'Desayuno', start: '08:00', dur: 20, on: true },
+        { name: 'Almuerzo', start: '13:00', dur: 60, on: true },
+        { name: 'Cena', start: '20:30', dur: 45, on: true }
+      ],
+      window: { from: '08:00', to: '22:00' },
+      open: [true, true, true, true, true, true, false], // lun..dom: domingo protegido
+      energy: { am: 4, pm: 3, ev: 2 },
+      deepCap: 5, buffer: 10, bufferFixed: 15,
+      places: { Casa: 0, Campus: 35, Trabajo: 25, Cualquiera: 0 }
+    },
+    fixed: [
+      { id: 'f1', name: 'Systèmes distribués (clase)', days: [1], from: '08:30', to: '12:30', place: 'Campus', area: 'School', optional: false },
+      { id: 'f2', name: 'TP / laboratorio', days: [3], from: '14:00', to: '18:00', place: 'Campus', area: 'School', optional: false },
+      { id: 'f3', name: 'Turno de trabajo', days: [0, 2], from: '09:00', to: '13:00', place: 'Trabajo', area: 'Work', optional: true }
+    ],
+    areas: ['Loginet', 'School', 'MediLyft', 'Sumay Reels', 'Life', 'Campus France'],
+    tasks: [
+      { id: 't1', title: 'Factura MediLyft', area: 'MediLyft', prio: 5, fixed: false, orig: '2026-11-09', dl: '2026-11-14', dlHard: true, dur: 30, effort: 'admin', place: 'Casa', notBefore: '' },
+      { id: 't2', title: 'TP1 ML pt.2', area: 'School', prio: 4, fixed: false, orig: '2026-11-02', dl: '2026-11-16', dlHard: true, dur: 120, effort: 'deep', place: 'Casa', notBefore: '' },
+      { id: 't3', title: 'Trabajar Loginet', area: 'Loginet', prio: 4, fixed: false, orig: '2026-11-09', dl: '', dlHard: false, dur: 90, effort: 'deep', place: 'Casa', notBefore: '' },
+      { id: 't4', title: 'S5 · Blog funcional', area: 'Loginet', prio: 5, fixed: false, orig: '2026-11-10', dl: '2026-11-20', dlHard: false, dur: 180, effort: 'deep', place: 'Casa', notBefore: '' },
+      { id: 't5', title: 'S4 · Conexión de dominio', area: 'Loginet', prio: 4, fixed: false, orig: '2026-11-10', dl: '', dlHard: false, dur: 120, effort: 'deep', place: 'Casa', notBefore: '' },
+      { id: 't6', title: 'Reunión Grokbot', area: 'MediLyft', prio: 3, fixed: false, orig: '2026-11-09', dl: '', dlHard: false, dur: 60, effort: 'light', place: 'Cualquiera', notBefore: '' },
+      { id: 't7', title: 'Plataforma de vídeo', area: 'MediLyft', prio: 2, fixed: false, orig: '2026-11-10', dl: '', dlHard: false, dur: 60, effort: 'deep', place: 'Casa', notBefore: '' },
+      { id: 't8', title: 'Film + edit Reel 1', area: 'Sumay Reels', prio: 4, fixed: false, orig: '2026-11-12', dl: '2026-11-16', dlHard: true, dur: 90, effort: 'light', place: 'Casa', notBefore: '' },
+      { id: 't9', title: 'Firmar stage professionnel', area: 'School', prio: 5, fixed: false, orig: '2026-11-12', dl: '2026-11-27', dlHard: true, dur: 20, effort: 'admin', place: 'Campus', notBefore: '' },
+      { id: 't10', title: 'Derecho pt.1', area: 'School', prio: 2, fixed: false, orig: '2026-11-12', dl: '', dlHard: false, dur: 90, effort: 'deep', place: 'Casa', notBefore: '' },
+      { id: 't11', title: 'Cambiar número', area: 'Life', prio: 2, fixed: false, orig: '2026-11-12', dl: '', dlHard: false, dur: 20, effort: 'admin', place: 'Cualquiera', notBefore: '' },
+      { id: 't12', title: 'Publicar Reel 1', area: 'Sumay Reels', prio: 5, fixed: true, orig: '2026-11-17', at: '19:00', dl: '', dlHard: false, dur: 30, effort: 'light', place: 'Casa', notBefore: '' }
+    ],
+    weights: Object.fromEntries(WEIGHTS.map((w) => [w.id, w.def]))
+  };
+}
+
+// The week as a grid of 30-minute slots with the reason each one is blocked (or null if free).
+function buildGrid(S) {
+  const P = S.profile;
+  const wake = toMin(P.wake); const bed = toMin(P.bed);
+  const n = Math.max(1, Math.floor((bed - wake) / SLOT));
+  const days = Array.from({ length: 7 }, (_, i) => isoAdd(DEMO_TODAY, i));
+  const blocked = days.map(() => Array(n).fill(null));
+  const slotsOf = (from, to) => { // slots overlapping [from, to)
+    const out = [];
+    for (let k = 0; k < n; k++) { const a = wake + k * SLOT; if (a < to && a + SLOT > from) out.push(k); }
+    return out;
+  };
+  const mark = (d, from, to, why) => slotsOf(from, to).forEach((k) => { if (!blocked[d][k]) blocked[d][k] = why; });
+  const win = [toMin(P.window.from), toMin(P.window.to)];
+  days.forEach((iso, d) => {
+    const dow = dowOf(iso);
+    if (d === 0) mark(d, wake, DEMO_NOW, 'pasado');
+    if (!P.open[dow]) { mark(d, wake, bed, 'descanso'); return; }
+    mark(d, wake, win[0], 'fuera de horario'); mark(d, win[1], bed, 'fuera de horario');
+    P.meals.filter((m) => m.on).forEach((m) => mark(d, toMin(m.start), toMin(m.start) + m.dur, 'comida'));
+    const commute = (place) => (P.places[place] || 0);
+    S.fixed.filter((f) => f.days.includes(dow)).forEach((f) => {
+      const a = toMin(f.from); const b = toMin(f.to); const c = commute(f.place);
+      mark(d, a - c, a, 'traslado'); mark(d, b, b + c, 'traslado'); mark(d, b + c, b + c + P.bufferFixed, 'colchón');
+      mark(d, a, b, `fijo:${f.name}`);
+    });
+    S.tasks.filter((t) => t.fixed && t.orig === iso && t.at).forEach((t) => mark(d, toMin(t.at), toMin(t.at) + t.dur, `fijo:${t.title}`));
+  });
+  return { days, blocked, n, wake };
+}
+
+const energyAt = (P, minute) => (minute < 13 * 60 ? P.energy.am : minute < 19 * 60 ? P.energy.pm : P.energy.ev) / 5;
+
+function areaScore(S, area) {
+  const i = S.areas.indexOf(area);
+  if (i < 0) return 0;
+  return S.areas.length > 1 ? 1 - i / (S.areas.length - 1) : 1;
+}
+
+// Stage A: who gets to pick first.
+function urgency(S, t) {
+  const W = S.weights; const parts = [];
+  const add = (id, label, v, w) => parts.push({ id, label, value: v, weight: w, contrib: v * w });
+  add('wPriority', 'Prioridad', (t.prio - 1) / 4, W.wPriority);
+  add('wArea', 'Área', areaScore(S, t.area), W.wArea);
+  const toDl = t.dl ? diffDays(DEMO_TODAY, t.dl) : null;
+  add('wDeadline', 'Fecha límite', toDl === null ? 0 : (1 / (1 + Math.max(0, toDl))) * (t.dlHard ? 1 : 0.6), W.wDeadline);
+  add('wOverdue', 'Atraso', Math.min(1, Math.max(0, diffDays(t.orig, DEMO_TODAY)) / 7), W.wOverdue);
+  return { total: parts.reduce((s, p) => s + p.contrib, 0), parts };
+}
+
+// Stage B: score of putting task `t` at slot k0 of day d.
+function scoreSlot(S, G, ctx, t, d, k0, need) {
+  const W = S.weights; const P = S.profile; const parts = [];
+  const add = (id, label, v) => parts.push({ id, label, value: v, weight: W[id], contrib: v * W[id] });
+  const iso = G.days[d]; const start = G.wake + k0 * SLOT;
+  add('wMove', 'Distancia al día original', -Math.min(Math.max(0, diffDays(t.orig, iso)), 7) / 7);
+  add('wEnergy', 'Energía', 1 - Math.abs(EFFORT[t.effort].need - energyAt(P, start)));
+  add('wSoon', 'Lo antes posible', 1 - (d * G.n + k0) / (7 * G.n));
+  if (t.dl) {
+    const slack = diffDays(iso, t.dl);
+    add('wSlack', 'Holgura', slack < 0 ? -1 : -(1 - Math.min(slack, 5) / 5));
+  } else add('wSlack', 'Holgura', 0);
+  const deepMin = ctx.deep[d] + (t.effort === 'deep' ? t.effDur : 0);
+  add('wDeepCap', 'Tope profundo', t.effort === 'deep' && deepMin > P.deepCap * 60 ? -1 : 0);
+  add('wBalance', 'Reparto de áreas', -Math.min(1, (ctx.areaDay[d][t.area] || 0) / 3));
+  return { total: parts.reduce((s, p) => s + p.contrib, 0), parts, d, k0, start };
+}
+
+function runEngine(S) {
+  const G = buildGrid(S);
+  const P = S.profile;
+  const used = G.days.map(() => Array(G.n).fill(null));
+  const ctx = { deep: G.days.map(() => 0), areaDay: G.days.map(() => ({})) };
+  const placed = []; const unplaced = []; const keptFixed = [];
+  const bufSlots = Math.ceil(P.buffer / SLOT);
+
+  S.tasks.filter((t) => t.fixed).forEach((t) => {
+    const d = G.days.indexOf(t.orig);
+    if (d >= 0) keptFixed.push({ task: t, d, start: toMin(t.at || '00:00'), end: toMin(t.at || '00:00') + t.dur });
+  });
+
+  const order = S.tasks.filter((t) => !t.fixed && !t.done).map((t) => ({ t, u: urgency(S, t) }))
+    .sort((a, b) => b.u.total - a.u.total || a.t.id.localeCompare(b.t.id));
+
+  order.forEach(({ t, u }, rank) => {
+    const commute = t.place && !['Casa', 'Cualquiera'].includes(t.place) ? (P.places[t.place] || 0) : 0;
+    const task = { ...t, effDur: t.dur + commute };
+    const need = Math.max(1, Math.ceil(task.effDur / SLOT));
+    const cands = [];
+    for (let d = 0; d < 7; d++) {
+      if (t.notBefore && G.days[d] < t.notBefore) continue;
+      if (t.dl && t.dlHard && G.days[d] > t.dl) continue;
+      for (let k0 = 0; k0 + need <= G.n; k0++) {
+        let ok = true;
+        for (let k = k0; k < k0 + need; k++) if (G.blocked[d][k] || used[d][k]) { ok = false; break; }
+        if (ok) cands.push(scoreSlot(S, G, ctx, task, d, k0, need));
+      }
+    }
+    if (!cands.length) {
+      const why = t.dl && t.dlHard ? 'No hay hueco antes de la fecha límite (dura).' : 'No cabe en los próximos 7 días.';
+      unplaced.push({ task, rank, urgency: u, reason: why });
+      return;
+    }
+    cands.sort((a, b) => b.total - a.total || a.d - b.d || a.k0 - b.k0);
+    const best = cands[0];
+    for (let k = best.k0; k < best.k0 + need; k++) used[best.d][k] = t.id;
+    for (let k = best.k0 + need; k < best.k0 + need + bufSlots && k < G.n; k++) if (!G.blocked[best.d][k] && !used[best.d][k]) used[best.d][k] = 'buf';
+    if (t.effort === 'deep') ctx.deep[best.d] += task.effDur;
+    ctx.areaDay[best.d][t.area] = (ctx.areaDay[best.d][t.area] || 0) + 1;
+    // alternatives: best candidates on other days / at least 2 h apart
+    const alts = [];
+    for (const c of cands.slice(1)) {
+      if (alts.length >= 3) break;
+      if (c.d === best.d && Math.abs(c.k0 - best.k0) < 4) continue;
+      if (alts.some((a) => a.d === c.d && Math.abs(a.k0 - c.k0) < 4)) continue;
+      alts.push(c);
+    }
+    placed.push({ task, rank, urgency: u, choice: best, alts, need, candidates: cands.length, commute });
+  });
+  return { G, used, placed, unplaced, keptFixed };
+}
+
+const slotLabel = (G, c) => `${dayLabel(G.days[c.d])} ${fmt(c.start)}`;
+const placedSignature = (res) => Object.fromEntries([
+  ...res.placed.map((p) => [p.task.id, slotLabel(res.G, p.choice)]),
+  ...res.unplaced.map((p) => [p.task.id, 'no cabe'])
+]);
+const freeHours = (G) => { let c = 0; G.blocked.forEach((col) => col.forEach((b) => { if (!b) c++; })); return c * SLOT / 60; };
+
+
+
+/* ===== UI ===== */
+const STORE = 'motor-boceto-prototype-v1';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
+const setPath = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((x, k) => x[k], o)[last] = v; };
+
+let S = (() => { try { const j = JSON.parse(localStorage.getItem(STORE)); if (j && j.profile && j.tasks) return j; } catch (e) { /* storage unavailable */ } return defaultState(); })();
+let save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } };
+let tab = 'perfil';
+let selId = null;
+let baseSig = null;
+let R = runEngine(S);
+
+const TABS = [['perfil', 'Perfil'], ['fijo', 'Calendario fijo'], ['areas', 'Áreas'], ['tareas', 'Tareas'], ['pesos', 'Pesos'], ['simulacion', 'Simulación'], ['arquitectura', 'Arquitectura']];
+const ac = (area) => { const i = S.areas.indexOf(area); return `var(--a${i < 0 ? 6 : i % 8})`; };
+const allAreas = () => [...new Set([...S.areas, ...S.fixed.map((f) => f.area), ...S.tasks.map((t) => t.area)].filter(Boolean))];
+
+/* --- small form builders --- */
+const tag = (kind) => (kind === 'on' ? '<span class="tag on">en simulación</span>' : kind === 'plan' ? '<span class="tag plan">planeado</span>' : '');
+const f = (label, control, kind) => `<label class="f"><span class="l">${label}${tag(kind)}</span>${control}</label>`;
+const iText = (path, v) => `<input type="text" data-path="${path}" data-t="str" value="${esc(v)}">`;
+const iTime = (path, v) => `<input type="time" data-path="${path}" data-t="str" value="${esc(v)}">`;
+const iDate = (path, v, rr) => `<input type="date" data-path="${path}" data-t="str" value="${esc(v)}"${rr ? ' data-rr="1"' : ''}>`;
+const iNum = (path, v, min, max, step = 1) => `<input type="number" data-path="${path}" data-t="num" value="${esc(v)}" min="${min}" max="${max}" step="${step}">`;
+const iChk = (path, v, label, rr) => `<span class="chk"><input type="checkbox" data-path="${path}" data-t="bool"${v ? ' checked' : ''}${rr ? ' data-rr="1"' : ''}> ${label}</span>`;
+const iSel = (path, v, opts, num) => `<select data-path="${path}" data-t="${num ? 'num' : 'str'}">${opts.map(([val, lab]) => `<option value="${esc(val)}"${String(val) === String(v) ? ' selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
+const win = (title, body, extra = '') => `<section class="win"><h2><span>${title}</span>${extra}</h2><div class="body">${body}</div></section>`;
+const dayChips = (days, actPrefix) => `<div class="chips">${DAYN.map((d, i) => `<button data-act="${actPrefix}:${i}" aria-pressed="${days[i] === true || (Array.isArray(days) && typeof days[0] === 'number' && days.includes(i))}">${d}</button>`).join('')}</div>`;
+
+/* --- panels --- */
+const panels = {
+  perfil() {
+    const P = S.profile;
+    const wakeH = (toMin(P.bed) - toMin(P.wake)) / 60;
+    return `<p class="note">Lo que casi nunca cambia. El motor lo usa para saber qué horas existen de verdad antes de repartir nada. Datos de ejemplo: cámbialos por los tuyos.</p>
+    <div class="cols"><div class="stack">
+      ${win('Sueño', `<div class="grid2">${f('Me levanto', iTime('profile.wake', P.wake), 'on')}${f('Me acuesto', iTime('profile.bed', P.bed), 'on')}</div><div class="stat">Horas despierto al día: <b>${wakeH.toFixed(1)} h</b></div>`)}
+      ${win('Comidas', P.meals.map((m, i) => `<div class="row">${iChk(`profile.meals.${i}.on`, m.on, '')}<input type="text" data-path="profile.meals.${i}.name" data-t="str" value="${esc(m.name)}">${iTime(`profile.meals.${i}.start`, m.start)}${iNum(`profile.meals.${i}.dur`, m.dur, 5, 180, 5)}</div>`).join('') + `<div class="stat">Casilla · nombre · hora · minutos. ${tag('on')}</div>`)}
+      ${win('Disponibilidad', `<div class="grid2">${f('Puedo trabajar desde', iTime('profile.window.from', P.window.from), 'on')}${f('hasta', iTime('profile.window.to', P.window.to), 'on')}</div>
+        <div><div class="stat" style="margin-bottom:5px">Días abiertos para trabajo flexible ${tag('on')}</div>${dayChips(P.open, 'open')}</div>`)}
+    </div><div class="stack">
+      ${win('Energía y límites', `
+        ${['am', 'pm', 'ev'].map((k, i) => `<div class="sl"><div class="t"><span>Energía ${['de mañana (hasta 13:00)', 'de tarde (13:00–19:00)', 'de noche (desde 19:00)'][i]}</span><span class="val">${P.energy[k]}</span></div><input type="range" min="1" max="5" step="1" data-path="profile.energy.${k}" data-t="num" value="${P.energy[k]}"></div>`).join('')}
+        <div class="grid2">${f('Máx. horas profundas / día', iNum('profile.deepCap', P.deepCap, 1, 12, 0.5), 'on')}${f('Colchón entre tareas (min)', iNum('profile.buffer', P.buffer, 0, 60, 5), 'on')}${f('Colchón tras algo fijo (min)', iNum('profile.bufferFixed', P.bufferFixed, 0, 60, 5), 'on')}</div>`)}
+      ${win('Traslados', `${Object.keys(P.places).map((k) => `<div class="grid2" style="grid-template-columns:1fr 100px;align-items:center"><span>${k}</span>${iNum(`profile.places.${k}`, P.places[k], 0, 180, 5)}</div>`).join('')}<div class="stat">Minutos de ida. Se reservan antes y después de lo fijo, y se suman a las tareas de ese lugar. ${tag('on')}</div>`)}
+      ${win('Resumen', `<div class="stat">Horas libres para tareas flexibles esta semana: <b id="freeH">${freeHours(R.G).toFixed(1)} h</b></div>`)}
+    </div></div>`;
+  },
+  fijo() {
+    return `<p class="note">Lo que no se mueve: clases, turnos, citas. Se repite cada semana en los días elegidos. El motor reserva también el traslado y el colchón.</p>
+    <div class="stack">${S.fixed.map((x, i) => `<div class="card"><div class="head">${iText(`fixed.${i}.name`, x.name)}<button class="small ghost" data-act="delFixed:${i}">Quitar</button></div>
+      ${dayChips(x.days, `fday:${i}`)}
+      <div class="grid2">${f('Desde', iTime(`fixed.${i}.from`, x.from), 'on')}${f('Hasta', iTime(`fixed.${i}.to`, x.to), 'on')}${f('Lugar', iSel(`fixed.${i}.place`, x.place, Object.keys(S.profile.places).map((p) => [p, p])), 'on')}${f('Área', iSel(`fixed.${i}.area`, x.area, allAreas().map((p) => [p, p])), 'on')}</div>
+      ${iChk(`fixed.${i}.optional`, x.optional, 'Opcional: el motor podrá soltarlo si la semana no cabe') } ${tag('plan')}</div>`).join('') || '<div class="empty">Nada fijo todavía.</div>'}
+      <div><button class="primary" data-act="addFixed">+ Añadir algo fijo</button></div></div>`;
+  },
+  areas() {
+    const n = S.areas.length;
+    return `<p class="note">La pila decide quién gana cuando dos cosas compiten por el mismo hueco. Arriba pesa más. La posición se convierte en un valor de 0 a 1 que se multiplica por el peso “Lugar del área” (pestaña Pesos).</p>
+    <div class="arealist">${S.areas.map((a, i) => { const v = areaScore(S, a); const c = S.tasks.filter((t) => t.area === a && !t.done).length;
+      return `<div class="arow"><span class="rk">${i + 1}</span><span class="dot" style="background:${ac(a)}"></span><span><b>${esc(a)}</b> <span class="stat">· ${c} tareas abiertas</span></span><span class="bar" title="Valor ${v.toFixed(2)}"><i style="width:${(v * 100).toFixed(0)}%"></i></span><span><button class="small" data-act="areaUp:${i}" ${i === 0 ? 'disabled' : ''}>↑</button> <button class="small" data-act="areaDown:${i}" ${i === n - 1 ? 'disabled' : ''}>↓</button></span></div>`; }).join('')}</div>
+    <p class="note" style="margin-top:12px">Cuota semanal mínima por área ${tag('plan')}: horas que cada área debería recibir cada semana aunque no sea la más prioritaria. Todavía no entra en el cálculo.</p>`;
+  },
+  tareas() {
+    const optsTasks = [['', '—'], ...S.tasks.map((t) => [t.id, t.title])];
+    return `<p class="note">Todo lo que el motor sabe de cada tarea. “Día original” es donde estaba planeada: si es anterior a hoy, la tarea está atrasada.</p>
+    <div class="stack">${S.tasks.map((t, i) => `<div class="card${t.done ? ' done' : ''}"><div class="head"><span class="dot" style="background:${ac(t.area)}"></span>${iText(`tasks.${i}.title`, t.title)}<button class="small ghost" data-act="delTask:${i}">Quitar</button></div>
+      <div class="grid2">
+        ${f('Área', iSel(`tasks.${i}.area`, t.area, allAreas().map((p) => [p, p])), 'on')}
+        ${f('Prioridad 1–5', iSel(`tasks.${i}.prio`, t.prio, [1, 2, 3, 4, 5].map((p) => [p, String(p)]), true), 'on')}
+        ${f('Esfuerzo', iSel(`tasks.${i}.effort`, t.effort, Object.entries(EFFORT).map(([k, v]) => [k, v.label])), 'on')}
+        ${f('Duración probable (min)', iNum(`tasks.${i}.dur`, t.dur, 5, 600, 5), 'on')}
+        ${f(t.fixed ? 'Fecha' : 'Día original', iDate(`tasks.${i}.orig`, t.orig), 'on')}
+        ${t.fixed ? f('Hora', iTime(`tasks.${i}.at`, t.at || '09:00'), 'on') : f('Fecha límite', iDate(`tasks.${i}.dl`, t.dl), 'on')}
+        ${f('Lugar', iSel(`tasks.${i}.place`, t.place, Object.keys(S.profile.places).map((p) => [p, p])), 'on')}
+        ${t.fixed ? '' : f('No antes de', iDate(`tasks.${i}.notBefore`, t.notBefore), 'on')}
+      </div>
+      <div class="chips" style="gap:14px">
+        ${iChk(`tasks.${i}.fixed`, t.fixed, 'Fija (no se mueve)', true)}
+        ${t.fixed ? '' : iChk(`tasks.${i}.dlHard`, t.dlHard, 'Límite duro')}
+        ${iChk(`tasks.${i}.done`, t.done, 'Hecha')}
+      </div>
+      <div class="grid2">
+        ${f('Divisible', iChk(`tasks.${i}.split`, t.split, 'Se puede partir'), 'plan')}
+        ${f('Bloque mínimo (min)', iNum(`tasks.${i}.chunk`, t.chunk ?? 30, 15, 240, 15), 'plan')}
+        ${f('Depende de', iSel(`tasks.${i}.dep`, t.dep || '', optsTasks.filter(([v]) => v !== t.id)), 'plan')}
+      </div></div>`).join('')}
+      <div><button class="primary" data-act="addTask">+ Añadir tarea</button></div></div>`;
+  },
+  pesos() {
+    const slider = (w) => `<div class="sl"><div class="t"><span>${w.label} ${tag('on')}</span><span class="val">${S.weights[w.id]}</span></div><input type="range" min="0" max="100" step="5" data-path="weights.${w.id}" data-t="num" value="${S.weights[w.id]}"><div class="h">${w.hint}</div></div>`;
+    return `<p class="note">El motor decide en dos pasos. <b>A</b>: quién elige primero. <b>B</b>: en qué hueco cae cada tarea. Mueve un peso y mira a la derecha qué decisiones cambian (en ocre).</p>
+    <div class="cols"><div class="stack">
+      ${win('A · Quién va primero', WEIGHTS.filter((w) => w.stage === 'A').map(slider).join(''))}
+      ${win('B · Dónde cae', WEIGHTS.filter((w) => w.stage === 'B').map(slider).join(''))}
+      ${win('Todavía sin cablear', PLANNED.map(([a, b]) => `<div><b>${a}</b> ${tag('plan')}<div class="stat">${b}</div></div>`).join(''))}
+      <div><button data-act="resetWeights">Restablecer pesos</button></div>
+    </div><div class="stack">${win('Decisiones', '<div id="decisions"></div>', '<button class="small" data-act="setBase">Fijar como referencia</button>')}</div></div>`;
+  },
+  simulacion() {
+    return `<p class="note">Hoy de ejemplo: jueves 12 de noviembre, 10:00. Esto es lo que el motor haría con las tareas pendientes en los próximos 7 días. Pulsa un bloque o una decisión para ver por qué.</p>
+    <div id="simout"></div>`;
+  },
+  arquitectura() {
+    const steps = [
+      ['1 · Disparador', 'on', 'Fin de día, tarea no hecha, evento fijo nuevo que choca, tarea que se alarga, o “replanificar”.', 'Entra: un evento. Sale: qué tareas hay que recolocar.'],
+      ['2 · Reglas duras', 'on', 'Lo que nunca puede pasar: sueño, clases, comidas, traslados, fecha límite dura, “no antes de”.', 'Sale: la cuadrícula de huecos libres.'],
+      ['3 · Turno (etapa A)', 'on', 'Ordena las tareas por urgencia: prioridad, área, fecha límite, atraso.', 'Sale: la cola de quién elige primero.'],
+      ['4 · Candidatos y puntuación (etapa B)', 'on', 'Cada hueco válido recibe una puntuación con los pesos: cercanía, energía, holgura, tope profundo, reparto.', 'Sale: el mejor hueco y las alternativas.'],
+      ['5 · Sentido común con historial', 'plan', 'Compara con lo que de verdad has cumplido: ¿suele salir bien un sábado por la tarde? Baja la puntuación o avisa.', 'Necesita la capa de historial.'],
+      ['6 · Salida explicable', 'on', 'Lista de cambios con el motivo de cada uno, y cuán segura es la decisión. Lo seguro y pequeño se aplica; lo demás se propone.', 'Sale: diff + motivos.'],
+      ['7 · Aprendizaje', 'plan', 'Registra si aceptas, editas o rechazas, y qué pasó de verdad. Ajusta duraciones y pesos con estadística simple.', 'Empieza registrando, aunque aún no aprenda.']
+    ];
+    return `<p class="note">Cómo encaja todo. Lo marcado “en simulación” funciona en este prototipo con datos de ejemplo; lo “planeado” aún no.</p>
+    <h3 class="stage">Tubería de decisión</h3>
+    <div class="pipe">${steps.map(([t, k, d, io]) => `<div class="step"><h3><span>${t}</span>${tag(k)}</h3><p>${d}</p><p class="mono">${io}</p></div>`).join('')}</div>
+    <h3 class="stage" style="margin-top:18px">Los datos, en seis capas</h3>
+    <div class="layers">
+      <div class="layer"><b>1 · Perfil</b><span>Sueño, comidas, ventana de trabajo, energía, topes, colchones, traslados. Cambia poco.</span></div>
+      <div class="layer"><b>2 · Calendario fijo</b><span>Clases, turnos, citas, con lugar y si son opcionales.</span></div>
+      <div class="layer"><b>3 · Tareas</b><span>Fija o flexible, prioridad, límite duro/blando, duración, esfuerzo, lugar, divisible, dependencias, “vinculada a ritmo”.</span></div>
+      <div class="layer"><b>4 · Mapa de tiempo</b><span>La semana como cuadrícula de 30 min menos lo bloqueado. Se calcula, no se guarda.</span></div>
+      <div class="layer"><b>5 · Historial</b><span>Registro de eventos: planeado vs real, duración real, saltos, cada reprogramación y si la aceptaste. Es lo más valioso: se registra desde el día uno.</span></div>
+      <div class="layer"><b>6 · Preferencias aprendidas</b><span>Pesos y estadísticas derivadas del historial. Aparte del perfil porque cambian solas.</span></div>
+    </div>
+    <h3 class="stage" style="margin-top:18px">Dónde vive en El Boceto</h3>
+    <div class="layers">
+      <div class="layer"><b>src/lib/scheduler/</b><span>Módulo puro (sin pantalla): <span class="mono">profile · grid · constraints · urgency · scoring · planner · explain · history</span>. Lo comparten la app y el servidor MCP, igual que el resto del plan.</span></div>
+      <div class="layer"><b>Pruebas y repetición</b><span>Cada semana pasada se puede volver a pasar por una versión nueva de las reglas y comprobar si habría decidido mejor.</span></div>
+      <div class="layer"><b>Pantallas</b><span>Estas ventanas, dentro de la app: Perfil, Calendario fijo, Áreas, Tareas, Pesos y Simulación. Los datos van en el mismo plan que se sincroniza con Supabase.</span></div>
+      <div class="layer"><b>Claude</b><span>Solo para lo ambiguo (“si responde Sam”), para explicar propuestas y para la rutina de la mañana. El núcleo no lo necesita.</span></div>
+    </div>`;
+  }
+};
+
+/* --- live regions --- */
+function decisionsHtml(res, sel) {
+  const rows = res.placed.map((p) => {
+    const at = slotLabel(res.G, p.choice);
+    const ch = baseSig && baseSig[p.task.id] && baseSig[p.task.id] !== at;
+    return `<button class="drow${ch ? ' chg' : ''}${sel === p.task.id ? ' sel' : ''}" data-act="sel:${p.task.id}"><span class="n">#${p.rank + 1}</span><span class="tt">${esc(p.task.title)}</span><span class="at">${at}${ch ? ` (antes ${baseSig[p.task.id]})` : ''}</span></button>`;
+  });
+  const no = res.unplaced.map((p) => `<button class="drow no" data-act="sel:${p.task.id}"><span class="n">#${p.rank + 1}</span><span class="tt">${esc(p.task.title)}</span><span class="at">no cabe</span></button>`);
+  const kept = res.keptFixed.map((k) => `<div class="drow" style="cursor:default"><span class="n">fija</span><span class="tt">${esc(k.task.title)}</span><span class="at">${dayLabel(res.G.days[k.d])} ${fmt(k.start)}</span></div>`);
+  return `<div class="dec">${rows.join('') || '<div class="empty">Nada pendiente.</div>'}${no.join('')}${kept.join('')}</div>`;
+}
+
+function partsTable(parts, signed) {
+  const max = Math.max(0.0001, ...parts.map((p) => Math.abs(p.contrib)));
+  return `<table class="parts"><thead><tr><th>Factor</th><th>Valor</th><th>Peso</th><th>Aporte</th><th></th></tr></thead><tbody>${parts.map((p) => `<tr><td>${esc(p.label)}</td><td class="n">${p.value.toFixed(2)}</td><td class="n">${p.weight}</td><td class="n">${p.contrib >= 0 && signed ? '+' : ''}${p.contrib.toFixed(1)}</td><td style="width:34%"><div class="cb${p.contrib < 0 ? ' neg' : ''}" style="width:${(Math.abs(p.contrib) / max * 100).toFixed(0)}%"></div></td></tr>`).join('')}</tbody></table>`;
+}
+
+function detailHtml(res, id) {
+  const p = res.placed.find((x) => x.task.id === id);
+  const u = res.unplaced.find((x) => x.task.id === id);
+  if (!p && !u) return '<div class="empty">Elige una decisión para ver el porqué.</div>';
+  const t = (p || u).task; const urg = (p || u).urgency;
+  let html = `<h3 style="margin:0;font:700 1.05rem var(--f-head)">${esc(t.title)}</h3><div class="stat">${esc(t.area)} · prioridad ${t.prio} · ${EFFORT[t.effort].label.toLowerCase()} · ${t.dur} min${t.dl ? ` · límite ${t.dl}${t.dlHard ? ' (duro)' : ''}` : ''}</div>`;
+  html += `<div class="stage">A · Turno #${(p || u).rank + 1}</div>${partsTable(urg.parts, true)}<div class="stat">Urgencia total: <b>${urg.total.toFixed(1)}</b></div>`;
+  if (u) return html + `<div class="stage">B · Sin hueco</div><div class="empty">${esc(u.reason)} Propuesta: pasa a “Más adelante” y avisa; si el límite es duro, hay un conflicto que decidir.</div>`;
+  const best = p.choice;
+  html += `<div class="stage">B · Por qué ${slotLabel(res.G, best)}–${fmt(best.start + p.task.effDur)}</div>${partsTable(best.parts, true)}<div class="stat">Puntuación: <b>${best.total.toFixed(1)}</b> · ${p.candidates} huecos válidos${p.commute ? ` · incluye ${p.commute} min de traslado` : ''}</div>`;
+  if (p.alts.length) {
+    html += `<div class="stage">Alternativas descartadas</div>${p.alts.map((a) => {
+      const diffs = a.parts.map((q, i) => ({ label: q.label, d: q.contrib - best.parts[i].contrib })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d))[0];
+      return `<div class="alt"><span>${slotLabel(res.G, a)}</span><span class="mono">Δ ${(a.total - best.total).toFixed(1)} · sobre todo: ${esc(diffs.label)} (${diffs.d >= 0 ? '+' : ''}${diffs.d.toFixed(1)})</span></div>`;
+    }).join('')}`;
+  }
+  return html;
+}
+
+function weekHtml(res, sel) {
+  const { G, placed, keptFixed } = res;
+  const own = G.days.map(() => Array(G.n).fill(null));
+  placed.forEach((p) => { for (let k = p.choice.k0; k < p.choice.k0 + p.need; k++) own[p.choice.d][k] = { p, first: k === p.choice.k0 }; });
+  let cells = '<div class="dh"></div>' + G.days.map((d, i) => `<div class="dh${i === 0 ? ' today' : ''}">${dayLabel(d)}${i === 0 ? ' · hoy' : ''}</div>`).join('');
+  for (let k = 0; k < G.n; k++) {
+    const m = G.wake + k * SLOT;
+    cells += `<div class="hr">${k % 2 === 0 ? fmt(m) : ''}</div>`;
+    for (let d = 0; d < 7; d++) {
+      const o = own[d][k]; const b = G.blocked[d][k]; const why = res.used[d][k];
+      if (o) { cells += `<div class="c tk${sel === o.p.task.id ? ' sel' : ''}" style="--ac:${ac(o.p.task.area)}" data-act="sel:${o.p.task.id}" title="${esc(o.p.task.title)}">${o.first ? esc(o.p.task.title) : ''}</div>`; continue; }
+      if (b) {
+        const kind = b.startsWith('fijo:') ? 'fix' : b === 'comida' ? 'meal' : b === 'traslado' ? 'trav' : b === 'colchón' ? 'buf' : b === 'descanso' ? 'rest' : b === 'pasado' ? 'past' : 'out';
+        const first = kind === 'fix' && !(k > 0 && G.blocked[d][k - 1] === b);
+        cells += `<div class="c ${kind}" title="${esc(b.replace('fijo:', ''))}">${first ? esc(b.slice(5)) : ''}</div>`; continue;
+      }
+      cells += `<div class="c ${why === 'buf' ? 'buf' : 'free'}"></div>`;
+    }
+  }
+  return `<div class="wk"><div class="wkg">${cells}</div></div>
+  <div class="legend"><span><i style="background:var(--card)"></i>libre</span><span><i style="background:color-mix(in srgb, var(--a0) 36%, var(--card))"></i>tarea colocada</span><span><i style="background:color-mix(in srgb, var(--muted) 38%, var(--card))"></i>fijo</span><span><i style="background:var(--blocked)"></i>comida</span><span><i style="background:repeating-linear-gradient(135deg,var(--blocked),var(--blocked) 3px,var(--hatch) 3px,var(--hatch) 6px)"></i>traslado</span><span><i style="background:var(--hatch)"></i>fuera de horario / descanso / pasado</span><span><i style="background:color-mix(in srgb, var(--accent) 8%, var(--card))"></i>colchón</span></div>`;
+}
+
+function drawLive() {
+  R = runEngine(S);
+  const fh = $('#freeH'); if (fh) fh.textContent = `${freeHours(R.G).toFixed(1)} h`;
+  const d = $('#decisions'); if (d) d.innerHTML = decisionsHtml(R, selId);
+  const s = $('#simout');
+  if (s) s.innerHTML = `<div class="cols" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)"><div class="stack">${weekHtml(R, selId)}</div><div class="stack">${win('Decisiones', decisionsHtml(R, selId))}${win('Por qué', detailHtml(R, selId))}</div></div>`;
+}
+
+/* --- render + events --- */
+function render() {
+  tab = (location.hash || '#perfil').slice(1);
+  if (!panels[tab]) tab = 'perfil';
+  $('#tabs').innerHTML = TABS.map(([id, l]) => `<a href="#${id}"${id === tab ? ' aria-current="page"' : ''}>${l}</a>`).join('');
+  $('#panel').innerHTML = panels[tab]();
+  if (tab === 'pesos' && !baseSig) baseSig = placedSignature(runEngine(S));
+  drawLive();
+}
+
+function commit(el) {
+  const t = el.dataset.t; let v = el.value;
+  if (t === 'num') { v = Number(v); if (Number.isNaN(v)) v = 0; } else if (t === 'bool') v = el.checked;
+  setPath(S, el.dataset.path, v);
+  save();
+  if (el.type === 'range') { const val = el.closest('.sl') && el.closest('.sl').querySelector('.val'); if (val) val.textContent = v; }
+  if (el.dataset.rr) { render(); return; }
+  drawLive();
+}
+
+document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.path) commit(e.target); });
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const [a, x, y] = b.dataset.act.split(':'); const i = Number(x);
+  if (a === 'sel') { selId = x; drawLive(); return; }
+  if (a === 'open') S.profile.open[i] = !S.profile.open[i];
+  else if (a === 'fday') { const days = S.fixed[i].days; const d = Number(y); S.fixed[i].days = days.includes(d) ? days.filter((q) => q !== d) : [...days, d].sort(); }
+  else if (a === 'addFixed') S.fixed.push({ id: 'f' + Date.now(), name: 'Nuevo evento fijo', days: [0], from: '09:00', to: '10:00', place: 'Casa', area: S.areas[0] || 'Life', optional: false });
+  else if (a === 'delFixed') S.fixed.splice(i, 1);
+  else if (a === 'addTask') S.tasks.push({ id: 't' + Date.now(), title: 'Nueva tarea', area: S.areas[0] || 'Life', prio: 3, fixed: false, orig: DEMO_TODAY, dl: '', dlHard: false, dur: 60, effort: 'light', place: 'Casa', notBefore: '', done: false });
+  else if (a === 'delTask') S.tasks.splice(i, 1);
+  else if (a === 'areaUp' || a === 'areaDown') { const j = a === 'areaUp' ? i - 1 : i + 1; if (j >= 0 && j < S.areas.length) [S.areas[i], S.areas[j]] = [S.areas[j], S.areas[i]]; }
+  else if (a === 'resetWeights') S.weights = Object.fromEntries(WEIGHTS.map((w) => [w.id, w.def]));
+  else if (a === 'setBase') baseSig = placedSignature(runEngine(S));
+  else if (a === 'reset') { S = defaultState(); baseSig = null; selId = null; }
+  else if (a === 'json') { const d = $('#jsonbox'); d.hidden = !d.hidden; $('#jsonta').value = JSON.stringify(S, null, 2); return; }
+  else if (a === 'copy') {
+    const ta = $('#jsonta'); ta.select();
+    const ok = () => { b.textContent = 'Copiado'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); };
+    try { navigator.clipboard.writeText(ta.value).then(ok, () => { b.textContent = 'Selecciona y copia'; }); } catch (err) { b.textContent = 'Selecciona y copia'; }
+    return;
+  }
+  save(); render();
+});
+window.addEventListener('hashchange', render);
+render();
+
+</script>
