@@ -62,7 +62,12 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     toastTimer.current = setTimeout(() => setToast(''), 2200);
   };
 
-  const entries = plan.items.filter((it) => !(plan.hideDone && it.done)).map((it) => ({ it, eff: effectiveSlot(it, today) }));
+  // "Más adelante" is only for items with no date. Dated items further than a week ahead are not in this view
+  // (they show in Semana and Mes), so they do not pile up in the backlog.
+  const entries = plan.items
+    .filter((it) => !(plan.hideDone && it.done))
+    .map((it) => ({ it, eff: effectiveSlot(it, today) }))
+    .filter((e) => !(e.eff.day === 'later' && e.it.day !== 'later'));
   const visibleAreas = plan.areas.filter((a) => !isHidden(a.id));
   const areaMode = (lens || plan.view) === 'areas';
 
