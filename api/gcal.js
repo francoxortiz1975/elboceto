@@ -124,6 +124,15 @@ function explain(r) {
   return (r.data && r.data.error && r.data.error.message) || `Google respondió ${r.status}.`;
 }
 
+// PATCH merges nested objects, so an event that used to be all-day (start.date) and is now timed (start.dateTime)
+// would end up with both fields and Google answers "Invalid start time" (and the other way round). Explicit nulls
+// clear the field that no longer applies.
+function patchBody(body) {
+  const timed = !!(body.start && body.start.dateTime);
+  const swap = (t) => (timed ? { ...t, date: null } : { ...t, dateTime: null, timeZone: null });
+  return { ...body, start: swap(body.start), end: swap(body.end) };
+}
+
 async function upsertEvent(token, calendarId, { key, gcalId, event }) {
   const body = {
     ...event,
@@ -132,7 +141,7 @@ async function upsertEvent(token, calendarId, { key, gcalId, event }) {
   };
 
   if (gcalId) {
-    const r = await gcal(token, calendarId, 'PATCH', `/events/${encodeURIComponent(gcalId)}`, { query: { sendUpdates: 'none' }, body });
+    const r = await gcal(token, calendarId, 'PATCH', `/events/${encodeURIComponent(gcalId)}`, { query: { sendUpdates: 'none' }, body: patchBody(body) });
     if (r.ok && r.data.status !== 'cancelled') return { key, gcalId: r.data.id, updated: r.data.updated };
     if (![404, 410].includes(r.status) && !(r.ok && r.data.status === 'cancelled')) throw new HttpError(502, 'google', explain(r));
   }
@@ -144,7 +153,7 @@ async function upsertEvent(token, calendarId, { key, gcalId, event }) {
   if (!found.ok) throw new HttpError(502, 'google', explain(found));
   const existing = (found.data.items || [])[0];
   if (existing) {
-    const r = await gcal(token, calendarId, 'PATCH', `/events/${encodeURIComponent(existing.id)}`, { query: { sendUpdates: 'none' }, body });
+    const r = await gcal(token, calendarId, 'PATCH', `/events/${encodeURIComponent(existing.id)}`, { query: { sendUpdates: 'none' }, body: patchBody(body) });
     if (!r.ok) throw new HttpError(502, 'google', explain(r));
     return { key, gcalId: r.data.id, updated: r.data.updated };
   }
