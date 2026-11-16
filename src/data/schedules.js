@@ -38,5 +38,31 @@ export const SCHEDULES = [
       e('2026-11-06', '10:15', '11:45', 'Systèmes de gestion de base de données (app)', 'F307', 'BELHAJJAME KHALID'),
       e('2026-11-06', '12:00', '13:30', 'Systèmes de gestion de base de données (app)', 'F307', 'BELHAJJAME KHALID')
     ]
+  },
+  {
+    id: 'im-g2-2026-11-16',
+    label: 'Clases IM · grupo 2 · 17–20 nov',
+    area: 'School',
+    items: [
+      // Mardi 17/11
+      e('2026-11-17', '10:15', '11:45', 'Introduction to Machine Learning', 'F303', 'LESCA JULIEN'),
+      e('2026-11-17', '12:00', '13:30', 'Introduction to Machine Learning (app)', 'A203', 'LESCA JULIEN'),
+      e('2026-11-17', '15:30', '17:00', 'Marketing (app)', 'F307', 'LASRI SARAH'),
+      e('2026-11-17', '17:15', '18:45', "Système d'information avancé 1 (app)", 'Salle A Bis', 'CHAMOULEAU André'),
+      e('2026-11-17', '19:00', '20:30', "Système d'information avancé 1 (app)", 'Salle A Bis', 'CHAMOULEAU André'),
+      // Mercredi 18/11
+      e('2026-11-18', '08:30', '10:00', 'Anglais 1 (app)', 'B 212', 'HELME KIERAN'),
+      e('2026-11-18', '10:15', '11:45', 'Anglais 1 (app)', 'B 212', 'HELME KIERAN'),
+      // Jeudi 19/11
+      e('2026-11-19', '13:45', '15:15', 'Système et algorithmiques répartis (app)', 'B 317', 'EL HADDAD JOYCE'),
+      e('2026-11-19', '15:30', '17:00', 'Système et algorithmiques répartis (app)', 'B 317', 'EL HADDAD JOYCE'),
+      e('2026-11-19', '17:15', '18:45', "Système d'information avancé 1 (app)", 'Salle D', 'DEDENIS ALAIN'),
+      e('2026-11-19', '19:00', '20:30', "Système d'information avancé 1 (app)", 'Salle D', 'DEDENIS ALAIN'),
+      // Vendredi 20/11
+      e('2026-11-20', '08:30', '10:00', 'Systèmes de gestion de base de données (app)', 'B 309', 'BELHAJJAME KHALID'),
+      e('2026-11-20', '10:15', '11:45', 'Systèmes de gestion de base de données (app)', 'B 309', 'BELHAJJAME KHALID'),
+      e('2026-11-20', '12:00', '13:30', 'Programmation Objet avancée (app)', 'F313', 'PETROSSIAN ARMEN'),
+      e('2026-11-20', '13:45', '15:15', 'Programmation Objet avancée (app)', 'F313', 'PETROSSIAN ARMEN')
+    ]
   }
 ];
