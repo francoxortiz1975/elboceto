@@ -16,8 +16,10 @@ export const MAX_OPS_PER_REQUEST = 25;
 const AREA_COLOR_IDS = ['10', '9', '6', '3', '7', '4', '8', '5'];
 export const gcalColorId = (area) => (area ? AREA_COLOR_IDS[area.c % AREA_COLORS.length] : undefined);
 
-// Only dated items with a title go to Google ("Más adelante" items stay in the app).
-export const isSyncable = (item) => DATE_RE.test(item.day || '') && !!(item.text || '').trim();
+// Only dated, not-done items with a title go to Google ("Más adelante" items stay in the app). An item that
+// gets marked as done is no longer syncable, so the normal clean-up removes its event from Google Calendar;
+// un-ticking it creates the event again.
+export const isSyncable = (item) => DATE_RE.test(item.day || '') && !item.done && !!(item.text || '').trim();
 
 const dateTime = (day, minutes) => {
   let d = day;
@@ -35,7 +37,7 @@ export function buildEvent(item, area, tz) {
   lines.push('Creado en El Boceto');
   const colorId = gcalColorId(area);
   const common = {
-    summary: `${item.done ? '✓ ' : ''}${item.text.trim()}`,
+    summary: item.text.trim(),
     description: lines.join('\n'),
     ...(colorId ? { colorId } : {})
   };
