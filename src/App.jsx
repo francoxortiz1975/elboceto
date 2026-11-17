@@ -11,7 +11,8 @@ import { DesktopAppLayout } from './layouts/DesktopAppLayout';
 import { useAuth } from './context/AuthContext';
 import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSync';
 import { subscribeToCloudChanges } from './lib/realtimeSync';
-import { loadAreaPlan, saveAreaPlan, importSchedule } from './lib/areaPlan';
+import { loadAreaPlan, saveAreaPlan, importSchedule, isoOf } from './lib/areaPlan';
+import { runGenerators } from './lib/scheduler/generate';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import { useGcalSync } from './lib/useGcalSync';
 import { useTheme, useTopExtra } from './lib/theme';
@@ -136,6 +137,12 @@ export default function App() {
   // Area planner ("Plan por áreas"): local-first, persisted in localStorage.
   const [areaPlan, setAreaPlan] = useState(loadAreaPlan);
   useEffect(() => { saveAreaPlan(areaPlan); }, [areaPlan]);
+  // Blocks the scheduler creates by itself (fixed events marked "en el calendario", weekly habits): run when the app opens,
+  // when the day changes and when their rules change. Idempotent, so it only touches the plan when something is missing.
+  const todayKey = isoOf(new Date());
+  useEffect(() => {
+    setAreaPlan((p) => { const r = runGenerators(p, todayKey); return r.changed ? r.plan : p; });
+  }, [areaPlan.scheduler, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // A Reel / Story dragged to another day in the calendar keeps that day (it becomes a pinned date).
   useEffect(() => {
     const next = pinMovedPieces(areaPlan);

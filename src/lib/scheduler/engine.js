@@ -162,6 +162,7 @@ export function runEngine(cfg, tasks, { today, nowMin, blocks = [] }) {
     for (let d = 0; d < HORIZON; d++) {
       if (minDay && G.days[d] < minDay) continue;
       if (t.dl && t.dlHard && G.days[d] > t.dl) continue;
+      if (t.skipDays && t.skipDays.includes(G.days[d])) continue;
       for (let k0 = 0; k0 + need <= G.n; k0++) {
         // The area's own hours (hard rule): the whole block must fit inside them.
         if (t.win) { const s = G.wake + k0 * SLOT; if (s < t.win[0] || s + need * SLOT > t.win[1]) continue; }

@@ -37,6 +37,8 @@ export function getScheduler(plan) {
     weights: { ...Object.fromEntries(WEIGHTS.map((w) => [w.id, w.def])), ...(s.weights || {}) },
     attrs: s.attrs || {},
     areaRules: s.areaRules || {},
+    habits: s.habits || [],
+    generated: s.generated || {},
     history: s.history || []
   };
 }

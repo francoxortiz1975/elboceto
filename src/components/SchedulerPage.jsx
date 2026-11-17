@@ -7,6 +7,7 @@ import {
 } from '../lib/scheduler/engine';
 import { getScheduler, attrsOf, ruleOf, areaWindow, windowLabel, isMeeting, kindDur, buildEngineInput, nowMinutes, mondayOfIso, newFixed, proposalChanges, applyChanges, undoChanges } from '../lib/scheduler/config';
 import { overdueItems, resolveItem, undoResolve, whyPlaced } from '../lib/scheduler/overdue';
+import { planHabits, habitStatus, newHabit, withNewArea } from '../lib/scheduler/generate';
 import './SchedulerPage.css';
 
 const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -96,7 +97,7 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
       <div className="sc-wrap">
         {panel === 'ayer' && <PendingPanel {...ctx} overdue={overdue} onChange={onChange} />}
         {panel === 'perfil' && <ProfilePanel {...ctx} />}
-        {panel === 'fijo' && <FixedPanel {...ctx} />}
+        {panel === 'fijo' && <FixedPanel {...ctx} onChange={onChange} />}
         {panel === 'areas' && <AreasPanel {...ctx} />}
         {panel === 'tareas' && <TasksPanel {...ctx} includeLater={includeLater} onChange={onChange} />}
         {panel === 'pesos' && <WeightsPanel {...ctx} selId={selId} setSelId={setSelId} baseSig={baseSig} setBaseSig={setBaseSig} />}
@@ -279,7 +280,7 @@ function SkipDates({ list, onChange }) {
   );
 }
 
-function FixedPanel({ plan, cfg, patch, update, today }) {
+function FixedPanel({ plan, cfg, patch, update, today, onChange }) {
   const monday = mondayOfIso(today);
   const mode = (f) => ((f.cycle || 1) <= 1 ? 'weekly' : f.cycle === 2 ? 'alt' : 'cycle');
   const setMode = (i, m) => update((c) => {
@@ -298,6 +299,11 @@ function FixedPanel({ plan, cfg, patch, update, today }) {
             <div className="sc-card" key={f.id}>
               <div className="sc-head">
                 <In cfg={cfg} patch={patch} path={`fixed.${i}.name`} />
+                <button
+                  className={`ap-btn${f.calendar ? ' primary' : ''}`} aria-pressed={!!f.calendar} disabled={!f.calendar && !plan.areas.some((a) => a.id === f.area)}
+                  title={plan.areas.some((a) => a.id === f.area) ? 'Crea este evento como bloque con candado en el calendario, en los días que le tocan' : 'Elige un área para poder crearlo en el calendario'}
+                  onClick={() => update((c) => { c.fixed[i].calendar = c.fixed[i].calendar ? undefined : true; return c; })}
+                >{f.calendar ? 'En el calendario ✓' : 'Crear en el calendario'}</button>
                 <button className="ap-btn" onClick={() => update((c) => { c.fixed.splice(i, 1); return c; })}>Quitar</button>
               </div>
               <div className="sc-chips">
@@ -368,6 +374,72 @@ function FixedPanel({ plan, cfg, patch, update, today }) {
         })}
         {!cfg.fixed.length && <div className="sc-empty">Nada fijo todavía. Lo que ya está con hora en tu calendario también cuenta como fijo; esto es para lo que se repite o rota.</div>}
         <div><button className="ap-btn" onClick={() => update((c) => { c.fixed.push(newFixed(plan.areas[0] && plan.areas[0].id)); return c; })}>+ Añadir algo fijo</button></div>
+      </div>
+      <HabitsSection plan={plan} cfg={cfg} patch={patch} update={update} today={today} onChange={onChange} />
+    </>
+  );
+}
+
+/* ---------- Hábitos: N veces por semana ---------- */
+function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
+  const [creating, setCreating] = useState(null); // habit index that is naming a new area
+  const [newName, setNewName] = useState('');
+  const replan = () => onChange((p) => planHabits(p, today, { by: 'user' }).plan);
+  const makeArea = (i) => {
+    const name = newName.trim(); if (!name) return;
+    onChange((p) => {
+      const { plan: np, area } = withNewArea(p, name);
+      const c = getScheduler(np); c.habits = c.habits.map((h, k) => (k === i ? { ...h, area: area.id } : h));
+      return { ...np, scheduler: c };
+    });
+    setCreating(null); setNewName('');
+  };
+  return (
+    <>
+      <div className="sc-stage">Hábitos flexibles · N veces por semana</div>
+      <p className="sc-note">Para lo que no tiene hora fija, como el gym: dices cuántas veces por semana y el motor coloca esos bloques solo. Si un día no lo haces, se recoloca dentro de la misma semana. Si ya no quedan días suficientes, planifica lo máximo posible; lo que no cupo no pasa a la semana siguiente, que empieza de cero.</p>
+      <div className="sc-stack">
+        {cfg.habits.map((h, i) => {
+          const st = habitStatus(plan, h, today);
+          const p = `habits.${i}`;
+          return (
+            <div className="sc-card" key={h.id}>
+              <div className="sc-head">
+                <In cfg={cfg} patch={patch} path={`${p}.name`} />
+                <span className="sc-stat">esta semana: {st.done} hechas · {st.planned} planificadas{st.missing ? ` · faltan ${st.missing} (no caben)` : ''}</span>
+                <button className="ap-btn" onClick={() => update((c) => { c.habits.splice(i, 1); return c; })}>Quitar</button>
+              </div>
+              <div className="sc-grid">
+                <Field label="Veces por semana" tag="on"><In cfg={cfg} patch={patch} path={`${p}.perWeek`} type="number" min={1} max={14} step={1} /></Field>
+                <Field label="Duración (min)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.dur`} type="number" min={15} max={480} step={15} /></Field>
+                <Field label="Máx. por día" tag="on"><In cfg={cfg} patch={patch} path={`${p}.maxPerDay`} type="number" min={1} max={4} step={1} /></Field>
+                <Field label="Área" tag="on">
+                  {creating === i ? (
+                    <span className="sc-chips2"><input autoFocus placeholder="Nombre del área" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') makeArea(i); if (e.key === 'Escape') setCreating(null); }} /> <button className="ap-btn" onClick={() => makeArea(i)}>Crear</button></span>
+                  ) : (
+                    <select value={h.area || ''} onChange={(e) => { if (e.target.value === '__new') { setCreating(i); setNewName(h.name); } else patch(`${p}.area`, e.target.value); }}>
+                      <option value="">Elegir área…</option>
+                      {plan.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      <option value="__new">+ Nueva área…</option>
+                    </select>
+                  )}
+                </Field>
+                <Field label="Desde (opcional)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.from`} type="time" /></Field>
+                <Field label="Hasta (opcional)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.to`} type="time" /></Field>
+              </div>
+              <div className="sc-chips2">
+                <span className="sc-chk"><input type="checkbox" checked={h.on !== false} onChange={(e) => patch(`${p}.on`, e.target.checked)} /> Activo</span>
+                <span className="sc-stat">Sin horas propias usa las de su área (Motor → Áreas).</span>
+              </div>
+              {!plan.areas.some((a) => a.id === h.area) && <div className="sc-prop no">Elige un área para que el motor pueda colocarlo.</div>}
+            </div>
+          );
+        })}
+        {!cfg.habits.length && <div className="sc-empty">Ningún hábito todavía. Ejemplo: Gym, 4 veces por semana, 1 h, entre 18:00 y 21:00.</div>}
+        <div className="sc-acts">
+          <button className="ap-btn" onClick={() => update((c) => { c.habits.push(newHabit(plan.areas[0] && plan.areas[0].id)); return c; })}>+ Añadir hábito</button>
+          {cfg.habits.length > 0 && <button className="ap-btn" onClick={replan}>Replanificar esta semana</button>}
+        </div>
       </div>
     </>
   );
