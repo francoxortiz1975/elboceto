@@ -46,3 +46,10 @@ const full = mk(); full.scheduler.history = [];
 for (let n = 0; n < 7; n++) { const d = `2026-11-${18 + n}`; full.items.push({ id: 'blk' + n, area: 'm', text: 'lleno', done: false, day: d, at: 1260, dur: 60, lock: true }); }
 const nf = rollover(full, today, { nowMin: 0 });
 ok(nf.summary.left.some((l) => l.id === 'a' && l.why === 'sin hueco en 21:00–22:00') && nf.plan.items.find((i) => i.id === 'a').day === '2026-11-17', 'no free slot in its hours: left for the user (sin hueco)');
+// ---- IRIS notes from the nightly rollover ----
+const nts = (r.plan.iris && r.plan.iris.notes) || [];
+ok(nts.filter((n) => n.area === 'm' && n.from === 'rollover' && /Feature de ayer/.test(n.text) && /pasó de/.test(n.text)).length === 1, 'rollover tells the MediLyft inbox what moved');
+ok(nts.some((n) => n.area === 'l' && /Factura Loginet/.test(n.text)), 'rollover tells the Loginet inbox what moved');
+ok(nts.some((n) => /Reunión cliente/.test(n.text) && /reunión/.test(n.text)) && nts.some((n) => /candado/.test(n.text)), 'things left for the user are also reported to their area');
+ok(nts.every((n) => n.dir === 'to_area' && !n.read), 'all of them are unread notes for the areas');
+ok(((undoRollover(r.plan).iris || {}).notes || []).some((n) => n.from === 'user' && /deshizo/.test(n.text)), 'undoing the rollover tells the areas too');

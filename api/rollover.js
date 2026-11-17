@@ -4,6 +4,8 @@
 var SLOT_STEP = 30;
 var DAY_FROM = 7 * 60;
 var DAY_TO = 24 * 60;
+var DOW = ["dom", "lun", "mar", "mi\xE9", "jue", "vie", "s\xE1b"];
+var MON = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 var pad = (n) => String(n).padStart(2, "0");
 var isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 var fromIso = (iso) => {
@@ -15,6 +17,11 @@ var addDays = (iso, n) => {
   d.setDate(d.getDate() + n);
   return isoOf(d);
 };
+var dayLabel = (iso) => {
+  const d = fromIso(iso);
+  return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
+};
+var fmtMin = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
 var isLocked = (it) => !!it.lock;
 var durOf = (it) => it.dur || (it.d ? it.d * SLOT_STEP : 60);
 var SLOTS = (() => {
@@ -48,7 +55,7 @@ var toMin = (s) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(s || "");
   return m ? +m[1] * 60 + +m[2] : 0;
 };
-var fmtMin = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+var fmtMin2 = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 var dowOf = (iso) => (fromIso(iso).getDay() + 6) % 7;
 var mondayOf = (iso) => addDays(iso, -dowOf(iso));
 function activeOn(f, iso) {
@@ -262,7 +269,7 @@ function areaWindow(cfg, areaId, kind) {
   if (!from && !to) return null;
   return [from ? toMin(from) : 0, to ? toMin(to) : 24 * 60];
 }
-var windowLabel = (w) => w ? `${fmtMin(w[0])}\u2013${fmtMin(w[1])}` : "";
+var windowLabel = (w) => w ? `${fmtMin2(w[0])}\u2013${fmtMin2(w[1])}` : "";
 var attrsOf = (cfg, itemId) => ({ ...DEFAULT_ATTRS, ...cfg.attrs[itemId] || {} });
 function buildEngineInput(plan, today, { includeLater = false } = {}) {
   const cfg = getScheduler(plan);
@@ -506,6 +513,48 @@ function resolveItem(plan, id, { action, target, via, today, by, now = (/* @__PU
   return { plan: withHistory(next, { ...cfg, attrs }, [entry]), undo };
 }
 
+// src/lib/iris.js
+var NOTE_KINDS = ["note", "order", "change", "report"];
+var MAX_NOTES = 300;
+var nid = () => `n_${Math.random().toString(36).slice(2, 10)}`;
+var notesOf = (plan) => plan.iris && Array.isArray(plan.iris.notes) ? plan.iris.notes : [];
+function prune(notes) {
+  if (notes.length <= MAX_NOTES) return notes;
+  let extra = notes.length - MAX_NOTES;
+  const drop = /* @__PURE__ */ new Set();
+  for (const n of notes) {
+    if (extra > 0 && n.read) {
+      drop.add(n.id);
+      extra -= 1;
+    }
+  }
+  for (const n of notes) {
+    if (extra > 0 && !drop.has(n.id)) {
+      drop.add(n.id);
+      extra -= 1;
+    }
+  }
+  return notes.filter((n) => !drop.has(n.id));
+}
+function addNotes(plan, list, now = (/* @__PURE__ */ new Date()).toISOString()) {
+  const valid = list.filter((n) => n && n.area && n.text);
+  if (!valid.length) return plan;
+  const added = valid.map((n) => ({
+    id: nid(),
+    t: now,
+    area: n.area,
+    dir: n.dir === "to_hub" ? "to_hub" : "to_area",
+    kind: NOTE_KINDS.includes(n.kind) ? n.kind : "note",
+    text: String(n.text).slice(0, 2e3),
+    from: n.from || "hub",
+    ...n.item ? { item: n.item } : {},
+    read: !!n.read
+  }));
+  return { ...plan, iris: { ...plan.iris || {}, notes: prune([...notesOf(plan), ...added]) } };
+}
+var clock = (day, at) => typeof at === "number" ? `${dayLabel(day)} ${fmtMin(at)}` : day === "later" ? "m\xE1s adelante" : dayLabel(day);
+var whenText = clock;
+
 // src/lib/scheduler/rollover.js
 var MAX_HISTORY3 = 500;
 var withLast = (plan, last, extraHistory = []) => {
@@ -540,7 +589,7 @@ function rollover(plan, today, { nowMin = nowMinutes(), by = "auto", now = (/* @
       const out = resolveItem(cur, it.id, { action: "move", via: "auto", target, today, by, now });
       cur = out.plan;
       if (out.undo) undos.push(out.undo);
-      moves.push({ id: it.id, title: it.text, from: { day: it.day, at: it.at }, to: { day: target.day, at: target.at } });
+      moves.push({ id: it.id, area: it.area, title: it.text, from: { day: it.day, at: it.at }, to: { day: target.day, at: target.at } });
     });
   }
   const moved = new Set(moves.map((m) => m.id));
@@ -548,7 +597,7 @@ function rollover(plan, today, { nowMin = nowMinutes(), by = "auto", now = (/* @
     const t = lastRes && lastRes.unplaced.find((x) => x.task.id === i.id);
     return t && t.task.win ? `sin hueco en ${t.task.winLabel}` : "sin hueco";
   };
-  const left = overdue.filter((i) => !moved.has(i.id)).map((i) => ({ id: i.id, title: i.text, why: i.lock ? "candado" : isMeeting(i) ? "reuni\xF3n" : skipped.has(i.id) ? "la dejaste" : noRoom(i) }));
+  const left = overdue.filter((i) => !moved.has(i.id)).map((i) => ({ id: i.id, area: i.area, day: i.day, title: i.text, why: i.lock ? "candado" : isMeeting(i) ? "reuni\xF3n" : skipped.has(i.id) ? "la dejaste" : noRoom(i) }));
   const last = {
     day: today,
     t: now,
@@ -562,7 +611,11 @@ function rollover(plan, today, { nowMin = nowMinutes(), by = "auto", now = (/* @
     habitsMissed: gen.habitsMissed
   };
   const entry = { t: now, kind: "rollover", by, moved: moves.length, left: left.length, habitsAdded: gen.habitsAdded, habitsMissed: gen.habitsMissed };
-  return { plan: withLast(cur, last, [entry]), ran: true, summary: last };
+  const notes = [
+    ...moves.map((m) => ({ area: m.area, kind: "change", from: "rollover", item: m.id, text: `\u201C${m.title}\u201D pas\xF3 de ${whenText(m.from.day, m.from.at)} a ${whenText(m.to.day, m.to.at)} (reagendamiento autom\xE1tico).` })),
+    ...left.map((l) => ({ area: l.area, kind: "change", from: "rollover", item: l.id, text: `\u201C${l.title}\u201D sigue pendiente (era ${whenText(l.day)}): ${l.why}. Lo decide el usuario en Motor \u2192 Pendientes.` }))
+  ];
+  return { plan: addNotes(withLast(cur, last, [entry]), notes, now), ran: true, summary: last };
 }
 
 // server/rollover.mjs

@@ -1,6 +1,7 @@
 // End-to-end check: the built server talks to a fake Supabase (the two RPCs, in memory) over stdio.
 import http from 'node:http';
 import fs from 'node:fs';
+import { execFile } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -97,4 +98,34 @@ t = await call('add_item', { text: 'Tarea loginet', area: 'loginet', day: 'tomor
 t = await call('add_item', { text: 'Reunión loginet', area: 'loginet', day: 'tomorrow', time: '21:00', kind: 'meeting' }); ok(t.includes('21:00–22:00') && t.includes('[reunión]') && db.plan.items.at(-1).kind === 'meeting', 'meeting reserves 60 min');
 t = await call('add_item', { text: 'Con duración', area: 'loginet', day: 'tomorrow', time: '18:00', duration_minutes: 45 }); ok(t.includes('18:00–18:45'), 'explicit duration wins');
 t = await call('get_scheduler_settings'); ok(/Loginet: tareas 21:00–21:30, 30 min cada una; reuniones 21:00–22:00, 60 min/.test(t) && /Life: tareas cualquier hora/.test(t), 'get_scheduler_settings lists area rules');
+// ---- IRIS: inbox between the hub and one conversation per area ----
+const hook = (mode, area = 'Loginet') => new Promise((resolve) => execFile('node', ['dist/iris-hook.mjs', mode], { env: { ...process.env, IRIS_AREA: area, BOCETO_SUPABASE_URL: url, BOCETO_SUPABASE_KEY: 'anon', BOCETO_TOKEN: 'secret', HOME: '/nonexistent' }, timeout: 15000 }, (err, stdout) => resolve({ code: err ? err.code : 0, out: stdout })));
+const notes = () => (db.plan.iris && db.plan.iris.notes) || [];
+db.plan.iris = { notes: [] }; // start the IRIS checks with an empty inbox (earlier tests already moved things and left notes)
+t = await call('assign_order', { area: 'Loginet', text: 'Entregar informe', brief: 'Preparar el informe mensual con las cifras de octubre y dejarlo en /docs.', day: 'tomorrow', time: '21:00', duration_minutes: 30, lock: true });
+const ord = db.plan.items.find((i) => i.text === 'Entregar informe');
+ok(!t.startsWith('ERROR') && ord && ord.lock === true && ord.src === 'iris', 'assign_order creates a locked block');
+ok(notes().some((n) => n.kind === 'order' && n.dir === 'to_area' && n.item === ord.id && /informe mensual/.test(n.text) && !n.read), 'assign_order leaves the full brief in the area inbox, linked to the block');
+t = await call('areas_summary'); ok(/Loginet: \d+ abiertas/.test(t) && /1 para el área/.test(t), 'areas_summary shows unread notes per area');
+const h1 = await hook('session');
+ok(h1.code === 0 && /\[IRIS · Loginet\] 1 nota nueva/.test(h1.out) && /informe mensual/.test(h1.out) && /Protocolo IRIS/.test(h1.out) && /report_progress/.test(h1.out), 'hook (session start) prints the note and the protocol by itself');
+ok(notes().filter((n) => n.area === 'loginet' && n.dir === 'to_area').every((n) => n.read), 'the hook marks what it showed as read');
+const h2 = await hook('prompt'); ok(h2.code === 0 && h2.out.trim() === '', 'hook (each prompt) is silent when there is nothing new');
+t = await call('leave_note', { area: 'Loginet', text: 'El cliente cambió la fecha: ahora es el viernes.', kind: 'change' });
+const h3 = await hook('prompt'); ok(/cliente cambió la fecha/.test(h3.out) && !/Protocolo/.test(h3.out), 'hook (prompt) shows only the new note, without repeating the protocol');
+const h4 = await hook('prompt'); ok(h4.out.trim() === '', 'and does not show it twice');
+const hx = await hook('session', 'Inventada'); ok(/no existe en El Boceto/.test(hx.out) && hx.code === 0, 'unknown area: a clear line, never a failure');
+t = await call('leave_note', { area: 'Life', text: 'Nota para Life' }); t = await call('read_notes', { area: 'Loginet' }); ok(/sin notas nuevas/.test(t) && !/Life/.test(t), 'read_notes is per area');
+t = await call('read_notes', { area: 'Life' }); ok(/Nota para Life/.test(t), 'read_notes returns the area notes');
+t = await call('read_notes', { area: 'Life' }); ok(/sin notas nuevas/.test(t), 'and marks them read');
+t = await call('report_progress', { area: 'Loginet', text: 'Informe listo en /docs/informe-octubre.md; falta que lo revises.', item_id: ord.id, done: true });
+ok(!t.startsWith('ERROR') && db.plan.items.find((i) => i.id === ord.id).done === true, 'report_progress with done marks the block as done');
+t = await call('read_notes', { for: 'hub' }); ok(/Informe listo/.test(t) && /avance/.test(t), 'the hub reads the report the area left');
+t = await call('areas_summary'); ok(/0 para el área, 0 para el centro/.test(t.split('\n').find((l) => l.startsWith('Loginet')) || ''), 'summary counts are back to zero after reading');
+t = await call('report_progress', { area: 'Loginet', text: 'x', item_id: 'nope' }); ok(t.startsWith('ERROR'), 'report_progress with an unknown block is an error');
+db.plan.items.push({ id: 'mv1', area: 'life', text: 'Cosa movible', done: false, day: iso(today), at: 'any' });
+t = await call('move_item', { id: 'mv1', day: 'tomorrow', band: 'pm' });
+ok(notes().some((n) => n.item === 'mv1' && n.kind === 'change' && n.area === 'life' && /se movió de/.test(n.text)), 'move_item tells the area what changed');
+t = await call('lock_item', { id: 'mv1' }); ok(notes().some((n) => n.item === 'mv1' && /candado/.test(n.text)), 'lock_item tells the area');
+t = await call('delete_item', { id: 'mv1' }); ok(notes().some((n) => /se borró del plan/.test(n.text)), 'delete_item tells the area');
 await client.close(); srv.close();

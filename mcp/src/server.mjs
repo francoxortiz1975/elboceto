@@ -10,6 +10,7 @@ import { buildEngineInput, nowMinutes, getScheduler, kindDur, areaWindow, window
 import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
+import { addNotes, notesOf, unreadFor, markRead, noteLine, areaSummary, whenText, NOTE_KINDS } from '../../src/lib/iris';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const BAND_LABEL = Object.fromEntries(BANDS.map((b) => [b.id, b.label.toLowerCase()]));
@@ -162,7 +163,10 @@ server.registerTool('move_item', {
     if (typeof atFrom(a) === 'number' && a.duration_minutes && day !== 'later') {
       next = { ...next, items: next.items.map((i) => (i.id === a.id ? { ...i, dur: a.duration_minutes } : i)) };
     }
-    return { plan: next, result: lineOf(next, next.items.find((i) => i.id === a.id)) };
+    const moved = next.items.find((i) => i.id === a.id);
+    // The area that owns the block is told, so its conversation is not surprised later.
+    const told = addNotes(next, [{ area: moved.area, kind: 'change', from: 'hub', item: moved.id, text: `“${moved.text}” se movió de ${whenText(it.day, it.at)} a ${whenText(moved.day, moved.at)}.${area && area.id !== it.area ? ' Cambió de área.' : ''}` }]);
+    return { plan: told, result: lineOf(told, moved) };
   });
   return text(`Movido:\n${out}`);
 }));
@@ -177,7 +181,8 @@ server.registerTool('lock_item', {
     if (locked && !dated(it)) throw new Error('Solo se puede poner candado a algo con día fijo; esta está en "Más adelante".');
     const { lock: _l, ...rest } = it;
     const upd = locked ? { ...rest, lock: true } : rest;
-    return { plan: { ...plan, items: plan.items.map((i) => (i.id === id ? upd : i)) }, result: lineOf(plan, upd) };
+    const next = addNotes({ ...plan, items: plan.items.map((i) => (i.id === id ? upd : i)) }, [{ area: it.area, kind: 'change', from: 'hub', item: id, text: locked ? `“${it.text}” (${whenText(it.day, it.at)}) ahora tiene candado: tiene que hacerse justo ahí.` : `“${it.text}” ya no tiene candado: se puede mover.` }]);
+    return { plan: next, result: lineOf(next, upd) };
   });
   return text(`${locked ? 'Candado puesto' : 'Candado quitado'}:\n${out}`);
 }));
@@ -215,7 +220,8 @@ server.registerTool('delete_item', {
   const out = await mutatePlan(cfg, (plan) => {
     const it = plan.items.find((i) => i.id === id);
     if (!it) throw new Error(`No hay ninguna tarea con id ${id}.`);
-    return { plan: { ...plan, items: plan.items.filter((i) => i.id !== id) }, result: lineOf(plan, it) };
+    const next = addNotes({ ...plan, items: plan.items.filter((i) => i.id !== id) }, [{ area: it.area, kind: 'change', from: 'hub', text: `“${it.text}” (${whenText(it.day, it.at)}) se borró del plan.` }]);
+    return { plan: next, result: lineOf(plan, it) };
   });
   return text(`Borrado:\n${out}`);
 }));
@@ -292,9 +298,121 @@ server.registerTool('resolve_overdue', {
     } else opts = { action };
     const r = resolveItem(plan, id, { ...opts, today: t, by: 'claude' });
     const moved = r.plan.items.find((i) => i.id === id);
-    return { plan: r.plan, result: lineOf(r.plan, moved) };
+    const told = action === 'accept' || action === 'move' || action === 'later'
+      ? addNotes(r.plan, [{ area: it.area, kind: 'change', from: 'hub', item: id, text: `“${it.text}” (era ${whenText(it.day, it.at)}) ${action === 'later' ? 'pasó a Más adelante' : `se reagendó a ${whenText(moved.day, moved.at)}`}.` }])
+      : r.plan;
+    return { plan: told, result: lineOf(told, moved) };
   });
   return text(`Hecho (${action}):\n${out}`);
+}));
+
+// ---------------- IRIS: inbox between the planner and one conversation per area ----------------
+const areaArg = z.string().describe('Nombre del área (ver list_areas)');
+
+server.registerTool('leave_note', {
+  description: 'IRIS: deja una nota en el buzón de un área para que su conversación la lea al empezar (un hook se la muestra sola). Úsala para avisar de un cambio, dar contexto o pasar un encargo sin fecha. Si el encargo tiene fecha y hora, usa assign_order.',
+  inputSchema: { area: areaArg, text: z.string().min(1).describe('La nota, clara y autosuficiente (la conversación del área no ve este chat)'), kind: z.enum(NOTE_KINDS).optional().describe('note (por defecto), order, change o report') }
+}, safe(async ({ area, text: body, kind }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const a = areaOf(plan, area);
+    if (!a) throw new Error(noArea(plan, area));
+    return { plan: addNotes(plan, [{ area: a.id, kind: kind || 'note', from: 'hub', text: body }]), result: `Nota dejada en ${a.name}.` };
+  });
+  return text(out);
+}));
+
+server.registerTool('assign_order', {
+  description: 'IRIS: encarga un trabajo a un área. Crea el bloque en el calendario (con día y hora, respetando lo que ya hay) y deja el encargo completo en el buzón del área, con el id del bloque. Úsalo cuando el usuario pega un feature o una tarea para un área. Confirma con el usuario el día y la hora si no los dio.',
+  inputSchema: {
+    area: areaArg, text: z.string().min(1).describe('Título corto del bloque'),
+    brief: z.string().min(1).describe('El encargo completo para la conversación del área: qué hay que hacer, contexto, criterios de terminado. Debe entenderse sin este chat.'),
+    ...timing, kind: z.enum(['task', 'meeting']).optional(), lock: z.boolean().optional().describe('true si tiene que hacerse justo en ese bloque (entrega, reunión)')
+  }
+}, safe(async (a) => {
+  const day = resolveDay(a.day) || 'later';
+  const at = day === 'later' ? 'any' : atFrom(a);
+  const out = await mutatePlan(cfg, (plan) => {
+    const area = areaOf(plan, a.area);
+    if (!area) throw new Error(noArea(plan, a.area));
+    const dur = a.duration_minutes || kindDur(getScheduler(plan), area.id, a.kind === 'meeting' ? 'meeting' : 'task') || 60;
+    const item = {
+      id: uid(), area: area.id, text: a.text.trim(), done: false, day, at, src: 'iris',
+      ...(a.kind === 'meeting' ? { kind: 'meeting' } : {}), ...(a.lock && day !== 'later' ? { lock: true } : {}),
+      ...(typeof at === 'number' ? { dur } : {})
+    };
+    const next = addNotes({ ...plan, items: [...plan.items, item] }, [{ area: area.id, kind: 'order', from: 'hub', item: item.id, text: `${a.brief.trim()}\n(Bloque: ${a.text.trim()} · ${when(item)}${item.lock ? ' · con candado' : ''}.)` }]);
+    return { plan: next, result: lineOf(next, item) };
+  });
+  return text(`Encargo creado y avisado al área:\n${out}`);
+}));
+
+server.registerTool('read_notes', {
+  description: 'IRIS: lee notas del buzón. Una conversación de área llama con su área y for="area" (lo normal: lo que el centro le dejó). El centro de mando llama con for="hub" para ver los avances que dejaron las áreas.',
+  inputSchema: {
+    area: z.string().optional().describe('Nombre del área; sin él, todas'),
+    for: z.enum(['area', 'hub']).optional().describe('"area" (por defecto): notas dirigidas al área. "hub": avances que las áreas dejaron al centro.'),
+    include_read: z.boolean().optional().describe('Incluir las ya leídas (por defecto solo las nuevas)'),
+    mark_read: z.boolean().optional().describe('Marcarlas como leídas al devolverlas (por defecto true)'),
+    limit: z.number().int().min(1).max(100).optional()
+  }
+}, safe(async ({ area, for: dest = 'area', include_read, mark_read = true, limit = 30 }) => {
+  const dir = dest === 'hub' ? 'to_hub' : 'to_area';
+  const out = await mutatePlan(cfg, (plan) => {
+    const a = area ? areaOf(plan, area) : null;
+    if (area && !a) throw new Error(noArea(plan, area));
+    const pool = notesOf(plan).filter((n) => n.dir === dir && (!a || n.area === a.id) && (include_read || !n.read)).slice(-limit);
+    const body = pool.length ? pool.map((n) => noteLine(plan, n)).join('\n') : '(sin notas nuevas)';
+    const head = `${pool.length} nota${pool.length === 1 ? '' : 's'}${include_read ? '' : ' sin leer'}${a ? ` de ${a.name}` : ''}:`;
+    const unread = pool.filter((n) => !n.read).map((n) => n.id);
+    if (mark_read && unread.length) return { plan: markRead(plan, { ids: unread }).plan, result: `${head}\n${body}` };
+    return { plan, result: `${head}\n${body}` };
+  });
+  return text(out);
+}));
+
+server.registerTool('mark_notes_read', {
+  description: 'IRIS: marca notas como leídas, por ids o todas las de un área.',
+  inputSchema: { ids: z.array(z.string()).optional(), area: z.string().optional(), for: z.enum(['area', 'hub']).optional() }
+}, safe(async ({ ids, area, for: dest = 'area' }) => {
+  if (!ids && !area) throw new Error('Dame ids o un área.');
+  const out = await mutatePlan(cfg, (plan) => {
+    const a = area ? areaOf(plan, area) : null;
+    if (area && !a) throw new Error(noArea(plan, area));
+    const r = markRead(plan, { ids, area: a && a.id, dir: dest === 'hub' ? 'to_hub' : 'to_area' });
+    return { plan: r.plan, result: `${r.changed} nota${r.changed === 1 ? '' : 's'} marcada${r.changed === 1 ? '' : 's'} como leída${r.changed === 1 ? '' : 's'}.` };
+  });
+  return text(out);
+}));
+
+server.registerTool('report_progress', {
+  description: 'IRIS: la conversación de un área avisa al centro de mando de un avance o de que terminó un encargo. Opcionalmente marca el bloque como hecho. Úsalo al terminar algo relevante (una rama lista, algo bloqueado, una duda).',
+  inputSchema: { area: areaArg, text: z.string().min(1).describe('Qué pasó: qué se hizo, dónde está (rama, archivo) y qué falta'), item_id: z.string().optional().describe('Id del bloque del encargo, si lo hay'), done: z.boolean().optional().describe('true si el encargo quedó terminado: marca el bloque como hecho') }
+}, safe(async ({ area, text: body, item_id, done }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const a = areaOf(plan, area);
+    if (!a) throw new Error(noArea(plan, area));
+    let next = plan;
+    if (item_id) {
+      const it = plan.items.find((i) => i.id === item_id);
+      if (!it) throw new Error(`No hay ningún bloque con id ${item_id}.`);
+      if (done) next = { ...next, items: next.items.map((i) => (i.id === item_id ? { ...i, done: true } : i)) };
+    }
+    next = addNotes(next, [{ area: a.id, dir: 'to_hub', kind: 'report', from: 'area', item: item_id, text: body }]);
+    return { plan: next, result: `Avance registrado para el centro de mando (${a.name})${item_id && done ? '; bloque marcado como hecho' : ''}.` };
+  });
+  return text(out);
+}));
+
+server.registerTool('areas_summary', {
+  description: 'IRIS: una línea por área: abiertas, atrasadas, con candado, lo próximo, y cuántas notas sin leer hay (hacia el área y hacia el centro). Úsalo para "¿cómo voy?" y al empezar en el centro de mando.',
+  inputSchema: {}
+}, safe(async () => {
+  const { plan } = await readPlan(cfg);
+  const t = today();
+  const od = new Set(overdueItems(plan, t).map((i) => i.id));
+  const rows = areaSummary(plan, t, od);
+  const lines = rows.map((r) => `${r.name}: ${r.open} abiertas · ${r.overdue} atrasadas · ${r.locked} con candado · hoy ${r.todayCount} · notas sin leer: ${r.unreadToArea} para el área, ${r.unreadToHub} para el centro${r.next ? `\n   próximo: ${r.next}` : ''}`);
+  return text(`HOY ${t}\n${lines.join('\n')}`);
 }));
 
 server.registerTool('get_scheduler_settings', {

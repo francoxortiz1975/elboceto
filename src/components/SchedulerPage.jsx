@@ -9,10 +9,11 @@ import { getScheduler, attrsOf, ruleOf, areaWindow, windowLabel, isMeeting, kind
 import { overdueItems, resolveItem, undoResolve, whyPlaced } from '../lib/scheduler/overdue';
 import { planHabits, habitStatus, newHabit, withNewArea } from '../lib/scheduler/generate';
 import { undoRollover } from '../lib/scheduler/rollover';
+import { notesOf, markRead, unreadFor } from '../lib/iris';
 import './SchedulerPage.css';
 
 const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-const PANELS = [['ayer', 'Pendientes'], ['perfil', 'Perfil'], ['fijo', 'Calendario fijo'], ['areas', 'Áreas'], ['tareas', 'Tareas'], ['pesos', 'Pesos'], ['sim', 'Simulación']];
+const PANELS = [['ayer', 'Pendientes'], ['iris', 'IRIS'], ['perfil', 'Perfil'], ['fijo', 'Calendario fijo'], ['areas', 'Áreas'], ['tareas', 'Tareas'], ['pesos', 'Pesos'], ['sim', 'Simulación']];
 
 const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -97,6 +98,7 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
       </div>
       <div className="sc-wrap">
         {panel === 'ayer' && <PendingPanel {...ctx} overdue={overdue} onChange={onChange} />}
+        {panel === 'iris' && <IrisPanel {...ctx} onChange={onChange} />}
         {panel === 'perfil' && <ProfilePanel {...ctx} />}
         {panel === 'fijo' && <FixedPanel {...ctx} onChange={onChange} />}
         {panel === 'areas' && <AreasPanel {...ctx} />}
@@ -203,6 +205,52 @@ function PendingPanel({ res, today, overdue, onChange, colorOf, areaName, cfg })
           {older.length > 0 && <><div className="sc-stage" style={yesterday.length ? undefined : { borderTop: 0, paddingTop: 0 }}>Anteriores</div>{older.map(card)}</>}
         </div>
       )}
+    </>
+  );
+}
+
+/* ---------- IRIS: buzón entre el centro de mando y las conversaciones de cada área ---------- */
+const KIND_ES = { note: 'nota', order: 'encargo', change: 'cambio', report: 'avance' };
+const FROM_ES = { hub: 'el centro', rollover: 'reagendamiento', user: 'tú', area: 'el área' };
+function IrisPanel({ plan, onChange, colorOf, areaName }) {
+  const notes = notesOf(plan);
+  const recent = [...notes].reverse().slice(0, 40);
+  const stamp = (t) => { const d = new Date(t); return Number.isNaN(d.getTime()) ? '' : `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const toHub = unreadFor(plan, { dir: 'to_hub' }).length;
+  return (
+    <>
+      <p className="sc-note">El buzón que une el centro de mando con la conversación de cada área. Una conversación no puede escribirle a otra, así que se dejan notas aquí: cuando abres una conversación de un área, un hook le muestra sola sus notas nuevas (encargos, cambios de fecha). Y cuando una área termina algo, deja un avance para el centro.</p>
+      <div className="sc-card">
+        {plan.areas.map((a) => {
+          const toArea = unreadFor(plan, { area: a.id, dir: 'to_area' }).length; const toH = unreadFor(plan, { area: a.id, dir: 'to_hub' }).length;
+          return (
+            <div className="sc-head" key={a.id}>
+              <i className="sc-dot" style={{ background: colorOf(a.id) }} />
+              <b className="sc-ttl">{a.name}</b>
+              <span className="sc-stat">sin leer por el área: {toArea} · avances sin ver: {toH}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="sc-filters">
+        <span className="sc-stat">{notes.length} {notes.length === 1 ? 'nota' : 'notas'} · {toHub} {toHub === 1 ? 'avance sin ver' : 'avances sin ver'}</span>
+        <button className="ap-btn" disabled={!toHub} onClick={() => onChange((p) => markRead(p, { dir: 'to_hub' }).plan)}>Marcar avances como vistos</button>
+      </div>
+      <div className="sc-stack">
+        {!recent.length && <div className="sc-empty">Todavía no hay notas. Aparecen cuando el reagendamiento mueve algo, cuando el centro de mando encarga o cambia algo, o cuando un área reporta un avance.</div>}
+        {recent.map((n) => (
+          <div className="sc-card" key={n.id} style={n.read ? { opacity: 0.6 } : undefined}>
+            <div className="sc-head">
+              <i className="sc-dot" style={{ background: colorOf(n.area) }} />
+              <b className="sc-ttl">{areaName(n.area)} · {KIND_ES[n.kind] || n.kind}</b>
+              <span className="sc-stat">{n.dir === 'to_hub' ? `${FROM_ES[n.from] || n.from} → centro` : `${FROM_ES[n.from] || n.from} → área`} · {stamp(n.t)} · {n.read ? 'leída' : 'sin leer'}</span>
+            </div>
+            <div className="sc-stat" style={{ whiteSpace: 'pre-wrap' }}>{n.text}</div>
+          </div>
+        ))}
+      </div>
+      <div className="sc-stage">Conectar una conversación de área</div>
+      <p className="sc-note">En tu computador, una vez por repo: <code>npm run iris:install -- "MediLyft" /ruta/al/repo</code>. Después, cualquier conversación que abras en esa carpeta empieza leyendo su buzón.</p>
     </>
   );
 }

@@ -1,0 +1,15 @@
+import { addNotes, unreadFor, markRead, notesOf, areaSummary } from '../../src/lib/iris.js';
+const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
+const plan = { areas: [{ id: 'm', name: 'MediLyft', c: 3 }, { id: 'l', name: 'Loginet', c: 5 }], items: [{ id: 'x', area: 'm', text: 'Feature', done: false, day: '2026-11-18', at: 1260, dur: 60, lock: true }] };
+let p = addNotes(plan, [{ area: 'm', text: 'uno' }, { area: 'l', text: 'dos', kind: 'order' }, { area: 'm', text: 'avance', dir: 'to_hub', kind: 'report', from: 'area' }, { area: '', text: 'sin área' }, { area: 'm', text: '' }]);
+ok(notesOf(p).length === 3, 'notes without area or text are ignored');
+ok(unreadFor(p, { area: 'm' }).length === 1 && unreadFor(p, { area: 'm', dir: 'to_hub' }).length === 1, 'unread is split by direction (to the area / to the hub)');
+ok(notesOf(p).every((n) => n.id && n.t && n.read === false), 'every note has id, time and starts unread');
+const r = markRead(p, { area: 'm', dir: 'to_area' }); ok(r.changed === 1 && unreadFor(r.plan, { area: 'm', dir: 'to_hub' }).length === 1, 'marking read touches only that area and direction');
+ok(markRead(r.plan, { area: 'm', dir: 'to_area' }).plan === r.plan, 'marking again changes nothing (same object)');
+ok(addNotes(plan, []) === plan, 'adding nothing returns the same plan');
+let big = plan; for (let i = 0; i < 320; i++) big = addNotes(big, [{ area: 'm', text: `n${i}`, read: i < 200 }]);
+ok(notesOf(big).length === 300 && notesOf(big).filter((n) => !n.read).length === 120, 'at 300 notes the oldest read ones are dropped first (all 120 unread are kept)');
+ok(notesOf(big).some((n) => n.text === 'n319') && !notesOf(big).some((n) => n.text === 'n0'), 'and the newest stay');
+const sm = areaSummary(p, '2026-11-17').find((a) => a.id === 'm');
+ok(sm.open === 1 && sm.locked === 1 && sm.unreadToArea === 1 && sm.unreadToHub === 1 && /Feature/.test(sm.next), 'areaSummary: open, locked, unread both ways, next block');
