@@ -29,4 +29,13 @@ for (const [event, mode] of [['SessionStart', 'session'], ['UserPromptSubmit', '
 }
 fs.mkdirSync(path.dirname(file), { recursive: true });
 fs.writeFileSync(file, `${JSON.stringify(cfg, null, 2)}\n`);
+// Keep the file out of git without touching the repo's own .gitignore: .git/info/exclude is private to this computer.
+try {
+  const exclude = path.join(repo, '.git', 'info', 'exclude');
+  if (fs.existsSync(path.join(repo, '.git'))) {
+    fs.mkdirSync(path.dirname(exclude), { recursive: true });
+    const cur = fs.existsSync(exclude) ? fs.readFileSync(exclude, 'utf8') : '';
+    if (!cur.split('\n').some((l) => l.trim() === '.claude/settings.local.json')) fs.appendFileSync(exclude, `${cur && !cur.endsWith('\n') ? '\n' : ''}.claude/settings.local.json\n`);
+  }
+} catch { /* not a git repo or no permission: harmless */ }
 console.log(`IRIS conectado: ${repo}\n  área: ${area}\n  hooks: SessionStart + UserPromptSubmit en ${file}\nAbre una conversación nueva en esa carpeta: lo primero que verá es su buzón.`);
