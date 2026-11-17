@@ -17,6 +17,8 @@ Llama a `areas_summary` y a `read_notes` con `for: "hub"` para ver qué dejaron 
 7. **Arranque automático (IRIS+):** si el usuario pide que la conversación del área "se abra sola" a la hora del bloque, usa `assign_order` con `autostart: true`
    (o `autostart_item` en un bloque existente). Necesita día y hora exactos. No lo actives por tu cuenta. Si la respuesta avisa de que el área no tiene carpeta registrada,
    dile al usuario el comando `npm run iris:install -- "Área" /ruta/al/repo`. Quien abre la conversación es un lanzador en su Mac; tú solo marcas el bloque.
+   **No intentes abrir conversaciones de área por tu cuenta**, ni con temporizadores, tareas programadas ni avisos: la app no lo permite y no hace falta, el lanzador lo hace a la hora del bloque.
+   Si la respuesta de `assign_order` no dice "se abrirá sola cuando empiece el bloque", tu servidor MCP está desactualizado: dile al usuario que cierre y vuelva a abrir esta sesión.
 8. Después de cambiar el plan di qué hiciste, en una línea por cambio, con el día y la hora.
 
 ## Frases típicas
