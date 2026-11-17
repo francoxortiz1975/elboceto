@@ -19,12 +19,14 @@ import { addNotes } from '../../src/lib/iris';
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 const log = (...a) => console.log(`[${new Date().toLocaleTimeString('es-ES')}]`, ...a);
 
-function open(dir, promptFile, opener) {
+function open(dir, promptFile, opener, claudeBin = '') {
   return new Promise((resolve, reject) => {
     const done = (err) => (err ? reject(err) : resolve());
     if (opener) return execFile(opener, [dir, promptFile], done);
     if (process.platform !== 'darwin') return reject(new Error('Solo sé abrir Terminal en macOS; define "opener" en iris-areas.json.'));
-    const command = `cd ${q(dir)} && claude "$(cat ${q(promptFile)})"`;
+    const bin = claudeBin ? q(claudeBin) : 'claude';
+    const withPath = claudeBin ? `PATH=${q(path.dirname(claudeBin))}:"$PATH" ` : '';
+    const command = `cd ${q(dir)} && ${withPath}${bin} "$(cat ${q(promptFile)})"`;
     return execFile('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'do script (item 1 of argv)', '-e', 'end tell', '-e', 'end run', command], done);
   });
 }
@@ -68,7 +70,7 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       const file = path.join(dir, `${c.item.id.replace(/[^\w.-]/g, '_')}.txt`);
       fs.writeFileSync(file, c.prompt, { mode: 0o600 });
-      await open(c.dir, file, conf.opener);
+      await open(c.dir, file, conf.opener, conf.claudeBin);
       opened.push(c.item.id);
       log(`abierta: ${c.item.text} (${c.dir})`);
       await new Promise((r) => setTimeout(r, Number(process.env.IRIS_STAGGER_MS ?? 4000))); // do not open several windows on top of each other
