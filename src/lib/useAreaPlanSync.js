@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { pullAreaPlan, pushAreaPlan } from './areaPlanCloud';
 import { isUntouchedPlan } from './areaPlan';
+import { savePlan } from './areaPlanSyncCore';
+import { mergePlans } from './areaPlanMerge';
 
 // Keeps the area plan the same on every device, without Realtime:
 //  - edits are saved to the cloud a couple of seconds after the last change
@@ -8,11 +10,14 @@ import { isUntouchedPlan } from './areaPlan';
 //  - when the app opens or comes back to the foreground, the latest cloud
 //    copy is loaded, unless this device still has edits that haven't been
 //    uploaded yet (those win, since they were just made here).
+// Saving never overwrites a newer cloud copy (the MCP, the nightly job or another device may have written IRIS notes, ticked
+// blocks or moved things): when the cloud changed in between, both copies are merged (see areaPlanMerge.js) and the merge is saved.
 // If the cloud has no plan yet, this device's plan becomes the first copy.
 // A device that never synced keeps its own plan only when it has real edits;
 // an untouched starter example always gives way to the cloud copy.
 
 const META_KEY = 'el_boceto_area_plan_sync_v1';
+const BASE_KEY = 'el_boceto_area_plan_base_v1'; // the plan as this device last agreed it with the cloud (common ancestor for merging)
 const PUSH_DELAY_MS = 2000;
 
 function loadMeta() {
@@ -21,6 +26,14 @@ function loadMeta() {
   } catch {
     return { lastSeenCloud: null, dirty: false };
   }
+}
+
+function loadBase() {
+  try { return JSON.parse(localStorage.getItem(BASE_KEY)); } catch { return null; }
+}
+
+function saveBase(plan) {
+  try { localStorage.setItem(BASE_KEY, JSON.stringify(plan)); } catch (e) { console.error('Error saving area plan base:', e); }
 }
 
 function saveMeta(meta) {
@@ -34,6 +47,8 @@ function saveMeta(meta) {
 export function useAreaPlanSync(user, plan, setPlan) {
   const userId = user?.id;
   const meta = useRef(loadMeta());
+  const baseRef = useRef(loadBase());
+  const setBase = (p) => { baseRef.current = p; saveBase(p); };
   const planRef = useRef(plan);
   const lastPlan = useRef(plan);
   const skipNext = useRef(false); // the change that just came from the cloud isn't an edit
@@ -47,10 +62,24 @@ export function useAreaPlanSync(user, plan, setPlan) {
     busy.current = true;
     const snapshot = planRef.current;
     try {
-      meta.current.lastSeenCloud = await pushAreaPlan(userId, snapshot);
-      // Edits made while the request was in flight keep the plan dirty.
-      if (planRef.current === snapshot) meta.current.dirty = false;
-      saveMeta(meta.current);
+      const r = await savePlan({
+        plan: snapshot, expected: meta.current.lastSeenCloud, base: baseRef.current,
+        api: { push: (p, expected) => pushAreaPlan(userId, p, expected), pull: () => pullAreaPlan(userId) }
+      });
+      if (r.status === 'pushed') {
+        meta.current.lastSeenCloud = r.updatedAt;
+        setBase(snapshot);
+        // Edits made while the request was in flight keep the plan dirty.
+        if (planRef.current === snapshot) meta.current.dirty = false;
+        saveMeta(meta.current);
+      } else if (r.status === 'merged' && planRef.current === snapshot) {
+        // The cloud had newer content: keep the merge and save it next (the plan effect schedules that).
+        meta.current.lastSeenCloud = r.cloudUpdatedAt;
+        meta.current.dirty = true;
+        saveMeta(meta.current);
+        setPlan(r.plan);
+      }
+      // (merged but edited meanwhile: nothing is applied; the next save finds the same conflict and merges again)
     } catch (e) {
       console.error('Error guardando el plan por áreas:', e);
     } finally {
@@ -89,12 +118,16 @@ export function useAreaPlanSync(user, plan, setPlan) {
           meta.current.dirty = true;
           saveMeta(meta.current);
         } else if (meta.current.lastSeenCloud === null && !meta.current.dirty && !isUntouchedPlan(planRef.current)) {
-          // First sync of a device that already holds real edits: they go up.
+          // First sync of a device that already holds real edits: merge them with the cloud copy, then they go up.
+          meta.current.lastSeenCloud = cloud.updatedAt;
           meta.current.dirty = true;
+          setBase(cloud.plan);
           saveMeta(meta.current);
+          setPlan(mergePlans(null, planRef.current, cloud.plan));
         } else if (cloud.updatedAt !== meta.current.lastSeenCloud && !meta.current.dirty) {
           skipNext.current = true;
           setPlan(cloud.plan);
+          setBase(cloud.plan);
           meta.current.lastSeenCloud = cloud.updatedAt;
           saveMeta(meta.current);
         }
