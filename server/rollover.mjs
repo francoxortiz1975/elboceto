@@ -8,7 +8,7 @@
 // Environment variables (Vercel -> Settings -> Environment Variables):
 //   CRON_SECRET                 any long random text; Vercel sends it as "Authorization: Bearer ..." on cron calls
 //   SUPABASE_URL                https://<project>.supabase.co   (VITE_SUPABASE_URL also works)
-//   SUPABASE_SERVICE_ROLE_KEY   the project's service_role key (server only, never in the app)
+//   SUPABASE_SERVICE_ROLE_KEY   the project's server key: the legacy `service_role` key or the new `sb_secret_...` key (server only, never in the app)
 //   BOCETO_TZ                   optional, default Europe/Paris
 //
 // GET /api/rollover            (cron)   -> work only if it is the 00:00 hour
@@ -23,10 +23,15 @@ export function localParts(date, tz) {
   return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
-const rest = (env, path, init = {}, fetchFn = fetch) => fetchFn(`${(env.SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/${path}`, {
-  ...init,
-  headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json', ...(init.headers || {}) }
-});
+// Supabase has two kinds of server key: the legacy `service_role` (a JWT, starts with "eyJ") and the newer `sb_secret_...` key.
+// The legacy one goes in both headers; the new one only in `apikey` (it is not a JWT, so it must not be sent as a Bearer token).
+const rest = (env, path, init = {}, fetchFn = fetch) => {
+  const key = env.SUPABASE_SERVICE_ROLE_KEY || '';
+  return fetchFn(`${(env.SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/${path}`, {
+    ...init,
+    headers: { apikey: key, ...(key.startsWith('eyJ') ? { Authorization: `Bearer ${key}` } : {}), 'Content-Type': 'application/json', ...(init.headers || {}) }
+  });
+};
 
 // Does the whole job. `fetchFn`, `now` and `env` are parameters so it can be tested without a network.
 export async function runRollover({ env, now = new Date(), force = false, fetchFn = fetch }) {

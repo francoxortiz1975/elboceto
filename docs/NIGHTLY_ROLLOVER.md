@@ -16,7 +16,7 @@ It runs in two places, and runs once per day (`lastRollover.day`):
 |---|---|
 | `CRON_SECRET` | any long random text (Vercel sends it to the cron call) |
 | `SUPABASE_URL` | `https://<project>.supabase.co` (the existing `VITE_SUPABASE_URL` is also read) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase -> Project Settings -> API -> `service_role` key. Server only: never put it in a `VITE_` variable |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase -> Project Settings -> API Keys. Either the **secret** key (`sb_secret_...`, tab "Publishable and secret API keys") or the legacy `service_role` key (tab "Legacy anon, service_role API keys"). Server only: never put it in a `VITE_` variable |
 | `BOCETO_TZ` | optional, defaults to `Europe/Paris` |
 
 Redeploy after adding them. To test without waiting for midnight:

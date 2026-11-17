@@ -1,13 +1,15 @@
 // The server job against a fake Supabase REST (in memory): reads area_plans, runs the rollover, writes back with a version check.
 import { runRollover, localParts } from '../../server/rollover.mjs';
 const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
-const env = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'svc', BOCETO_TZ: 'Europe/Paris' };
+let currentKey = 'sb_secret_abc';
+const env = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_abc', BOCETO_TZ: 'Europe/Paris' };
 const plan = () => ({ areas: [{ id: 'm', name: 'MediLyft', c: 3 }], hidden: [], scheduler: { profile: { meals: [{ name: 'Cena', start: '19:30', dur: 45, on: true }], open: [true, true, true, true, true, true, true] }, areaRules: { m: { from: '21:00', to: '22:00' } } },
   items: [{ id: 'a', area: 'm', text: 'Feature de ayer', done: false, day: '2026-11-17', at: 1260, dur: 60 }] });
 let db, conflictOnce, calls;
 const fake = async (url, init = {}) => {
   calls.push(`${init.method || 'GET'} ${url.replace('https://x.supabase.co/rest/v1/', '')}`);
-  if (!(init.headers && init.headers.apikey === 'svc' && init.headers.Authorization === 'Bearer svc')) return { ok: false, status: 401, json: async () => ({}) };
+  const h = init.headers || {}; const key = currentKey;
+  if (!(h.apikey === key && (key.startsWith('eyJ') ? h.Authorization === `Bearer ${key}` : h.Authorization === undefined))) return { ok: false, status: 401, json: async () => ({}) };
   const u = new URL(url);
   if ((init.method || 'GET') === 'GET') {
     const f = u.searchParams.get('user_id');
@@ -49,3 +51,9 @@ ok(r.body.users[0].ran, 'force=1 works at any hour');
 fresh(); db.rows[0].plan.scheduler.profile = { open: [true, true, true, true, true, true, true] };
 r = await runRollover({ env, now: new Date('2026-11-17T23:10:00Z'), fetchFn: fake });
 ok(r.body.users[0].moved === 0 && db.rows[0].plan.scheduler.lastRollover.left[0].why === 'sin hueco en 21:00–22:00', 'dinner covering the area hours: nothing moved, reason names the hours');
+// the legacy service_role key is a JWT: it must go in both headers
+fresh(); currentKey = 'eyJhbGciOi.legacy.key';
+r = await runRollover({ env: { ...env, SUPABASE_SERVICE_ROLE_KEY: currentKey }, now: new Date('2026-11-17T23:10:00Z'), fetchFn: fake });
+ok(r.body.users && r.body.users[0].ran, 'legacy service_role key (JWT): sent as apikey and Bearer');
+r = await runRollover({ env: { ...env, SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_abc' }, now: new Date('2026-11-17T23:10:00Z'), force: true, fetchFn: fake });
+ok(r.status === 502, 'a key the project does not accept gives a clear error, not a crash');

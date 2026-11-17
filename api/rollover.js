@@ -570,10 +570,13 @@ function localParts(date, tz) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(date).map((p) => [p.type, p.value]));
   return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
-var rest = (env, path, init = {}, fetchFn = fetch) => fetchFn(`${(env.SUPABASE_URL || env.VITE_SUPABASE_URL || "").replace(/\/$/, "")}/rest/v1/${path}`, {
-  ...init,
-  headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", ...init.headers || {} }
-});
+var rest = (env, path, init = {}, fetchFn = fetch) => {
+  const key = env.SUPABASE_SERVICE_ROLE_KEY || "";
+  return fetchFn(`${(env.SUPABASE_URL || env.VITE_SUPABASE_URL || "").replace(/\/$/, "")}/rest/v1/${path}`, {
+    ...init,
+    headers: { apikey: key, ...key.startsWith("eyJ") ? { Authorization: `Bearer ${key}` } : {}, "Content-Type": "application/json", ...init.headers || {} }
+  });
+};
 async function runRollover({ env, now = /* @__PURE__ */ new Date(), force = false, fetchFn = fetch }) {
   if (!(env.SUPABASE_URL || env.VITE_SUPABASE_URL) || !env.SUPABASE_SERVICE_ROLE_KEY) return { status: 500, body: { error: "Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Vercel." } };
   const tz = env.BOCETO_TZ || "Europe/Paris";
