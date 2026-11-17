@@ -13,6 +13,7 @@ import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSyn
 import { subscribeToCloudChanges } from './lib/realtimeSync';
 import { loadAreaPlan, saveAreaPlan, importSchedule, isoOf } from './lib/areaPlan';
 import { runGenerators } from './lib/scheduler/generate';
+import { rollover } from './lib/scheduler/rollover';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
 import { useGcalSync } from './lib/useGcalSync';
 import { useTheme, useTopExtra } from './lib/theme';
@@ -139,10 +140,20 @@ export default function App() {
   useEffect(() => { saveAreaPlan(areaPlan); }, [areaPlan]);
   // Blocks the scheduler creates by itself (fixed events marked "en el calendario", weekly habits): run when the app opens,
   // when the day changes and when their rules change. Idempotent, so it only touches the plan when something is missing.
-  const todayKey = isoOf(new Date());
+  // todayKey follows the clock, so a tab left open across midnight notices the new day.
+  const [todayKey, setTodayKey] = useState(() => isoOf(new Date()));
+  useEffect(() => {
+    const t = setInterval(() => setTodayKey((k) => { const n = isoOf(new Date()); return n === k ? k : n; }), 60000);
+    return () => clearInterval(t);
+  }, []);
   useEffect(() => {
     setAreaPlan((p) => { const r = runGenerators(p, todayKey); return r.changed ? r.plan : p; });
   }, [areaPlan.scheduler, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The nightly reschedule normally runs on the server at 00:00. This is the safety net: the first time the app is open on a
+  // new day (or after a sync brings in a plan that did not get it), it runs here. It does nothing if it already ran today.
+  useEffect(() => {
+    setAreaPlan((p) => { const r = rollover(p, todayKey); return r.ran ? r.plan : p; });
+  }, [todayKey, areaPlan.scheduler?.lastRollover?.day]); // eslint-disable-line react-hooks/exhaustive-deps
   // A Reel / Story dragged to another day in the calendar keeps that day (it becomes a pinned date).
   useEffect(() => {
     const next = pinMovedPieces(areaPlan);

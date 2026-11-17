@@ -39,6 +39,7 @@ export function getScheduler(plan) {
     areaRules: s.areaRules || {},
     habits: s.habits || [],
     generated: s.generated || {},
+    lastRollover: s.lastRollover || null,
     history: s.history || []
   };
 }

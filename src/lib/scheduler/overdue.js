@@ -13,7 +13,7 @@ export const whyPlaced = (parts) => parts.filter((p) => p.contrib > 0.5).sort((a
 // Open items dated before today. Reels / Stories bound to a stack are not pending work, they keep their date.
 export function overdueItems(plan, today) {
   return plan.items
-    .filter((it) => !it.done && /^\d{4}-\d{2}-\d{2}$/.test(it.day || '') && it.day < today && !(it.reel && it.stackId))
+    .filter((it) => !it.done && /^\d{4}-\d{2}-\d{2}$/.test(it.day || '') && it.day < today && !(it.reel && it.stackId) && !(it.gen && it.gen.startsWith('fx:')))
     .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
 }
 

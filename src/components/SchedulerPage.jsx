@@ -8,6 +8,7 @@ import {
 import { getScheduler, attrsOf, ruleOf, areaWindow, windowLabel, isMeeting, kindDur, buildEngineInput, nowMinutes, mondayOfIso, newFixed, proposalChanges, applyChanges, undoChanges } from '../lib/scheduler/config';
 import { overdueItems, resolveItem, undoResolve, whyPlaced } from '../lib/scheduler/overdue';
 import { planHabits, habitStatus, newHabit, withNewArea } from '../lib/scheduler/generate';
+import { undoRollover } from '../lib/scheduler/rollover';
 import './SchedulerPage.css';
 
 const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -55,7 +56,7 @@ function In({ cfg, patch, path, type = 'text', value, num, options, min, max, st
 }
 
 export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChange }) {
-  const [panel, setPanel] = useState(() => (overdueItems(plan, isoOf(new Date())).length ? 'ayer' : 'perfil'));
+  const [panel, setPanel] = useState(() => (overdueItems(plan, isoOf(new Date())).length || (plan.scheduler?.lastRollover?.day === isoOf(new Date()) && (plan.scheduler.lastRollover.moves || []).length) ? 'ayer' : 'perfil'));
   const [selId, setSelId] = useState(null);
   const [baseSig, setBaseSig] = useState(null);
   const [includeLater, setIncludeLater] = useState(false);
@@ -110,7 +111,7 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
 /* ---------- Pendientes de ayer ---------- */
 const clock = (day, at) => (typeof at === 'number' ? `${dayLabel(day)} ${fmtMin(at)}` : dayLabel(day));
 
-function PendingPanel({ res, today, overdue, onChange, colorOf, areaName }) {
+function PendingPanel({ res, today, overdue, onChange, colorOf, areaName, cfg }) {
   const [last, setLast] = useState(null); // { undo, text } of the last action
   const [hidden, setHidden] = useState(() => new Set());
   const [alts, setAlts] = useState(null); // item id whose alternatives are open
@@ -166,8 +167,22 @@ function PendingPanel({ res, today, overdue, onChange, colorOf, areaName }) {
     );
   };
 
+  const lr = cfg.lastRollover && cfg.lastRollover.day === today ? cfg.lastRollover : null;
+  const whenTxt = (m) => clock(m.day, m.at);
   return (
     <>
+      {lr && (
+        <div className="sc-card">
+          <div className="sc-head"><b className="sc-ttl">Reagendamiento de esta noche</b>
+            <span className="sc-stat">{lr.undone ? 'deshecho' : `${lr.moves.length} movidas · ${lr.left.length} esperan tu decisión`}</span></div>
+          {lr.moves.map((m) => <div className="sc-stat" key={m.id}>“{m.title}”: {whenTxt(m.from)} → <b>{whenTxt(m.to)}</b></div>)}
+          {!lr.moves.length && !lr.undone && <div className="sc-stat">No hubo nada que mover.</div>}
+          {(lr.habitsAdded > 0 || lr.habitsMissed > 0) && <div className="sc-stat">Hábitos: {lr.habitsMissed} sin hacer ayer · {lr.habitsAdded} bloques nuevos planificados.</div>}
+          {lr.closed > 0 && <div className="sc-stat">{lr.closed} {lr.closed === 1 ? 'evento fijo cerrado' : 'eventos fijos cerrados'} (ya pasaron).</div>}
+          {lr.left.map((l) => <div className="sc-stat" key={l.id}>Pendiente: “{l.title}” ({l.why}).</div>)}
+          {lr.moves.length > 0 && <div className="sc-acts"><button className="ap-btn" onClick={() => onChange((p) => undoRollover(p))}>Deshacer lo que movió</button></div>}
+        </div>
+      )}
       <p className="sc-note">Lo que estaba planeado para días pasados y no se marcó como hecho. Para cada cosa, el motor propone un nuevo hueco con su motivo; tú decides. Todo queda registrado para que aprenda de lo que aceptas y de lo que no.</p>
       {last && (
         <div className="sc-apply">
