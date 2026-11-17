@@ -5,6 +5,7 @@ import {
   hasAreaDrag, placeAreaItem, pickArea, uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
 } from '../lib/areaPlan';
 import { openReel } from '../lib/contentPlan';
+import { getScheduler, kindDur } from '../lib/scheduler/config';
 import { PlanTabs } from './PlanTabs';
 import './AreaPlanner.css';
 
@@ -122,10 +123,17 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
   const todaySub = `${dayLabel(today)} · bloques de 15 min · ${plannedMin ? durLabel(plannedMin) : '0h'} planificadas · ${aheadMin ? durLabel(aheadMin) : '0h'} por delante`;
 
   // ── mutations ──────────────────────────────────────────────────────────
+  const schedCfg = getScheduler(plan);
   const makeItem = (area, pos, dur) => ({
     id: uid(), area, text: '', done: false, day: pos.day, at: pos.at,
-    ...(typeof pos.at === 'number' ? { dur: dur || 60 } : {})
+    ...(typeof pos.at === 'number' ? { dur: dur || kindDur(schedCfg, area, 'task') || 60 } : {})
   });
+  // Task <-> meeting: a meeting reserves its area's meeting length (60 min by default).
+  const toggleKind = (it) => {
+    const kind = it.kind === 'meeting' ? 'task' : 'meeting';
+    const d = kindDur(schedCfg, it.area, kind);
+    patchItem(it.id, { kind: kind === 'meeting' ? 'meeting' : undefined, ...(typeof it.at === 'number' && d ? { dur: d } : {}) });
+  };
   // Minute of the day under the pointer: the top half of a 30-min row is :00,
   // the bottom half is :15.
   const pointAt = (row, ev) => {
@@ -176,7 +184,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
   const startMove = (e, it, eff) => {
     if (e.button !== 0) return;
     const onGrip = e.target.closest('.ap-grip');
-    if (e.target.closest('textarea, .ap-chk, .ap-del, .ap-rs, .ap-lock')) return;
+    if (e.target.closest('textarea, .ap-chk, .ap-del, .ap-rs, .ap-lock, .ap-kind')) return;
     if (e.pointerType === 'touch' && !onGrip) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const grabMin = typeof eff.at === 'number' ? (e.clientY - rect.top) / PX_PER_MIN : 0;
@@ -320,6 +328,12 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
           <div className="ap-bh">{head}</div>
           <div className="ap-meta">
             {tagged ? `${area.name} · ` : ''}{fmtMin(eff.at)}–{fmtMin(eff.at + dur)} · {durLabel(dur)}
+            {!ghost && !locked && !it.reel && (
+              <button className={`ap-kind${it.kind === 'meeting' ? ' on' : ''}`} onClick={() => toggleKind(it)} title={it.kind === 'meeting' ? 'Es una reunión. Clic para dejarla como tarea.' : 'Marcar como reunión (reserva su duración de reunión)'}>
+                {it.kind === 'meeting' ? 'reunión' : 'tarea'}
+              </button>
+            )}
+            {(ghost || locked || it.reel) && it.kind === 'meeting' ? ' · reunión' : ''}
           </div>
           {!ghost && !locked && (
             <div className="ap-rs" title="Estirar para cambiar la duración" onPointerDown={(ev) => startResize(ev, it, eff)} />

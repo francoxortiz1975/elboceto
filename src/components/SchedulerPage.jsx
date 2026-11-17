@@ -5,7 +5,7 @@ import { AREA_COLORS, addDays, dayLabel, daysBetween, isoOf } from '../lib/areaP
 import {
   EFFORT, WEIGHTS, PLANNED, runEngine, areaScore, freeHours, fmtMin, toMin, activeOn, cycleWeek, signature, slotKey, SLOT
 } from '../lib/scheduler/engine';
-import { getScheduler, attrsOf, buildEngineInput, nowMinutes, mondayOfIso, newFixed, proposalChanges, applyChanges, undoChanges } from '../lib/scheduler/config';
+import { getScheduler, attrsOf, ruleOf, areaWindow, windowLabel, isMeeting, kindDur, buildEngineInput, nowMinutes, mondayOfIso, newFixed, proposalChanges, applyChanges, undoChanges } from '../lib/scheduler/config';
 import { overdueItems, resolveItem, undoResolve, whyPlaced } from '../lib/scheduler/overdue';
 import './SchedulerPage.css';
 
@@ -98,7 +98,7 @@ export function SchedulerPage({ plan, onChange, onBack, compact, tab, onTabChang
         {panel === 'perfil' && <ProfilePanel {...ctx} />}
         {panel === 'fijo' && <FixedPanel {...ctx} />}
         {panel === 'areas' && <AreasPanel {...ctx} />}
-        {panel === 'tareas' && <TasksPanel {...ctx} includeLater={includeLater} />}
+        {panel === 'tareas' && <TasksPanel {...ctx} includeLater={includeLater} onChange={onChange} />}
         {panel === 'pesos' && <WeightsPanel {...ctx} selId={selId} setSelId={setSelId} baseSig={baseSig} setBaseSig={setBaseSig} />}
         {panel === 'sim' && <SimPanel {...ctx} selId={selId} setSelId={setSelId} includeLater={includeLater} setIncludeLater={setIncludeLater} onChange={onChange} />}
       </div>
@@ -374,7 +374,7 @@ function FixedPanel({ plan, cfg, patch, update, today }) {
 }
 
 /* ---------- Áreas ---------- */
-function AreasPanel({ plan, cfg, update, colorOf, areaName }) {
+function AreasPanel({ plan, cfg, update, patch, colorOf, areaName }) {
   const n = cfg.areaOrder.length;
   const move = (i, j) => update((c) => { [c.areaOrder[i], c.areaOrder[j]] = [c.areaOrder[j], c.areaOrder[i]]; return c; });
   return (
@@ -395,18 +395,70 @@ function AreasPanel({ plan, cfg, update, colorOf, areaName }) {
           );
         })}
       </div>
+      <div className="sc-stage">Reglas por área</div>
+      <p className="sc-note">Las horas permitidas de cada área y cuánto dura cada cosa. El motor solo coloca sus tareas dentro de esas horas. Lo que tiene candado las ignora, porque tú ya elegiste esa hora. Una reunión es una tarea marcada como “Reunión”: solo cambia el tiempo que reserva.</p>
+      <div className="sc-stack">
+        {cfg.areaOrder.map((id) => {
+          const r = cfg.areaRules[id] || {};
+          const p = `areaRules.${id}`;
+          const warn = ruleWarnings(cfg, id);
+          return (
+            <div className="sc-card" key={id}>
+              <div className="sc-head"><i className="sc-dot" style={{ background: colorOf(id) }} /><b className="sc-ttl">{areaName(id)}</b>
+                <span className="sc-stat">{r.from || r.to ? `tareas ${windowLabel(areaWindow(cfg, id, 'task'))}` : 'sin límite de horas'}</span></div>
+              <div className="sc-grid">
+                <Field label="Tareas desde" tag="on"><In cfg={cfg} patch={patch} path={`${p}.from`} value={r.from || ''} type="time" /></Field>
+                <Field label="Tareas hasta" tag="on"><In cfg={cfg} patch={patch} path={`${p}.to`} value={r.to || ''} type="time" /></Field>
+                <Field label="Cada tarea dura (min)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.taskMin`} value={r.taskMin || ''} type="number" min={15} max={480} step={15} /></Field>
+                <Field label="Reunión dura (min)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.meetMin`} value={r.meetMin || ''} type="number" min={15} max={480} step={15} /></Field>
+                <Field label="Reuniones desde" tag="on"><In cfg={cfg} patch={patch} path={`${p}.meetFrom`} value={r.meetFrom || ''} type="time" /></Field>
+                <Field label="Reuniones hasta" tag="on"><In cfg={cfg} patch={patch} path={`${p}.meetTo`} value={r.meetTo || ''} type="time" /></Field>
+              </div>
+              <p className="sc-stat" style={{ margin: '6px 0 0' }}>Vacío = sin regla. Duración de tarea vacía: cada tarea conserva la suya. Reunión por defecto: 60 min. Horas de reunión vacías: las mismas que las tareas.</p>
+              {warn.map((w) => <div className="sc-prop no" key={w}>{w}</div>)}
+            </div>
+          );
+        })}
+      </div>
       <p className="sc-note" style={{ marginTop: 12 }}>Cuota semanal mínima por área <Tag kind="plan" />: horas que cada área debería recibir cada semana aunque no sea la más prioritaria. Todavía no entra en el cálculo.</p>
     </>
   );
 }
 
+// Things in an area's hours that the engine can never use, so the user is not surprised by "no cabe".
+function ruleWarnings(cfg, areaId) {
+  const P = cfg.profile; const out = [];
+  [['task', 'tareas'], ['meeting', 'reuniones']].forEach(([kind, label]) => {
+    const r = ruleOf(cfg, areaId);
+    if (kind === 'meeting' && !r.meetFrom && !r.meetTo) return; // meetings use the task hours: already checked
+    const w = areaWindow(cfg, areaId, kind);
+    if (!w) return;
+    const g = [toMin(P.window.from), toMin(P.window.to)];
+    if (w[0] < g[0] || w[1] > g[1]) out.push(`Las horas de ${label} (${windowLabel(w)}) se salen de tu horario de trabajo (${P.window.from}–${P.window.to}, ventana Perfil): lo de fuera no se usa.`);
+    P.meals.filter((m) => m.on).forEach((m) => {
+      const a = toMin(m.start); const b = a + m.dur;
+      if (a < w[1] && b > w[0]) out.push(`${m.name} (${fmtMin(a)}–${fmtMin(b)}) se cruza con las horas de ${label} (${windowLabel(w)}): ese rato queda bloqueado. Cámbialo en Perfil si no es lo que quieres.`);
+    });
+  });
+  return [...new Set(out)];
+}
+
 /* ---------- Tareas ---------- */
-function TasksPanel({ plan, cfg, patch, res, colorOf, areaById, today, includeLater }) {
+function TasksPanel({ plan, cfg, patch, res, colorOf, areaById, today, includeLater, onChange }) {
   const [scope, setScope] = useState('week');
   const [area, setArea] = useState('');
   const [limit, setLimit] = useState(30);
   const inWeek = new Set([...res.placed.map((p) => p.task.id), ...res.unplaced.map((p) => p.task.id)]);
   const open = plan.items.filter((it) => !it.done && !(it.reel && it.stackId));
+  // Changing the type also gives the block the length that type reserves in its area (meeting: 60 min by default).
+  const setKind = (it, kind) => onChange((p) => {
+    const c = getScheduler(p); const d = kindDur(c, it.area, kind);
+    return { ...p, items: p.items.map((i) => {
+      if (i.id !== it.id) return i;
+      const { kind: _k, ...rest } = i;
+      return { ...rest, ...(kind === 'meeting' ? { kind } : {}), ...(typeof i.at === 'number' && d ? { dur: d } : {}) };
+    }) };
+  });
   const rows = open
     .filter((it) => (scope === 'all' ? true : scope === 'later' ? it.day === 'later' : inWeek.has(it.id)))
     .filter((it) => !area || it.area === area)
@@ -437,6 +489,11 @@ function TasksPanel({ plan, cfg, patch, res, colorOf, areaById, today, includeLa
                 <span className="sc-stat">{areaById[it.area] ? areaById[it.area].name : ''} · {it.day === 'later' ? 'más adelante' : dayLabel(it.day)}</span>
               </div>
               <div className="sc-grid">
+                <Field label="Tipo" tag="on">
+                  <select value={isMeeting(it) ? 'meeting' : 'task'} onChange={(e) => setKind(it, e.target.value)}>
+                    <option value="task">Tarea</option><option value="meeting">Reunión</option>
+                  </select>
+                </Field>
                 <Field label="Prioridad 1–5" tag="on"><In cfg={cfg} patch={patch} path={`${p}.prio`} value={a.prio} type="select" num options={[1, 2, 3, 4, 5].map((x) => [x, String(x)])} /></Field>
                 <Field label="Esfuerzo" tag="on"><In cfg={cfg} patch={patch} path={`${p}.effort`} value={a.effort} type="select" options={Object.entries(EFFORT).map(([k, v]) => [k, v.label])} /></Field>
                 <Field label="Duración (min)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.dur`} value={a.dur || it.dur || 60} type="number" min={5} max={600} step={5} /></Field>

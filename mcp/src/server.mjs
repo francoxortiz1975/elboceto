@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { addDays, isoOf, fmtMin, durOf, placeAreaItem, uid, BANDS } from '../../src/lib/areaPlan';
 import { validateContentPlan, importContentPlan } from '../../src/lib/contentPlan';
-import { buildEngineInput, nowMinutes } from '../../src/lib/scheduler/config';
+import { buildEngineInput, nowMinutes, getScheduler, kindDur, areaWindow, windowLabel } from '../../src/lib/scheduler/config';
 import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
@@ -50,7 +50,7 @@ const when = (it) => {
 };
 const lineOf = (plan, it) => {
   const a = plan.areas.find((x) => x.id === it.area);
-  return `${it.done ? '[x]' : '[ ]'}${it.lock ? ' [candado]' : ''} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
+  return `${it.done ? '[x]' : '[ ]'}${it.lock ? ' [candado]' : ''}${it.kind === 'meeting' ? ' [reunión]' : ''} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
 };
 const sortKey = (it) => `${it.day}${typeof it.at === 'number' ? String(it.at).padStart(5, '0') : '99999'}`;
 const list = (plan, items, empty) => (items.length ? [...items].sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : 1)).map((it) => lineOf(plan, it)).join('\n') : empty);
@@ -114,7 +114,7 @@ const timing = {
   day: z.string().optional().describe('AAAA-MM-DD, "today", "tomorrow" o "later" (más adelante, sin día)'),
   time: z.string().optional().describe('Hora de inicio HH:MM (24 h). Hace un bloque con hora exacta.'),
   band: z.enum(['am', 'pm', 'ev']).optional().describe('Franja si no hay hora exacta: am mañana, pm tarde, ev noche'),
-  duration_minutes: z.number().int().min(15).max(960).optional().describe('Duración, solo con hora exacta (por defecto 60)')
+  duration_minutes: z.number().int().min(15).max(960).optional().describe('Duración, solo con hora exacta (por defecto: la que reserva su área para ese tipo, o 60)')
 };
 
 server.registerTool('add_item', {
@@ -124,6 +124,7 @@ server.registerTool('add_item', {
     area: z.string().describe('Nombre del área (ver list_areas)'),
     ...timing,
     note: z.string().optional(),
+    kind: z.enum(['task', 'meeting']).optional().describe('"meeting" para una reunión (reserva su duración de reunión: 60 min por defecto). Por defecto "task".'),
     source: z.string().optional().describe('De qué conversación o proyecto viene, p. ej. "chat Loginet"')
   }
 }, safe(async (a) => {
@@ -132,9 +133,12 @@ server.registerTool('add_item', {
   const out = await mutatePlan(cfg, (plan) => {
     const area = areaOf(plan, a.area);
     if (!area) throw new Error(noArea(plan, a.area));
+    // Without an explicit duration, a block gets what its area reserves for that kind (meeting 60 min; Loginet task 30 min…).
+    const dur = a.duration_minutes || kindDur(getScheduler(plan), area.id, a.kind === 'meeting' ? 'meeting' : 'task') || 60;
     const item = {
       id: uid(), area: area.id, text: a.text.trim(), done: false, day, at,
-      ...(typeof at === 'number' ? { dur: a.duration_minutes || 60 } : {}),
+      ...(a.kind === 'meeting' ? { kind: 'meeting' } : {}),
+      ...(typeof at === 'number' ? { dur } : {}),
       ...(a.note ? { note: a.note } : {}), ...(a.source ? { src: a.source } : {})
     };
     return { plan: { ...plan, items: [...plan.items, item] }, result: lineOf(plan, item) };
@@ -308,6 +312,7 @@ server.registerTool('get_scheduler_settings', {
     `Traslados: ${P.places.map((p) => `${p.name} ${p.min} min`).join(', ')}.`,
     `Pila de áreas (de más a menos prioritaria): ${c.areaOrder.map((id) => areaName(plan, id)).join(' > ')}.`,
     `Eventos fijos (${fixed.length}):${fixed.length ? `\n${fixed.join('\n')}` : ' ninguno'}`,
+    `Reglas por área:${plan.areas.map((ar) => { const r = c.areaRules[ar.id] || {}; const t = areaWindow(c, ar.id, 'task'); const m = areaWindow(c, ar.id, 'meeting'); return `\n  ${ar.name}: tareas ${t ? windowLabel(t) : 'cualquier hora'}${r.taskMin ? `, ${r.taskMin} min cada una` : ''}; reuniones ${m ? windowLabel(m) : 'cualquier hora'}, ${r.meetMin || 60} min`; }).join('')}`,
     `Pesos: ${WEIGHTS.map((w) => `${w.label} ${c.weights[w.id]}`).join('; ')}.`
   ].join('\n'));
 }));

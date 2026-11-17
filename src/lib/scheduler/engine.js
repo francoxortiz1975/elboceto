@@ -163,13 +163,18 @@ export function runEngine(cfg, tasks, { today, nowMin, blocks = [] }) {
       if (minDay && G.days[d] < minDay) continue;
       if (t.dl && t.dlHard && G.days[d] > t.dl) continue;
       for (let k0 = 0; k0 + need <= G.n; k0++) {
+        // The area's own hours (hard rule): the whole block must fit inside them.
+        if (t.win) { const s = G.wake + k0 * SLOT; if (s < t.win[0] || s + need * SLOT > t.win[1]) continue; }
         let ok = true;
         for (let k = k0; k < k0 + need; k++) if (G.blocked[d][k] || used[d][k]) { ok = false; break; }
         if (ok) cands.push(scoreSlot(cfg, G, ctx, task, d, k0));
       }
     }
     if (!cands.length) {
-      unplaced.push({ task, rank, urgency: u, reason: t.dl && t.dlHard ? 'No hay hueco antes de la fecha límite (dura).' : 'No cabe en los próximos 7 días.' });
+      const why = t.win
+        ? `No hay hueco libre en las horas de su área (${t.winLabel}) en los próximos 7 días.`
+        : t.dl && t.dlHard ? 'No hay hueco antes de la fecha límite (dura).' : 'No cabe en los próximos 7 días.';
+      unplaced.push({ task, rank, urgency: u, reason: why });
       return;
     }
     cands.sort((a, b) => b.total - a.total || a.d - b.d || a.k0 - b.k0);

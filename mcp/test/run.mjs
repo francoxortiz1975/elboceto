@@ -91,4 +91,10 @@ t = await call('resolve_overdue', { id: 'lk1', action: 'done' }); ok(!t.startsWi
 t = await call('lock_item', { id: 'a2', locked: false }); ok(!('lock' in db.plan.items.find((i) => i.id === 'a2')), 'lock_item locked=false removes the key');
 t = await call('lock_item', { id: 'od4' }); ok(t.startsWith('ERROR'), 'cannot lock something in Más adelante');
 t = await call('move_item', { id: 'a2', day: 'tomorrow', time: '11:00' }); ok(!t.startsWith('ERROR'), 'unlocked item moves again');
+// ---- area rules: windows, default durations, meetings ----
+db.plan.scheduler = { ...(db.plan.scheduler || {}), areaRules: { loginet: { from: '21:00', to: '21:30', taskMin: 30, meetFrom: '21:00', meetTo: '22:00', meetMin: 60 } } };
+t = await call('add_item', { text: 'Tarea loginet', area: 'loginet', day: 'tomorrow', time: '21:00' }); ok(t.includes('21:00–21:30'), 'add_item takes the area task length (Loginet 30 min)');
+t = await call('add_item', { text: 'Reunión loginet', area: 'loginet', day: 'tomorrow', time: '21:00', kind: 'meeting' }); ok(t.includes('21:00–22:00') && t.includes('[reunión]') && db.plan.items.at(-1).kind === 'meeting', 'meeting reserves 60 min');
+t = await call('add_item', { text: 'Con duración', area: 'loginet', day: 'tomorrow', time: '18:00', duration_minutes: 45 }); ok(t.includes('18:00–18:45'), 'explicit duration wins');
+t = await call('get_scheduler_settings'); ok(/Loginet: tareas 21:00–21:30, 30 min cada una; reuniones 21:00–22:00, 60 min/.test(t) && /Life: tareas cualquier hora/.test(t), 'get_scheduler_settings lists area rules');
 await client.close(); srv.close();

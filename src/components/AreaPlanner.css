@@ -103,6 +103,10 @@
 .ap-cell.slot .ap-item.block:hover { background: color-mix(in srgb, var(--c) 24%, var(--bg-note)); }
 .ap-bh { display: grid; grid-template-columns: 12px 16px 1fr 14px 18px; gap: 4px; align-items: start; }
 .ap-meta { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); padding-left: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-kind { border: 0; background: none; font: inherit; color: inherit; cursor: pointer; padding: 0 0 0 6px; opacity: 0; text-transform: lowercase; }
+.ap-item:hover .ap-kind, .ap-kind:focus-visible { opacity: 0.7; }
+.ap-kind:hover { opacity: 1; }
+.ap-kind.on { opacity: 1; color: var(--c); font-weight: 600; }
 .ap-item.block[data-short] .ap-meta { display: none; }
 .ap-item.block[data-short] .ap-txt { white-space: nowrap; text-overflow: ellipsis; height: 18px !important; }
 /* 15-minute blocks: one compact line */

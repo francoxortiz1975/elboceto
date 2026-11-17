@@ -3,7 +3,7 @@
 //   areaOrder (priority stack of area ids), weights, attrs (per-item attributes, only what differs from the defaults).
 
 import { addDays, durOf, isoOf, isLocked } from '../areaPlan';
-import { WEIGHTS, HORIZON } from './engine';
+import { WEIGHTS, HORIZON, toMin, fmtMin } from './engine';
 
 export const DEFAULT_PROFILE = {
   wake: '07:30', bed: '23:30',
@@ -36,9 +36,33 @@ export function getScheduler(plan) {
     areaOrder: [...order, ...areaIds.filter((id) => !order.includes(id))],
     weights: { ...Object.fromEntries(WEIGHTS.map((w) => [w.id, w.def])), ...(s.weights || {}) },
     attrs: s.attrs || {},
+    areaRules: s.areaRules || {},
     history: s.history || []
   };
 }
+
+// Per-area rules (plan.scheduler.areaRules[areaId]), all optional:
+//   from / to          the only hours the engine may put this area's TASKS (HH:MM)
+//   taskMin            every task of the area lasts this many minutes (0 / unset: each task keeps its own length)
+//   meetMin            a meeting lasts this many minutes (default 60)
+//   meetFrom / meetTo  the only hours for MEETINGS (unset: same window as tasks)
+// A meeting is just an item with kind: 'meeting': it differs from a task only in the time it reserves.
+export const DEFAULT_MEET_MIN = 60;
+export const isMeeting = (it) => it && it.kind === 'meeting';
+export const ruleOf = (cfg, areaId) => (cfg.areaRules && cfg.areaRules[areaId]) || {};
+export const areaTaskMin = (cfg, areaId) => Number(ruleOf(cfg, areaId).taskMin) || 0;
+export const areaMeetMin = (cfg, areaId) => Number(ruleOf(cfg, areaId).meetMin) || DEFAULT_MEET_MIN;
+// Length an item should have when it is created or changes kind (0: leave it as it is).
+export const kindDur = (cfg, areaId, kind) => (kind === 'meeting' ? areaMeetMin(cfg, areaId) : areaTaskMin(cfg, areaId));
+// Allowed hours as [fromMin, toMin], or null when the area has no limit.
+export function areaWindow(cfg, areaId, kind) {
+  const r = ruleOf(cfg, areaId);
+  const from = kind === 'meeting' && (r.meetFrom || r.meetTo) ? r.meetFrom : r.from;
+  const to = kind === 'meeting' && (r.meetFrom || r.meetTo) ? r.meetTo : r.to;
+  if (!from && !to) return null;
+  return [from ? toMin(from) : 0, to ? toMin(to) : 24 * 60];
+}
+export const windowLabel = (w) => (w ? `${fmtMin(w[0])}–${fmtMin(w[1])}` : '');
 
 export const attrsOf = (cfg, itemId) => ({ ...DEFAULT_ATTRS, ...(cfg.attrs[itemId] || {}) });
 
@@ -68,8 +92,11 @@ export function buildEngineInput(plan, today, { includeLater = false } = {}) {
     if (iso && iso >= today && typeof it.at === 'number' && !a.flex) { asBlock(); return; }
     if (!iso && !includeLater) return;
     if (iso && iso > end) return;
+    const kind = isMeeting(it) ? 'meeting' : 'task';
+    const win = areaWindow(cfg, it.area, kind);
     tasks.push({
-      id: it.id, title: it.text, area: it.area, prio: a.prio, effort: a.effort, dur: a.dur || it.dur || 60,
+      id: it.id, title: it.text, area: it.area, kind, win, winLabel: windowLabel(win),
+      prio: a.prio, effort: a.effort, dur: a.dur || kindDur(cfg, it.area, kind) || it.dur || 60,
       orig: iso || today, dl: a.dl || '', dlHard: !!a.dlHard, place: a.place, notBefore: a.notBefore || ''
     });
   });
