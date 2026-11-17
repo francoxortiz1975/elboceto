@@ -42,9 +42,12 @@ export function orderBrief(plan, item) {
   return n ? n.text : '';
 }
 
-export function launchPrompt(plan, item) {
+// max: the longest brief to put inside the message. A long order is cut: the full text is in the area's IRIS inbox,
+// which the hook shows when the conversation starts, so nothing is lost (and a link to the app stays short enough).
+export function launchPrompt(plan, item, { max = 1500 } = {}) {
   const area = (plan.areas.find((a) => a.id === item.area) || {}).name || item.area;
-  const brief = orderBrief(plan, item) || `(El centro de mando no dejó detalle. Mira tu buzón y los bloques de tu área.)`;
+  let brief = orderBrief(plan, item) || `(El centro de mando no dejó detalle. Mira tu buzón y los bloques de tu área.)`;
+  if (brief.length > max) brief = `${brief.slice(0, max).trimEnd()}…\n(El encargo sigue; está completo en tu buzón de IRIS, que ya se te muestra al empezar.)`;
   return [
     `Eres la conversación del área ${area} de IRIS. Ahora empieza el bloque "${item.text}" (${fmtMin(item.at)}–${fmtMin(item.at + durOf(item))}).`,
     '',
@@ -65,3 +68,7 @@ export function setLaunchState(plan, ids, state, now = new Date().toISOString())
 }
 
 export const LAUNCH_STATE_ES = { pending: 'por abrir', launched: 'abierta', missed: 'perdida', skipped: 'omitida' };
+
+// A link that opens the Claude desktop app on a NEW Code session in `dir` with the message typed in (it is not sent: the app
+// never sends by itself, and asks the user to trust the folder first).
+export const deepLink = (dir, text) => `claude://code/new?folder=${encodeURIComponent(dir)}&q=${encodeURIComponent(text)}`;

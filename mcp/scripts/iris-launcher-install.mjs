@@ -23,6 +23,8 @@ if (uninstall) {
 const script = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'iris-launcher.mjs');
 if (!fs.existsSync(script)) { console.error(`Falta ${script}. Corre primero: npm run mcp:build`); process.exit(1); }
 const claudeOk = (() => { try { execFileSync('/bin/zsh', ['-lc', 'command -v claude'], { stdio: 'pipe' }); return true; } catch { return false; } })();
+let terminalMode = false;
+try { terminalMode = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.config', 'boceto-mcp', 'iris-areas.json'), 'utf8')).mode === 'terminal'; } catch { /* default: the Claude app */ }
 const logFile = path.join(os.homedir(), 'Library', 'Logs', 'iris-launcher.log');
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const plist = `<?xml version="1.0" encoding="UTF-8"?>
@@ -43,6 +45,7 @@ launchctl('unload', plistPath);
 const loaded = launchctl('load', '-w', plistPath);
 console.log(`${loaded ? 'Lanzador IRIS+ instalado y en marcha' : 'Lanzador IRIS+ escrito, pero launchctl no lo cargó (cierra sesión y vuelve a entrar, o corre: launchctl load -w ' + plistPath + ')'}.`);
 console.log(`  cada minuto mira El Boceto; registro: ${logFile}`);
-if (!claudeOk) console.log('\nOJO: no encuentro el comando `claude` en tu terminal. Sin él, las ventanas se abren pero no arrancan la conversación.\n  Instálalo con: curl -fsSL https://claude.ai/install.sh | bash   (y abre una terminal nueva)');
-console.log('\nLa primera vez, macOS preguntará si permites que se controle Terminal: acepta.');
+console.log('\nPor defecto abre la app de Claude (pestaña Code) en la carpeta del área, con el encargo escrito: confirma la carpeta y pulsa Enter para enviarlo.');
+if (terminalMode && !claudeOk) console.log('\nOJO: tienes "mode": "terminal" pero no encuentro el comando `claude` en esta terminal (el lanzador lo busca también por su ruta completa). Si no lo tienes: curl -fsSL https://claude.ai/install.sh | bash');
+if (terminalMode) console.log('Con "mode": "terminal", macOS preguntará la primera vez si permite controlar Terminal: acepta.');
 console.log('Para quitarlo: npm run iris:launcher:uninstall');

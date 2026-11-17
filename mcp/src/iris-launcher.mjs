@@ -13,21 +13,27 @@ import { execFile } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
-import { findDue, launchPrompt, setLaunchState } from '../../src/lib/irisLaunch';
+import { findDue, launchPrompt, setLaunchState, deepLink } from '../../src/lib/irisLaunch';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 const log = (...a) => console.log(`[${new Date().toLocaleTimeString('es-ES')}]`, ...a);
 
-function open(dir, promptFile, opener, claudeBin = '') {
+// Three ways to open, in this order: a custom script ("opener"), the Terminal ("mode": "terminal", needs the `claude` command logged in),
+// and by default the Claude desktop app through a claude:// link: a new Code session in the folder with the order typed in.
+// The app asks to trust the folder and waits for you to press Enter: a link cannot send the message by itself.
+function open(dir, promptFile, prompt, conf) {
   return new Promise((resolve, reject) => {
     const done = (err) => (err ? reject(err) : resolve());
-    if (opener) return execFile(opener, [dir, promptFile], done);
-    if (process.platform !== 'darwin') return reject(new Error('Solo sé abrir Terminal en macOS; define "opener" en iris-areas.json.'));
-    const bin = claudeBin ? q(claudeBin) : 'claude';
-    const withPath = claudeBin ? `PATH=${q(path.dirname(claudeBin))}:"$PATH" ` : '';
-    const command = `cd ${q(dir)} && ${withPath}${bin} "$(cat ${q(promptFile)})"`;
-    return execFile('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'do script (item 1 of argv)', '-e', 'end tell', '-e', 'end run', command], done);
+    if (conf.opener) return execFile(conf.opener, [dir, promptFile], done);
+    if (process.platform !== 'darwin') return reject(new Error('Solo sé abrir la app en macOS; define "opener" en iris-areas.json.'));
+    if (conf.mode === 'terminal') {
+      const bin = conf.claudeBin ? q(conf.claudeBin) : 'claude';
+      const withPath = conf.claudeBin ? `PATH=${q(path.dirname(conf.claudeBin))}:"$PATH" ` : '';
+      const command = `cd ${q(dir)} && ${withPath}${bin} "$(cat ${q(promptFile)})"`;
+      return execFile('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'do script (item 1 of argv)', '-e', 'end tell', '-e', 'end run', command], done);
+    }
+    return execFile('open', [deepLink(dir, prompt)], done);
   });
 }
 
@@ -70,7 +76,7 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       const file = path.join(dir, `${c.item.id.replace(/[^\w.-]/g, '_')}.txt`);
       fs.writeFileSync(file, c.prompt, { mode: 0o600 });
-      await open(c.dir, file, conf.opener, conf.claudeBin);
+      await open(c.dir, file, c.prompt, conf);
       opened.push(c.item.id);
       log(`abierta: ${c.item.text} (${c.dir})`);
       await new Promise((r) => setTimeout(r, Number(process.env.IRIS_STAGGER_MS ?? 4000))); // do not open several windows on top of each other

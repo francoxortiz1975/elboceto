@@ -20,3 +20,14 @@ ok(findDue({ ...plan, items: [blk('c', { day: '2026-11-17' })] }, at(9, 0), area
 const p = launchPrompt(addNotes({ ...plan, items: [blk('a')] }, [{ area: 'm', kind: 'order', item: 'a', text: 'Hacer el botón.' }]), blk('a'));
 ok(/área MediLyft/.test(p) && /Hacer el botón/.test(p) && /21:00–22:00/.test(p) && /report_progress\(area="MediLyft", item_id="a"/.test(p) && /sin desplegar ni publicar/.test(p), 'the prompt names the area, carries the order, the time and how to report, and forbids deploying');
 ok(isAutoStart(blk('z')) && !isAutoStart({ id: 'q' }), 'isAutoStart');
+// ---- the link that opens the Claude desktop app ----
+import { deepLink } from '../../src/lib/irisLaunch.js';
+const url = deepLink('/Users/franco/Desktop/MEDILYFT/teledox', 'Hola: "x" & y\nlínea 2');
+ok(url.startsWith('claude://code/new?folder=%2FUsers%2Ffranco%2FDesktop%2FMEDILYFT%2Fteledox&q='), 'the link targets a new Code session in the area folder');
+const q = new URL(url).searchParams;
+ok(q.get('folder') === '/Users/franco/Desktop/MEDILYFT/teledox' && q.get('q') === 'Hola: "x" & y\nlínea 2', 'folder and message survive the encoding (quotes, &, newlines, accents)');
+const long = launchPrompt({ ...plan, items: [blk('a')], iris: { notes: [] } }, blk('a'));
+const bigPlan = addNotes({ ...plan, items: [blk('a')] }, [{ area: 'm', kind: 'order', item: 'a', text: 'X'.repeat(4000) }]);
+const cut = launchPrompt(bigPlan, blk('a'));
+ok(cut.length < 2400 && /buzón de IRIS/.test(cut) && /report_progress/.test(cut), 'a very long order is cut to fit in a link; the rest stays in the inbox and the how-to-report line is kept');
+ok(launchPrompt(bigPlan, blk('a'), { max: 5000 }).length > 2400, 'the cut is configurable');
