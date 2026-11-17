@@ -31,3 +31,10 @@ const bigPlan = addNotes({ ...plan, items: [blk('a')] }, [{ area: 'm', kind: 'or
 const cut = launchPrompt(bigPlan, blk('a'));
 ok(cut.length < 2400 && /buzón de IRIS/.test(cut) && /report_progress/.test(cut), 'a very long order is cut to fit in a link; the rest stays in the inbox and the how-to-report line is kept');
 ok(launchPrompt(bigPlan, blk('a'), { max: 5000 }).length > 2400, 'the cut is configurable');
+
+// ---- orders finished without a report_progress ----
+import { findFinished, markReported } from '../../src/lib/irisLaunch.js';
+const fp = { ...plan, items: [blk('f1', { done: true, iris: { launch: true, state: 'launched' } }), blk('f2', { done: false, iris: { launch: true, state: 'launched' } }), blk('f3', { done: true, iris: { launch: true, state: 'launched', reported: true } }), blk('f4', { done: true, iris: { launch: true, state: 'pending' } })] };
+ok(findFinished(fp).map((i) => i.id).join() === 'f1', 'finished = opened by IRIS+, now done, not yet reported (not-done, already-reported and never-opened ones are ignored)');
+ok(findFinished(markReported(fp, ['f1'])).length === 0, 'once reported it is not reported again');
+ok(/complete_item/.test(launchPrompt({ ...plan, items: [blk('a')] }, blk('a'))), 'the prompt tells the conversation what to do if it has no report_progress');

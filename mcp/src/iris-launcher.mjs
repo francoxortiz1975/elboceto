@@ -13,7 +13,7 @@ import { execFile } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
-import { findDue, launchPrompt, setLaunchState, deepLink } from '../../src/lib/irisLaunch';
+import { findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -42,8 +42,19 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   const cfg = loadConfig();
   const conf = loadAreas();
   const { plan } = await readPlan(cfg);
+  // First: orders it opened that are now done but nobody reported (the conversation had no report_progress): report for them.
+  const finished = findFinished(plan);
+  if (finished.length && !dry) {
+    await mutatePlan(cfg, (p) => {
+      const fin = findFinished(p);
+      if (!fin.length) return { plan: p, result: null };
+      const next = addNotes(markReported(p, fin.map((i) => i.id)), fin.map((i) => ({ area: i.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: i.id, text: `“${i.text}” se marcó como hecho. (Aviso automático: la conversación no envió un avance propio; mira su respuesta para el detalle.)` })), now.toISOString());
+      return { plan: next, result: null };
+    });
+    log(`avisado al centro: ${finished.map((i) => i.text).join(', ')}`);
+  }
   const peek = findDue(plan, now, conf.areas);
-  if (!peek.due.length && !peek.missed.length && !peek.noDir.length) return { opened: [], missed: [], noDir: [] };
+  if (!peek.due.length && !peek.missed.length && !peek.noDir.length) return { opened: [], missed: [], noDir: [], reported: finished.map((i) => i.id) };
   if (dry) {
     peek.due.forEach((d) => log(`abriría: ${d.item.text} -> ${d.dir}`));
     peek.missed.forEach((i) => log(`perdido: ${i.text}`));

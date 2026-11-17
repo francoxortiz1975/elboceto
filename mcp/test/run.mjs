@@ -129,6 +129,14 @@ t = await call('move_item', { id: 'mv1', day: 'tomorrow', band: 'pm' });
 ok(notes().some((n) => n.item === 'mv1' && n.kind === 'change' && n.area === 'life' && /se movió de/.test(n.text)), 'move_item tells the area what changed');
 t = await call('lock_item', { id: 'mv1' }); ok(notes().some((n) => n.item === 'mv1' && /candado/.test(n.text)), 'lock_item tells the area');
 t = await call('delete_item', { id: 'mv1' }); ok(notes().some((n) => /se borró del plan/.test(n.text)), 'delete_item tells the area');
+// ---- IRIS+: an order that was opened and finished without report_progress is reported by the launcher ----
+{
+  const osM = await import('node:os'); const pM = await import('node:path');
+  const tmp0 = fs.mkdtempSync(pM.join(osM.tmpdir(), 'iris-fin-'));
+  db.plan.items.push({ id: 'fin1', area: 'loginet', text: 'Terminó sin avance', done: true, day: iso(today), at: 600, dur: 30, iris: { launch: true, state: 'launched' } });
+  await new Promise((resolve) => execFile('node', ['dist/iris-launcher.mjs', '--once'], { env: { ...process.env, HOME: tmp0, BOCETO_SUPABASE_URL: url, BOCETO_SUPABASE_KEY: 'anon', BOCETO_TOKEN: 'secret', IRIS_AREAS: '{}', IRIS_STAGGER_MS: '0' }, timeout: 20000 }, () => resolve()));
+  ok(notes().some((n) => n.item === 'fin1' && n.dir === 'to_hub' && n.from === 'launcher' && /se marcó como hecho/.test(n.text)) && db.plan.items.find((i) => i.id === 'fin1').iris.reported === true, 'a finished IRIS+ order gets a report for the hub even if the conversation had no report_progress');
+}
 // ---- IRIS+: the launcher opens an area's conversation when its block starts ----
 const os = await import('node:os'); const pathMod = await import('node:path');
 const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'iris-launch-'));

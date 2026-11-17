@@ -36,6 +36,14 @@ export function findDue(plan, now, areas = {}) {
   return { due, missed, noDir };
 }
 
+// Blocks that were opened by IRIS+ and have since been ticked as done, but nobody reported yet. The conversation is supposed to call
+// report_progress; when it cannot (an older MCP loaded), the launcher reports for it so the hub never misses a finished order.
+export const findFinished = (plan) => plan.items.filter((i) => isAutoStart(i) && stateOf(i) === 'launched' && i.done && !i.iris.reported);
+export const markReported = (plan, ids) => {
+  const set = new Set(ids);
+  return set.size ? { ...plan, items: plan.items.map((i) => (set.has(i.id) ? { ...i, iris: { ...i.iris, reported: true } } : i)) } : plan;
+};
+
 // The order text the hub left for this block (kind 'order', linked by item id); newest wins.
 export function orderBrief(plan, item) {
   const n = notesOf(plan).filter((x) => x.item === item.id && x.kind === 'order' && x.dir === 'to_area').pop();
@@ -56,7 +64,8 @@ export function launchPrompt(plan, item, { max = 1500 } = {}) {
     '',
     'Empieza ahora. Primero confirma en una línea qué vas a hacer (tu buzón de IRIS ya te lo muestra el hook).',
     'Trabaja en una rama, sin desplegar ni publicar nada, y pide confirmación antes de cualquier cosa destructiva.',
-    `Al terminar, o si te bloqueas o tienes una duda, avisa con report_progress(area="${area}", item_id="${item.id}", text="…", done=true si terminó).`
+    `Al terminar, o si te bloqueas o tienes una duda, avisa con report_progress(area="${area}", item_id="${item.id}", text="…", done=true si terminó).`,
+    'Si no tienes la herramienta report_progress, marca el bloque como hecho con complete_item y cuenta el resultado en tu respuesta: IRIS avisará al centro de mando.'
   ].join('\n');
 }
 
