@@ -7,6 +7,8 @@ import {
   ArrowUp,
   Trash2,
   ChevronUp,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { MonthCalendar } from './MonthCalendar';
 import { PlanTabs } from './PlanTabs';
@@ -156,6 +158,7 @@ export function WeeklyPlanner({
       text: it.text,
       completed: !!it.done,
       isArea: true,
+      locked: !!it.lock,
       reel: it.reel,
       stackId: it.stackId,
       areaName: areaById[it.area].name,
@@ -203,6 +206,7 @@ export function WeeklyPlanner({
       if (updates.timeSlot !== undefined) patch.at = timeStrToMinutes(updates.timeSlot);
       if (updates.durationMin !== undefined) patch.dur = updates.durationMin;
       if (updates.dayIso !== undefined) patch.day = updates.dayIso;
+      if (updates.locked !== undefined) patch.lock = updates.locked ? true : undefined;
       if (onChangeAreaPlan) {
         onChangeAreaPlan(p => ({ ...p, items: p.items.map(i => (i.id === itemId ? { ...i, ...patch } : i)) }));
       }
@@ -273,6 +277,7 @@ export function WeeklyPlanner({
   const stopDragRef       = useRef(null);
 
   const startDragMove = (e, task, dayKey) => {
+    if (task.locked) return; // locked blocks stay where they are
     if (e.target.closest('input') || e.target.closest('button')) return;
     e.stopPropagation();
     if (e.cancelable) e.preventDefault();
@@ -297,6 +302,7 @@ export function WeeklyPlanner({
 
   const startDragResize = (e, task, dayKey) => {
     e.stopPropagation();
+    if (task.locked) return;
     if (e.cancelable) e.preventDefault();
     const colEl = colRefs.current[dayKey];
     if (!colEl) return;
@@ -761,10 +767,10 @@ export function WeeklyPlanner({
                           border: task.isEvent ? '1px solid rgba(var(--ink-rgb), 0.9)' : 'var(--border-hairline)',
                           borderLeft: task.isArea ? `3px solid ${task.areaColor}` : task.isEvent ? '3px solid #F7F4EE' : `2px solid rgba(24,24,27,${task.completed ? 0.15 : 0.4})`,
                           borderRadius: '4px',
-                          boxShadow: 'var(--shadow-subtle)',
+                          boxShadow: task.locked ? `inset 0 0 0 1px ${task.areaColor}` : 'var(--shadow-subtle)',
                           padding: '3px 6px 6px 6px',
                           overflow: 'hidden',
-                          cursor: 'grab',
+                          cursor: task.locked ? 'default' : 'grab',
                           zIndex: task.isEvent ? 5 : 4,
                           display: 'flex',
                           flexDirection: 'column',
@@ -810,6 +816,16 @@ export function WeeklyPlanner({
                               >
                                 {task.completed && <Check size={8} strokeWidth={3} />}
                               </button>
+{task.isArea && (
+                              <button
+                                title={task.locked ? 'Con candado: clic para soltarla' : 'Poner candado'}
+                                style={{ background: 'none', border: 'none', color: task.locked ? task.areaColor : 'var(--text-subtle)', cursor: 'pointer', padding: '0 1px', opacity: task.locked ? 1 : 0.6 }}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); updateTask(task.id, { locked: !task.locked }); }}
+                              >
+                                {task.locked ? <Lock size={10} /> : <Unlock size={10} />}
+                              </button>
+                              )}
                               <button
                                 style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(var(--book-rgb), 0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
                                 onMouseDown={e => e.stopPropagation()}
@@ -835,6 +851,16 @@ export function WeeklyPlanner({
                                 >
                                   {task.completed && <Check size={8} strokeWidth={3} />}
                                 </button>
+{task.isArea && (
+                                <button
+                                  title={task.locked ? 'Con candado: clic para soltarla' : 'Poner candado'}
+                                  style={{ background: 'none', border: 'none', color: task.locked ? task.areaColor : 'var(--text-subtle)', cursor: 'pointer', padding: '0 1px', opacity: task.locked ? 1 : 0.6 }}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onClick={(e) => { e.stopPropagation(); updateTask(task.id, { locked: !task.locked }); }}
+                                >
+                                  {task.locked ? <Lock size={10} /> : <Unlock size={10} />}
+                                </button>
+                                )}
                                 <button
                                   style={{ background: 'none', border: 'none', color: task.isEvent ? 'rgba(var(--book-rgb), 0.7)' : 'var(--text-subtle)', cursor: 'pointer', fontSize: '0.7rem', padding: '0 1px' }}
                                   onMouseDown={e => e.stopPropagation()}

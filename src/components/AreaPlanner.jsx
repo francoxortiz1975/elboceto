@@ -176,7 +176,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
   const startMove = (e, it, eff) => {
     if (e.button !== 0) return;
     const onGrip = e.target.closest('.ap-grip');
-    if (e.target.closest('textarea, .ap-chk, .ap-del, .ap-rs')) return;
+    if (e.target.closest('textarea, .ap-chk, .ap-del, .ap-rs, .ap-lock')) return;
     if (e.pointerType === 'touch' && !onGrip) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const grabMin = typeof eff.at === 'number' ? (e.clientY - rect.top) / PX_PER_MIN : 0;
@@ -263,8 +263,9 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     const tagged = col.kind !== 'area';
     const timed = typeof eff.at === 'number';
     const dur = durOf(it);
-    const cls = 'ap-item' + (it.done ? ' done' : '') + (ghost ? ' ghost' : '') + (timed ? ' block' : '') + (movingId === it.id ? ' moving' : '');
-    const grab = ghost ? undefined : (ev) => startMove(ev, it, eff);
+    const locked = !!it.lock;
+    const cls = 'ap-item' + (locked ? ' locked' : '') + (it.done ? ' done' : '') + (ghost ? ' ghost' : '') + (timed ? ' block' : '') + (movingId === it.id ? ' moving' : '');
+    const grab = ghost || locked ? undefined : (ev) => startMove(ev, it, eff);
     const style = { '--c': colorOf(area) };
     if (timed) {
       style['--dur'] = dur;
@@ -273,7 +274,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     }
     const head = (
       <>
-        <span className="ap-grip" title="Arrastrar">⋮⋮</span>
+        <span className="ap-grip" title={locked ? 'Con candado' : 'Arrastrar'}>{locked ? '' : '⋮⋮'}</span>
         <button
           className="ap-chk" aria-label={it.done ? 'Marcar pendiente' : 'Marcar hecho'}
           onClick={() => patchItem(it.id, { done: !it.done })}
@@ -297,6 +298,19 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
           onKeyDown={(ev) => onTextKeyDown(ev, it, eff)}
           onClick={(ev) => { ev.stopPropagation(); if (it.reel && Date.now() - gestureEnd.current > 400) openReel(it); }}
         />
+        {ghost || it.day === 'later' ? <span /> : (
+          <button
+            className="ap-lock" aria-pressed={locked}
+            aria-label={locked ? 'Quitar candado' : 'Poner candado'}
+            title={locked ? 'Con candado: tiene que hacerse aquí. Clic para soltarla.' : 'Poner candado: tiene que hacerse en este bloque'}
+            onClick={() => patchItem(it.id, { lock: locked ? undefined : true })}
+          >
+            <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+              <rect x="2" y="5.2" width="8" height="5.6" rx="1" fill={locked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.2" />
+              <path d={locked ? 'M3.8 5.2V3.8a2.2 2.2 0 0 1 4.4 0v1.4' : 'M3.8 5.2V3.8a2.2 2.2 0 0 1 4.2-.9'} fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
         <button className="ap-del" aria-label="Borrar tarea" onClick={() => removeItem(it.id)}>×</button>
       </>
     );
@@ -307,7 +321,7 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
           <div className="ap-meta">
             {tagged ? `${area.name} · ` : ''}{fmtMin(eff.at)}–{fmtMin(eff.at + dur)} · {durLabel(dur)}
           </div>
-          {!ghost && (
+          {!ghost && !locked && (
             <div className="ap-rs" title="Estirar para cambiar la duración" onPointerDown={(ev) => startResize(ev, it, eff)} />
           )}
         </li>

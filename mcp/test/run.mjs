@@ -78,4 +78,17 @@ t = await call('resolve_overdue', { id: 'od4', action: 'later' }); ok(db.plan.it
 t = await call('resolve_overdue', { id: 'od4', action: 'move' }); ok(t.startsWith('ERROR'), 'move without day is an error');
 t = await call('resolve_overdue', { id: 'nope', action: 'done' }); ok(t.startsWith('ERROR'), 'unknown id is an error');
 t = await call('get_overdue_proposals'); ok(!t.includes('Factura atrasada'), 'resolved items leave the overdue list');
+// ---- locks ----
+t = await call('lock_item', { id: 'a2' }); ok(!t.startsWith('ERROR') && db.plan.items.find((i) => i.id === 'a2').lock === true && t.includes('[candado]'), 'lock_item sets the lock');
+t = await call('move_item', { id: 'a2', day: 'tomorrow', time: '11:00' }); const a2 = db.plan.items.find((i) => i.id === 'a2');
+ok(t.startsWith('ERROR') && t.includes('candado') && a2.day === iso(today) && a2.at === 600, 'move_item refuses a locked item and leaves it untouched');
+t = await call('lock_item', { id: 'od3', locked: true }); db.plan.items.find((i) => i.id === 'od3').done = false;
+db.plan.items.push({ id: 'lk1', area: 'loginet', text: 'Demo con candado', done: false, day: iso(yday), at: 600, dur: 60, lock: true });
+t = await call('get_overdue_proposals'); ok(t.includes('Demo con candado') && t.includes('CON CANDADO') && !/Demo con candado[^\n]*\n\s+propuesta/.test(t), 'overdue locked item gets no proposal');
+t = await call('resolve_overdue', { id: 'lk1', action: 'accept' }); ok(t.startsWith('ERROR') && t.includes('candado'), 'resolve accept refuses a locked item');
+t = await call('resolve_overdue', { id: 'lk1', action: 'move', day: 'tomorrow', time: '10:00' }); ok(t.startsWith('ERROR'), 'resolve move refuses a locked item');
+t = await call('resolve_overdue', { id: 'lk1', action: 'done' }); ok(!t.startsWith('ERROR'), 'a locked item can still be marked done');
+t = await call('lock_item', { id: 'a2', locked: false }); ok(!('lock' in db.plan.items.find((i) => i.id === 'a2')), 'lock_item locked=false removes the key');
+t = await call('lock_item', { id: 'od4' }); ok(t.startsWith('ERROR'), 'cannot lock something in Más adelante');
+t = await call('move_item', { id: 'a2', day: 'tomorrow', time: '11:00' }); ok(!t.startsWith('ERROR'), 'unlocked item moves again');
 await client.close(); srv.close();

@@ -50,7 +50,7 @@ const when = (it) => {
 };
 const lineOf = (plan, it) => {
   const a = plan.areas.find((x) => x.id === it.area);
-  return `${it.done ? '[x]' : '[ ]'} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
+  return `${it.done ? '[x]' : '[ ]'}${it.lock ? ' [candado]' : ''} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
 };
 const sortKey = (it) => `${it.day}${typeof it.at === 'number' ? String(it.at).padStart(5, '0') : '99999'}`;
 const list = (plan, items, empty) => (items.length ? [...items].sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : 1)).map((it) => lineOf(plan, it)).join('\n') : empty);
@@ -151,6 +151,7 @@ server.registerTool('move_item', {
   const out = await mutatePlan(cfg, (plan) => {
     const it = plan.items.find((i) => i.id === a.id);
     if (!it) throw new Error(`No hay ninguna tarea con id ${a.id}.`);
+    if (it.lock) throw new Error(`“${it.text}” tiene candado: tiene que hacerse donde está. Si el usuario quiere moverla, quítale el candado primero con lock_item (locked=false).`);
     const area = a.area ? areaOf(plan, a.area) : null;
     if (a.area && !area) throw new Error(noArea(plan, a.area));
     let next = placeAreaItem(plan, a.id, { day, at: day === 'later' ? 'any' : atFrom(a), area: area && area.id });
@@ -160,6 +161,21 @@ server.registerTool('move_item', {
     return { plan: next, result: lineOf(next, next.items.find((i) => i.id === a.id)) };
   });
   return text(`Movido:\n${out}`);
+}));
+
+server.registerTool('lock_item', {
+  description: 'Pone o quita el candado de una tarea. Con candado la tarea tiene que hacerse exactamente en su día y hora: ni el usuario arrastrándola, ni el motor de reagendamiento, ni move_item la mueven. Solo tiene sentido con día fijo (no "Más adelante").',
+  inputSchema: { id: z.string(), locked: z.boolean().optional().describe('true (por defecto) pone el candado, false lo quita') }
+}, safe(async ({ id, locked = true }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const it = plan.items.find((i) => i.id === id);
+    if (!it) throw new Error(`No hay ninguna tarea con id ${id}.`);
+    if (locked && !dated(it)) throw new Error('Solo se puede poner candado a algo con día fijo; esta está en "Más adelante".');
+    const { lock: _l, ...rest } = it;
+    const upd = locked ? { ...rest, lock: true } : rest;
+    return { plan: { ...plan, items: plan.items.map((i) => (i.id === id ? upd : i)) }, result: lineOf(plan, upd) };
+  });
+  return text(`${locked ? 'Candado puesto' : 'Candado quitado'}:\n${out}`);
 }));
 
 server.registerTool('complete_item', {
@@ -238,6 +254,7 @@ server.registerTool('get_overdue_proposals', {
       const why = whyPlaced(pl.choice.parts);
       return `${head}\n   propuesta: ${span(res, pl.choice, pl.task.dur)}${why ? ` (por ${why})` : ''}\n   alternativas: ${pl.alts.map((a) => span(res, a, pl.task.dur)).join(' | ') || '(ninguna)'}`;
     }
+    if (it.lock) return `${head}\n   CON CANDADO: no se mueve sola. Pregunta al usuario: quitar el candado (lock_item locked=false) y volver a proponer, later, done o skip.`;
     return `${head}\n   sin hueco: ${nr ? nr.reason : 'no entra en la propuesta'} Opciones: later, done o move a mano.`;
   });
   return text(`Hoy es ${t}. ATRASADO (${od.length})\n${lines.join('\n')}`);
@@ -256,6 +273,7 @@ server.registerTool('resolve_overdue', {
     const it = plan.items.find((i) => i.id === id);
     if (!it) throw new Error(`No hay ninguna tarea con id ${id}.`);
     const t = today();
+    if (it.lock && (action === 'accept' || action === 'move')) throw new Error(`“${it.text}” tiene candado: no se mueve. Si el usuario quiere moverla, quítalo primero con lock_item (locked=false).`);
     let opts;
     if (action === 'accept') {
       const { res } = propose(plan);

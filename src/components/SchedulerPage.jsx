@@ -147,7 +147,9 @@ function PendingPanel({ res, today, overdue, onChange, colorOf, areaName }) {
           </div>
         )}
         {nr && <div className="sc-prop no">{nr.reason} Elige qué hacer con ella.</div>}
+        {it.lock && <div className="sc-prop no">Tenía candado, así que el motor no la mueve solo. Elige qué hacer con ella.</div>}
         <div className="sc-acts">
+          {it.lock && <button className="ap-btn primary" onClick={() => onChange((p) => ({ ...p, items: p.items.map((i) => (i.id === it.id ? { ...i, lock: undefined } : i)) }))}>Quitar candado y proponer hueco</button>}
           {pl && <button className="ap-btn primary" onClick={() => act(it, { action: 'move', via: 'accept', target: target(pl, pl.choice) }, `“${it.text}” movida a ${clock(res.G.days[pl.choice.d], pl.choice.start)}.`)}>Aceptar</button>}
           {pl && pl.alts.length > 0 && <button className="ap-btn" aria-expanded={alts === it.id} onClick={() => setAlts(alts === it.id ? null : it.id)}>Otro hueco</button>}
           <button className="ap-btn" onClick={() => act(it, { action: 'done' }, `“${it.text}” marcada como hecha.`)}>Ya está hecha</button>

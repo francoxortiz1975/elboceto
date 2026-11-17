@@ -41,6 +41,8 @@ export const dayLabel = (iso) => {
   return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
 };
 export const fmtMin = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+// A locked block must happen exactly where it is: nothing (drag, rescheduling engine, MCP) moves it.
+export const isLocked = (it) => !!it.lock;
 // Block length in minutes. Legacy items stored `d` in 30-min units.
 export const durOf = (it) => it.dur || (it.d ? it.d * SLOT_STEP : 60);
 export const rowStart = (min) => Math.floor(min / SLOT_STEP) * SLOT_STEP;
@@ -236,6 +238,7 @@ export function pickArea(plan, id, additive = false) {
 // Puts an item at a new day/time (and optionally another area). Timed drops
 // keep the item's duration; untimed ones drop it.
 export function placeAreaItem(plan, id, { day, at, area }) {
+  if (plan.items.some((it) => it.id === id && it.lock)) return plan; // a locked block never moves
   return {
     ...plan,
     items: plan.items.map((it) => {

@@ -2,7 +2,7 @@
 //   profile (sleep, meals, work window, energy, caps, buffers, places), fixed (recurring events, with rotating weeks),
 //   areaOrder (priority stack of area ids), weights, attrs (per-item attributes, only what differs from the defaults).
 
-import { addDays, durOf, isoOf } from '../areaPlan';
+import { addDays, durOf, isoOf, isLocked } from '../areaPlan';
 import { WEIGHTS, HORIZON } from './engine';
 
 export const DEFAULT_PROFILE = {
@@ -63,6 +63,8 @@ export function buildEngineInput(plan, today, { includeLater = false } = {}) {
     const iso = /^\d{4}-\d{2}-\d{2}$/.test(it.day || '') ? it.day : null;
     const asBlock = () => { if (iso && iso >= today && iso <= end && typeof it.at === 'number') blocks.push({ day: iso, from: it.at, to: it.at + durOf(it), name: it.text, area: it.area, place: a.place === 'Casa' ? '' : a.place }); };
     if (it.reel && it.stackId) { asBlock(); return; }
+    // Locked: always a fixed block (even if it was moved by the engine before), and never a task, not even when late.
+    if (isLocked(it)) { asBlock(); return; }
     if (iso && iso >= today && typeof it.at === 'number' && !a.flex) { asBlock(); return; }
     if (!iso && !includeLater) return;
     if (iso && iso > end) return;
@@ -83,7 +85,7 @@ export function proposalChanges(plan, res) {
   const out = [];
   res.placed.forEach((p) => {
     const it = byId[p.task.id];
-    if (!it) return;
+    if (!it || isLocked(it)) return;
     const day = res.G.days[p.choice.d];
     const at = p.choice.start;
     if (it.day === day && it.at === at) return;

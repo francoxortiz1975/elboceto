@@ -13,7 +13,8 @@
 .mc-num { align-self: flex-start; font-size: 0.68rem; line-height: 1; padding: 3px 5px; border-radius: 999px; color: var(--text-muted); }
 .mc-chips { flex: 1; min-height: 0; display: grid; grid-template-rows: repeat(var(--n, 1), minmax(0, 1fr)); gap: 2px; min-width: 0; }
 .mc-chip { display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; min-height: 0; max-height: 60px; overflow: hidden; font-size: 0.78rem; line-height: 1.25; padding: 3px 7px; border-radius: 3px; border-left: 3px solid var(--c, rgba(var(--ink-rgb), 0.3)); background: color-mix(in srgb, var(--c, #6B6B6B) 14%, var(--bg-note)); color: var(--text-ink); cursor: grab; user-select: none; }
-.mc-chip.plain { cursor: default; }
+.mc-chip.plain, .mc-chip.locked { cursor: default; }
+.mc-lock { flex-shrink: 0; color: var(--c, var(--text-muted)); }
 .mc-chip.done { opacity: 0.55; text-decoration: line-through; }
 .mc-chip.moving { pointer-events: none; opacity: 0.8; box-shadow: var(--shadow-floating); }
 .mc-time { font-size: 0.62rem; color: var(--text-muted); flex: none; line-height: 1.1; }

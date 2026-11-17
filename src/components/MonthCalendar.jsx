@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { Lock } from 'lucide-react';
 import { openReel } from '../lib/contentPlan';
 import { AREA_COLORS, AREA_DRAG_TYPE, addDays, fromIso, isoOf, fmtMin, hasAreaDrag, placeAreaItem, rollingMonth } from '../lib/areaPlan';
 import './MonthCalendar.css';
@@ -34,7 +35,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
     const fromAreas = (areaPlan?.items || [])
       .filter((it) => it.day === iso && areaById[it.area] && !hidden.includes(it.area) && !(areaPlan?.hideDone && it.done))
       .map((it) => ({
-        key: it.id, item: it, text: it.text, done: !!it.done,
+        key: it.id, item: it, text: it.text, done: !!it.done, locked: !!it.lock,
         color: colorOf(areaById[it.area]), area: areaById[it.area].name, note: it.note,
         at: typeof it.at === 'number' ? it.at : null
       }));
@@ -48,7 +49,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
   };
 
   const startMove = (e, chip) => {
-    if (e.button !== 0 || !chip.item) return;
+    if (e.button !== 0 || !chip.item || chip.locked) return;
     const sx = e.clientX;
     const sy = e.clientY;
     let active = false;
@@ -115,7 +116,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
                 {shown.map((chip) => (
                   <div
                     key={chip.key}
-                    className={`mc-chip${chip.done ? ' done' : ''}${chip.item ? '' : ' plain'}${movingId === chip.key ? ' moving' : ''}`}
+                    className={`mc-chip${chip.locked ? ' locked' : ''}${chip.done ? ' done' : ''}${chip.item ? '' : ' plain'}${movingId === chip.key ? ' moving' : ''}`}
                     style={chip.color ? { '--c': chip.color } : undefined}
                     title={`${chip.area}${chip.at !== null ? ` · ${fmtMin(chip.at)}` : ''}${chip.note ? ` · ${chip.note}` : ''}`}
                     onPointerDown={(e) => startMove(e, chip)}
@@ -126,6 +127,7 @@ export function MonthCalendar({ areaPlan, plannerTasks, monthOffset, onOpenDay, 
                     }}
                   >
                     {chip.at !== null && <span className="mc-time font-mono">{fmtMin(chip.at)}</span>}
+                    {chip.locked && <Lock className="mc-lock" size={10} aria-label="Con candado" />}
                     <span className="mc-text">{chip.text || '…'}</span>
                   </div>
                 ))}
