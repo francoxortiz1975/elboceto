@@ -129,4 +129,38 @@ t = await call('move_item', { id: 'mv1', day: 'tomorrow', band: 'pm' });
 ok(notes().some((n) => n.item === 'mv1' && n.kind === 'change' && n.area === 'life' && /se movió de/.test(n.text)), 'move_item tells the area what changed');
 t = await call('lock_item', { id: 'mv1' }); ok(notes().some((n) => n.item === 'mv1' && /candado/.test(n.text)), 'lock_item tells the area');
 t = await call('delete_item', { id: 'mv1' }); ok(notes().some((n) => /se borró del plan/.test(n.text)), 'delete_item tells the area');
+// ---- IRIS+: the launcher opens an area's conversation when its block starts ----
+const os = await import('node:os'); const pathMod = await import('node:path');
+const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'iris-launch-'));
+const log = pathMod.join(tmp, 'opened.log');
+const opener = pathMod.join(tmp, 'opener.sh');
+fs.writeFileSync(opener, `#!/bin/sh\necho "$1|$2" >> "${log}"\n`, { mode: 0o755 });
+const launcher = (args = ['--once'], areasJson) => new Promise((resolve) => execFile('node', ['dist/iris-launcher.mjs', ...args], { env: { ...process.env, HOME: tmp, BOCETO_SUPABASE_URL: url, BOCETO_SUPABASE_KEY: 'anon', BOCETO_TOKEN: 'secret', IRIS_AREAS: areasJson || JSON.stringify({ areas: { Loginet: '/Users/x/loginet-web' } }), IRIS_OPENER: opener, IRIS_STAGGER_MS: '0' }, timeout: 20000 }, (err, stdout, stderr) => resolve({ code: err ? err.code : 0, out: `${stdout}${stderr}` })));
+const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+if (nowMin >= 5 && nowMin < 23 * 60) {
+  t = await call('assign_order', { area: 'Loginet', text: 'Arrancar solo', brief: 'Cargar los textos finales y avisar.', day: 'today', time: hhmm(nowMin - 2), duration_minutes: 60, autostart: true });
+  const auto = db.plan.items.find((i) => i.text === 'Arrancar solo');
+  ok(!t.startsWith('ERROR') && auto && auto.iris.launch === true && auto.iris.state === 'pending' && /OJO: el área Loginet no tiene carpeta/.test(t), 'assign_order with autostart marks the block (and warns when this computer has no folder for the area)');
+  t = await call('assign_order', { area: 'Loginet', text: 'Sin hora', brief: 'x', day: 'tomorrow', autostart: true }); ok(t.startsWith('ERROR') && /hora exacta|time/.test(t), 'autostart without an exact time is refused');
+  let l = await launcher(['--dry-run']); ok(/abriría: Arrancar solo/.test(l.out) && !fs.existsSync(log), 'dry run says what it would open and opens nothing');
+  ok(db.plan.items.find((i) => i.id === auto.id).iris.state === 'pending', 'and changes nothing');
+  l = await launcher(); const opened = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : [];
+  const stored = db.plan.items.find((i) => i.id === auto.id);
+  ok(opened.length === 1 && opened[0].startsWith('/Users/x/loginet-web|'), 'the launcher opened one conversation, in the area folder');
+  const promptFile = opened[0].split('|')[1]; const promptText = fs.readFileSync(promptFile, 'utf8');
+  ok(/Cargar los textos finales/.test(promptText) && /área Loginet/.test(promptText) && promptText.includes(auto.id), 'its first message carries the order and the block id');
+  ok(stored.iris.state === 'launched' && notes().some((n) => n.dir === 'to_hub' && n.from === 'launcher' && n.item === auto.id), 'the block is marked launched and the hub gets a note');
+  l = await launcher(); ok(fs.readFileSync(log, 'utf8').trim().split('\n').length === 1, 'a second pass does not open it again');
+  db.plan.items.push({ id: 'old1', area: 'life', text: 'De ayer', done: false, day: iso(yday), at: 600, dur: 30, iris: { launch: true, state: 'pending' } });
+  l = await launcher(); ok(db.plan.items.find((i) => i.id === 'old1').iris.state === 'missed' && notes().some((n) => n.item === 'old1' && /no se abrió a tiempo/.test(n.text)), 'a block whose time passed without opening is marked missed and reported');
+  db.plan.items.push({ id: 'nodir', area: 'life', text: 'Sin carpeta', done: false, day: iso(today), at: Math.max(0, nowMin - 2), dur: 60, iris: { launch: true, state: 'pending' } });
+  const before = fs.readFileSync(log, 'utf8'); l = await launcher(); ok(fs.readFileSync(log, 'utf8') === before && db.plan.items.find((i) => i.id === 'nodir').iris.state === 'pending', 'an area with no folder opens nothing and stays pending');
+  const broken = pathMod.join(tmp, 'broken.sh'); fs.writeFileSync(broken, '#!/bin/sh\nexit 3\n', { mode: 0o755 });
+  db.plan.items.push({ id: 'fail1', area: 'loginet', text: 'Se rompe', done: false, day: iso(today), at: Math.max(0, nowMin - 2), dur: 60, iris: { launch: true, state: 'pending' } });
+  await new Promise((resolve) => execFile('node', ['dist/iris-launcher.mjs', '--once'], { env: { ...process.env, HOME: tmp, BOCETO_SUPABASE_URL: url, BOCETO_SUPABASE_KEY: 'anon', BOCETO_TOKEN: 'secret', IRIS_AREAS: JSON.stringify({ areas: { Loginet: '/x' } }), IRIS_OPENER: broken, IRIS_STAGGER_MS: '0' } }, () => resolve()));
+  ok(db.plan.items.find((i) => i.id === 'fail1').iris.state === 'missed' && notes().some((n) => n.item === 'fail1' && /No pude abrir/.test(n.text)), 'if opening fails it is reported to the hub, not retried forever');
+  t = await call('autostart_item', { id: 'nodir', on: false }); ok(!('iris' in db.plan.items.find((i) => i.id === 'nodir')), 'autostart_item off removes the mark');
+  t = await call('autostart_item', { id: 'a2' }); ok(!t.startsWith('ERROR') && db.plan.items.find((i) => i.id === 'a2').iris.launch === true, 'autostart_item on marks an existing timed block');
+} else { console.log('skip  IRIS+ launcher checks (too close to midnight to test with the real clock)'); }
 await client.close(); srv.close();

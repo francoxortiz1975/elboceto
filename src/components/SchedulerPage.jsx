@@ -10,6 +10,7 @@ import { overdueItems, resolveItem, undoResolve, whyPlaced } from '../lib/schedu
 import { planHabits, habitStatus, newHabit, withNewArea } from '../lib/scheduler/generate';
 import { undoRollover } from '../lib/scheduler/rollover';
 import { notesOf, markRead, unreadFor } from '../lib/iris';
+import { isAutoStart, stateOf, LAUNCH_STATE_ES } from '../lib/irisLaunch';
 import './SchedulerPage.css';
 
 const DAYN = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -211,12 +212,13 @@ function PendingPanel({ res, today, overdue, onChange, colorOf, areaName, cfg })
 
 /* ---------- IRIS: buzón entre el centro de mando y las conversaciones de cada área ---------- */
 const KIND_ES = { note: 'nota', order: 'encargo', change: 'cambio', report: 'avance' };
-const FROM_ES = { hub: 'el centro', rollover: 'reagendamiento', user: 'tú', area: 'el área' };
+const FROM_ES = { hub: 'el centro', rollover: 'reagendamiento', user: 'tú', area: 'el área', launcher: 'lanzador' };
 function IrisPanel({ plan, onChange, colorOf, areaName }) {
   const notes = notesOf(plan);
   const recent = [...notes].reverse().slice(0, 40);
   const stamp = (t) => { const d = new Date(t); return Number.isNaN(d.getTime()) ? '' : `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
   const toHub = unreadFor(plan, { dir: 'to_hub' }).length;
+  const auto = plan.items.filter((i) => isAutoStart(i) && (!i.done || stateOf(i) !== 'pending')).sort((a, b) => (`${a.day}${a.at}` < `${b.day}${b.at}` ? -1 : 1)).slice(-12);
   return (
     <>
       <p className="sc-note">El buzón que une el centro de mando con la conversación de cada área. Una conversación no puede escribirle a otra, así que se dejan notas aquí: cuando abres una conversación de un área, un hook le muestra sola sus notas nuevas (encargos, cambios de fecha). Y cuando una área termina algo, deja un avance para el centro.</p>
@@ -232,6 +234,18 @@ function IrisPanel({ plan, onChange, colorOf, areaName }) {
           );
         })}
       </div>
+      {auto.length > 0 && (
+        <div className="sc-card">
+          <div className="sc-head"><b className="sc-ttl">Se abren solas (IRIS+)</b><span className="sc-stat">el lanzador de tu Mac abre la conversación del área cuando empieza el bloque</span></div>
+          {auto.map((i) => (
+            <div className="sc-head" key={i.id}>
+              <i className="sc-dot" style={{ background: colorOf(i.area) }} />
+              <b className="sc-ttl">{i.text}</b>
+              <span className="sc-stat">{areaName(i.area)} · {i.day === 'later' ? 'más adelante' : dayLabel(i.day)}{typeof i.at === 'number' ? ` ${fmtMin(i.at)}` : ''} · {LAUNCH_STATE_ES[stateOf(i)] || stateOf(i)}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="sc-filters">
         <span className="sc-stat">{notes.length} {notes.length === 1 ? 'nota' : 'notas'} · {toHub} {toHub === 1 ? 'avance sin ver' : 'avances sin ver'}</span>
         <button className="ap-btn" disabled={!toHub} onClick={() => onChange((p) => markRead(p, { dir: 'to_hub' }).plan)}>Marcar avances como vistos</button>

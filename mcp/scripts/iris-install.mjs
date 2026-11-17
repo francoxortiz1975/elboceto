@@ -3,6 +3,7 @@
 // Usage: node mcp/scripts/iris-install.mjs "MediLyft" /path/to/the/repo
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const [area, repoArg] = process.argv.slice(2);
@@ -38,4 +39,13 @@ try {
     if (!cur.split('\n').some((l) => l.trim() === '.claude/settings.local.json')) fs.appendFileSync(exclude, `${cur && !cur.endsWith('\n') ? '\n' : ''}.claude/settings.local.json\n`);
   }
 } catch { /* not a git repo or no permission: harmless */ }
+// IRIS+ needs to know which folder is this area's repo on this computer.
+try {
+  const areasFile = path.join(os.homedir(), '.config', 'boceto-mcp', 'iris-areas.json');
+  let conf = {};
+  try { conf = JSON.parse(fs.readFileSync(areasFile, 'utf8')); } catch { /* new file */ }
+  conf.areas = { ...(conf.areas || {}), [area]: repo };
+  fs.mkdirSync(path.dirname(areasFile), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(areasFile, `${JSON.stringify(conf, null, 2)}\n`, { mode: 0o600 });
+} catch (e) { console.error(`(No pude guardar la carpeta del área para IRIS+: ${e.message})`); }
 console.log(`IRIS conectado: ${repo}\n  área: ${area}\n  hooks: SessionStart + UserPromptSubmit en ${file}\nAbre una conversación nueva en esa carpeta: lo primero que verá es su buzón.`);

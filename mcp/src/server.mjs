@@ -10,6 +10,7 @@ import { buildEngineInput, nowMinutes, getScheduler, kindDur, areaWindow, window
 import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
+import { loadAreas } from './irisAreas.mjs';
 import { addNotes, notesOf, unreadFor, markRead, noteLine, areaSummary, whenText, NOTE_KINDS } from '../../src/lib/iris';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,7 +52,7 @@ const when = (it) => {
 };
 const lineOf = (plan, it) => {
   const a = plan.areas.find((x) => x.id === it.area);
-  return `${it.done ? '[x]' : '[ ]'}${it.lock ? ' [candado]' : ''}${it.kind === 'meeting' ? ' [reunión]' : ''} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
+  return `${it.done ? '[x]' : '[ ]'}${it.lock ? ' [candado]' : ''}${it.iris && it.iris.launch ? ` [abre sola: ${({ pending: 'pendiente', launched: 'abierta', missed: 'perdida', skipped: 'omitida' })[it.iris.state] || it.iris.state}]` : ''}${it.kind === 'meeting' ? ' [reunión]' : ''} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
 };
 const sortKey = (it) => `${it.day}${typeof it.at === 'number' ? String(it.at).padStart(5, '0') : '99999'}`;
 const list = (plan, items, empty) => (items.length ? [...items].sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : 1)).map((it) => lineOf(plan, it)).join('\n') : empty);
@@ -326,24 +327,47 @@ server.registerTool('assign_order', {
   inputSchema: {
     area: areaArg, text: z.string().min(1).describe('Título corto del bloque'),
     brief: z.string().min(1).describe('El encargo completo para la conversación del área: qué hay que hacer, contexto, criterios de terminado. Debe entenderse sin este chat.'),
-    ...timing, kind: z.enum(['task', 'meeting']).optional(), lock: z.boolean().optional().describe('true si tiene que hacerse justo en ese bloque (entrega, reunión)')
+    ...timing, kind: z.enum(['task', 'meeting']).optional(), lock: z.boolean().optional().describe('true si tiene que hacerse justo en ese bloque (entrega, reunión)'),
+    autostart: z.boolean().optional().describe('true para que la conversación del área se abra SOLA cuando empiece el bloque, con este encargo (IRIS+). Pónlo solo si el usuario lo pidió ("que se abra sola"). Requiere día y hora exactos.')
   }
 }, safe(async (a) => {
   const day = resolveDay(a.day) || 'later';
   const at = day === 'later' ? 'any' : atFrom(a);
+  if (a.autostart && typeof at !== 'number') throw new Error('Para que se abra sola hacen falta día y hora exactos (time).');
+  let warn = '';
   const out = await mutatePlan(cfg, (plan) => {
     const area = areaOf(plan, a.area);
     if (!area) throw new Error(noArea(plan, a.area));
     const dur = a.duration_minutes || kindDur(getScheduler(plan), area.id, a.kind === 'meeting' ? 'meeting' : 'task') || 60;
+    if (a.autostart && !Object.keys(loadAreas().areas).some((k) => k.trim().toLowerCase() === area.name.trim().toLowerCase())) warn = `\nOJO: el área ${area.name} no tiene carpeta registrada en este ordenador, así que NO se abrirá sola. Corre: npm run iris:install -- "${area.name}" /ruta/al/repo`;
     const item = {
       id: uid(), area: area.id, text: a.text.trim(), done: false, day, at, src: 'iris',
+      ...(a.autostart ? { iris: { launch: true, state: 'pending' } } : {}),
       ...(a.kind === 'meeting' ? { kind: 'meeting' } : {}), ...(a.lock && day !== 'later' ? { lock: true } : {}),
       ...(typeof at === 'number' ? { dur } : {})
     };
     const next = addNotes({ ...plan, items: [...plan.items, item] }, [{ area: area.id, kind: 'order', from: 'hub', item: item.id, text: `${a.brief.trim()}\n(Bloque: ${a.text.trim()} · ${when(item)}${item.lock ? ' · con candado' : ''}.)` }]);
     return { plan: next, result: lineOf(next, item) };
   });
-  return text(`Encargo creado y avisado al área:\n${out}`);
+  return text(`Encargo creado y avisado al área${a.autostart ? '; se abrirá sola cuando empiece el bloque' : ''}:\n${out}${warn}`);
+}));
+
+server.registerTool('autostart_item', {
+  description: 'IRIS+: activa o desactiva que la conversación del área se abra SOLA cuando empiece este bloque (con el encargo que el centro dejó para él). El bloque necesita día y hora exactos. Solo si el usuario lo pidió.',
+  inputSchema: { id: z.string(), on: z.boolean().optional().describe('true (por defecto) la activa; false la quita') }
+}, safe(async ({ id, on = true }) => {
+  let warn = '';
+  const out = await mutatePlan(cfg, (plan) => {
+    const it = plan.items.find((i) => i.id === id);
+    if (!it) throw new Error(`No hay ninguna tarea con id ${id}.`);
+    if (on && typeof it.at !== 'number') throw new Error('Para que se abra sola hacen falta día y hora exactos.');
+    const area = plan.areas.find((a) => a.id === it.area);
+    if (on && area && !Object.keys(loadAreas().areas).some((k) => k.trim().toLowerCase() === area.name.trim().toLowerCase())) warn = `\nOJO: el área ${area.name} no tiene carpeta registrada en este ordenador, así que no se abrirá sola. Corre: npm run iris:install -- "${area.name}" /ruta/al/repo`;
+    const { iris: _i, ...rest } = it;
+    const upd = on ? { ...rest, iris: { launch: true, state: 'pending' } } : rest;
+    return { plan: { ...plan, items: plan.items.map((i) => (i.id === id ? upd : i)) }, result: `${lineOf(plan, upd)}${on ? `\n(se abrirá sola a las ${fmtMin(it.at)})` : ''}` };
+  });
+  return text(`${on ? 'Arranque automático activado' : 'Arranque automático quitado'}:\n${out}${warn}`);
 }));
 
 server.registerTool('read_notes', {

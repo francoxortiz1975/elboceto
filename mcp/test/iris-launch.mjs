@@ -1,0 +1,22 @@
+import { findDue, launchPrompt, setLaunchState, isAutoStart } from '../../src/lib/irisLaunch.js';
+import { addNotes } from '../../src/lib/iris.js';
+const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
+const at = (h, m) => new Date(2026, 10, 18, h, m);   // Wed 18 Nov 2026, local time
+const blk = (id, extra) => ({ id, area: 'm', text: id, done: false, day: '2026-11-18', at: 21 * 60, dur: 60, iris: { launch: true, state: 'pending' }, ...extra });
+let plan = { areas: [{ id: 'm', name: 'MediLyft', c: 3 }, { id: 'l', name: 'Loginet', c: 5 }], items: [blk('a'), blk('b', { area: 'l' }), { id: 'plain', area: 'm', text: 'x', done: false, day: '2026-11-18', at: 1260, dur: 60 }] };
+plan = addNotes(plan, [{ area: 'm', kind: 'order', item: 'a', text: 'Hacer el botón de reagendar. Criterio: probado en rama.' }]);
+const areas = { medilyft: '/Users/x/MEDILYFT', Loginet: '/Users/x/loginet-web' };
+let r = findDue(plan, at(20, 59), areas); ok(!r.due.length && !r.missed.length, 'a minute before the block: nothing is due');
+r = findDue(plan, at(21, 0), areas); ok(r.due.length === 2 && r.due.every((d) => d.dir), 'at the start time: both are due, each with its area folder (area names match case-insensitively)');
+ok(findDue(plan, at(21, 40), areas).due.length === 2, 'a late pass inside the block still opens it (e.g. the Mac woke up late)');
+r = findDue(plan, at(22, 0), areas); ok(!r.due.length && r.missed.length === 2, 'after the block ended without opening: missed, never opened late');
+ok(!findDue(plan, at(21, 0), areas).due.some((d) => d.item.id === 'plain'), 'a block without the autostart mark is never opened');
+r = findDue(plan, at(21, 0), { MediLyft: '/x' }); ok(r.due.length === 1 && r.noDir.length === 1 && r.noDir[0].id === 'b', 'an area with no folder is reported, not opened');
+plan = { ...plan, items: plan.items.map((i) => (i.id === 'a' ? { ...i, done: true } : i)) };
+ok(findDue(plan, at(21, 0), areas).due.length === 1, 'a block already done is not opened');
+const after = setLaunchState(plan, ['b'], 'launched'); ok(after.items.find((i) => i.id === 'b').iris.state === 'launched' && findDue(after, at(21, 5), areas).due.length === 0, 'once launched it is not opened again');
+ok(findDue({ ...plan, items: plan.items.map((i) => (i.id === 'b' ? { ...i, day: '2026-11-19' } : i)) }, at(21, 0), areas).due.length === 0, 'if the planner moved the block to another day, the start moves with it');
+ok(findDue({ ...plan, items: [blk('c', { day: '2026-11-17' })] }, at(9, 0), areas).missed.length === 1, 'a block of a past day that never opened is marked missed');
+const p = launchPrompt(addNotes({ ...plan, items: [blk('a')] }, [{ area: 'm', kind: 'order', item: 'a', text: 'Hacer el botón.' }]), blk('a'));
+ok(/área MediLyft/.test(p) && /Hacer el botón/.test(p) && /21:00–22:00/.test(p) && /report_progress\(area="MediLyft", item_id="a"/.test(p) && /sin desplegar ni publicar/.test(p), 'the prompt names the area, carries the order, the time and how to report, and forbids deploying');
+ok(isAutoStart(blk('z')) && !isAutoStart({ id: 'q' }), 'isAutoStart');

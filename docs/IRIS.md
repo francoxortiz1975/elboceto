@@ -35,6 +35,6 @@ unread notes when its conversation starts and on every message you send. It neve
 - When that conversation finishes something it calls `report_progress`; in the hub, "¿cómo voy?" shows it, and Motor -> IRIS in the app lists every note.
 
 ## Limits (v1)
-- It does not start conversations by itself: you open them (that is IRIS+, next).
+- It does not start conversations by itself: you open them. To have them open at the block's time, see `docs/IRIS_PLUS.md` (IRIS+).
 - Notes are in the plan: if the app has unsaved edits at the very moment a note arrives, the last save wins; the app reloads on focus.
 - The hook needs the MCP config (`~/.config/boceto-mcp/config.json`) on the same computer. With no network it stays silent and does not block anything.

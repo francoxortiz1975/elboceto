@@ -8,7 +8,7 @@ import { join } from 'node:path';
 const tmp = mkdtempSync(join(tmpdir(), 'boceto-test-'));
 const esbuild = (entry, out, extra = []) => execFileSync('node_modules/.bin/esbuild', [entry, '--bundle', '--platform=node', '--format=esm', `--outfile=${out}`, '--log-level=error', ...extra], { stdio: 'inherit' });
 let failed = 0;
-for (const t of ['scheduler-locks', 'scheduler-windows', 'habits', 'rollover', 'rollover-server', 'iris', 'sync-merge']) {
+for (const t of ['scheduler-locks', 'scheduler-windows', 'habits', 'rollover', 'rollover-server', 'iris', 'iris-launch', 'sync-merge']) {
   const out = join(tmp, `${t}.mjs`);
   esbuild(`mcp/test/${t}.mjs`, out);
   const text = execFileSync('node', [out], { encoding: 'utf8' });
