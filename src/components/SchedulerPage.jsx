@@ -385,6 +385,20 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
   const [creating, setCreating] = useState(null); // habit index that is naming a new area
   const [newName, setNewName] = useState('');
   const replan = () => onChange((p) => planHabits(p, today, { by: 'user' }).plan);
+  // Starter chores for Life (all editable): lavadora 1/week on the weekend; sábanas 1/month, limpieza and compras 1/week, Sunday.
+  const addHome = () => onChange((p) => {
+    const life = p.areas.find((a) => a.name.trim().toLowerCase() === 'life') || p.areas[0];
+    if (!life) return p;
+    const c = getScheduler(p);
+    const mk = (name, extra) => ({ ...newHabit(life.id), name, ...extra });
+    const adds = [
+      mk('Lavadora (ropa)', { perWeek: 1, dur: 30, prefer: [5, 6] }),
+      mk('Lavar sábanas', { perWeek: 1, period: 'month', dur: 30, prefer: [6] }),
+      mk('Limpiar la casa', { perWeek: 1, dur: 90, prefer: [6] }),
+      mk('Hacer las compras', { perWeek: 1, dur: 60, prefer: [6] })
+    ].filter((h) => !c.habits.some((x) => x.name === h.name));
+    return { ...p, scheduler: { ...c, habits: [...c.habits, ...adds] } };
+  });
   const makeArea = (i) => {
     const name = newName.trim(); if (!name) return;
     onChange((p) => {
@@ -396,8 +410,8 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
   };
   return (
     <>
-      <div className="sc-stage">Hábitos flexibles · N veces por semana</div>
-      <p className="sc-note">Para lo que no tiene hora fija, como el gym: dices cuántas veces por semana y el motor coloca esos bloques solo. Si un día no lo haces, se recoloca dentro de la misma semana. Si ya no quedan días suficientes, planifica lo máximo posible; lo que no cupo no pasa a la semana siguiente, que empieza de cero.</p>
+      <div className="sc-stage">Hábitos flexibles · N veces por semana o por mes</div>
+      <p className="sc-note">Para lo que no tiene hora fija, como el gym o las tareas del hogar: dices cuántas veces por semana (o por mes) y el motor coloca esos bloques solo, mejor en tus días preferidos. Si un día no lo haces, se recoloca dentro del mismo periodo. Si ya no quedan días suficientes, planifica lo máximo posible; lo que no cupo no pasa al periodo siguiente, que empieza de cero.</p>
       <div className="sc-stack">
         {cfg.habits.map((h, i) => {
           const st = habitStatus(plan, h, today);
@@ -406,11 +420,16 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
             <div className="sc-card" key={h.id}>
               <div className="sc-head">
                 <In cfg={cfg} patch={patch} path={`${p}.name`} />
-                <span className="sc-stat">esta semana: {st.done} hechas · {st.planned} planificadas{st.missing ? ` · faltan ${st.missing} (no caben)` : ''}</span>
+                <span className="sc-stat">{h.period === 'month' ? 'este mes' : 'esta semana'}: {st.done} hechas · {st.planned} planificadas{st.missing ? ` · faltan ${st.missing} (no caben)` : ''}</span>
                 <button className="ap-btn" onClick={() => update((c) => { c.habits.splice(i, 1); return c; })}>Quitar</button>
               </div>
               <div className="sc-grid">
-                <Field label="Veces por semana" tag="on"><In cfg={cfg} patch={patch} path={`${p}.perWeek`} type="number" min={1} max={14} step={1} /></Field>
+                <Field label="Se cuenta por" tag="on">
+                  <select value={h.period === 'month' ? 'month' : 'week'} onChange={(e) => patch(`${p}.period`, e.target.value === 'month' ? 'month' : '')}>
+                    <option value="week">Semana</option><option value="month">Mes</option>
+                  </select>
+                </Field>
+                <Field label={h.period === 'month' ? 'Veces por mes' : 'Veces por semana'} tag="on"><In cfg={cfg} patch={patch} path={`${p}.perWeek`} type="number" min={1} max={h.period === 'month' ? 31 : 14} step={1} /></Field>
                 <Field label="Duración (min)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.dur`} type="number" min={15} max={480} step={15} /></Field>
                 <Field label="Máx. por día" tag="on"><In cfg={cfg} patch={patch} path={`${p}.maxPerDay`} type="number" min={1} max={4} step={1} /></Field>
                 <Field label="Área" tag="on">
@@ -427,6 +446,13 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
                 <Field label="Desde (opcional)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.from`} type="time" /></Field>
                 <Field label="Hasta (opcional)" tag="on"><In cfg={cfg} patch={patch} path={`${p}.to`} type="time" /></Field>
               </div>
+              <div className="sc-stat">Días preferidos (si no caben, usa otro día):{' '}
+                <span className="sc-chips inline">
+                  {DAYN.map((d, di) => (
+                    <button key={d} aria-pressed={(h.prefer || []).includes(di)} onClick={() => update((c) => { const x = c.habits[i]; const cur = x.prefer || []; x.prefer = cur.includes(di) ? cur.filter((q) => q !== di) : [...cur, di].sort(); return c; })}>{d}</button>
+                  ))}
+                </span>
+              </div>
               <div className="sc-chips2">
                 <span className="sc-chk"><input type="checkbox" checked={h.on !== false} onChange={(e) => patch(`${p}.on`, e.target.checked)} /> Activo</span>
                 <span className="sc-stat">Sin horas propias usa las de su área (Motor → Áreas).</span>
@@ -438,7 +464,8 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
         {!cfg.habits.length && <div className="sc-empty">Ningún hábito todavía. Ejemplo: Gym, 4 veces por semana, 1 h, entre 18:00 y 21:00.</div>}
         <div className="sc-acts">
           <button className="ap-btn" onClick={() => update((c) => { c.habits.push(newHabit(plan.areas[0] && plan.areas[0].id)); return c; })}>+ Añadir hábito</button>
-          {cfg.habits.length > 0 && <button className="ap-btn" onClick={replan}>Replanificar esta semana</button>}
+          <button className="ap-btn" onClick={addHome} title="Añade lavadora, sábanas, limpieza y compras con días preferidos; luego ajusta lo que quieras">+ Tareas del hogar de ejemplo</button>
+          {cfg.habits.length > 0 && <button className="ap-btn" onClick={replan}>Replanificar ahora</button>}
         </div>
       </div>
     </>

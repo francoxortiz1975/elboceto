@@ -15,7 +15,14 @@ const FIXED_AHEAD = 28; // days of fixed events kept ready in the calendar
 const isoRe = /^\d{4}-\d{2}-\d{2}$/;
 
 export const weekOf = (today) => { const mon = addDays(today, -dowOf(today)); return { mon, sun: addDays(mon, 6) }; };
-const inWeek = (day, w) => isoRe.test(day || '') && day >= w.mon && day <= w.sun;
+// The period a habit is counted in: the calendar week (Monday to Sunday) or the calendar month.
+export function periodOf(today, period = 'week') {
+  if (period !== 'month') { const w = weekOf(today); return { from: w.mon, to: w.sun }; }
+  const d = new Date(`${today}T00:00:00`);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { from: `${today.slice(0, 8)}01`, to: isoOf(last) };
+}
+const inPeriod = (day, p) => isoRe.test(day || '') && day >= p.from && day <= p.to;
 
 const withScheduler = (plan, cfg, patch) => ({ ...plan, scheduler: { ...(plan.scheduler || {}), ...cfg, ...patch } });
 const logEntries = (cfg, entries) => [...(cfg.history || []), ...entries].slice(-MAX_HISTORY);
@@ -58,23 +65,23 @@ export function generateFixed(plan, today) {
 // ---------- flexible habits ----------
 // Where each habit stands this week, for the editor: done, planned, missing, and how many days could still hold one.
 export function habitStatus(plan, h, today) {
-  const w = weekOf(today);
-  const mine = plan.items.filter((i) => i.gen === `hb:${h.id}` && inWeek(i.day, w));
+  const pr = periodOf(today, h.period);
+  const mine = plan.items.filter((i) => i.gen === `hb:${h.id}` && inPeriod(i.day, pr));
   const done = mine.filter((i) => i.done).length;
   const planned = mine.filter((i) => !i.done && i.day >= today).length;
-  return { done, planned, missing: Math.max(0, h.perWeek - done - planned), week: w };
+  return { done, planned, missing: Math.max(0, h.perWeek - done - planned), period: pr };
 }
 
 export function planHabits(plan, today, { nowMin = nowMinutes(), by = 'auto', now = new Date().toISOString() } = {}) {
   let cur = plan;
   const cfg0 = getScheduler(plan);
-  const w = weekOf(today);
   const history = [];
   let added = 0; let missed = 0; let removed = 0;
 
   (cfg0.habits || []).filter((h) => h.on !== false && h.perWeek > 0 && plan.areas.some((a) => a.id === h.area)).forEach((h) => {
     const gen = `hb:${h.id}`;
-    const mine = cur.items.filter((i) => i.gen === gen && inWeek(i.day, w));
+    const pr = periodOf(today, h.period);
+    const mine = cur.items.filter((i) => i.gen === gen && inPeriod(i.day, pr));
     const done = mine.filter((i) => i.done);
     const pastPending = mine.filter((i) => !i.done && i.day < today);       // not done: counts as missed
     let future = mine.filter((i) => !i.done && i.day >= today).sort((a, b) => (a.day < b.day ? -1 : 1));
@@ -93,6 +100,10 @@ export function planHabits(plan, today, { nowMin = nowMinutes(), by = 'auto', no
       ? [h.from ? toMin(h.from) : 0, h.to ? toMin(h.to) : 24 * 60]
       : areaWindow(cfg0, h.area, 'task');
     const placedNow = [];
+    // Preferred weekdays are a wish, not a rule: try them first, and use another day only when none works.
+    const prefer = (h.prefer || []).filter((d) => d >= 0 && d <= 6);
+    const reach = Array.from({ length: 7 }, (_, n) => addDays(today, n)).filter((d) => d <= pr.to); // what the engine can see
+    const preferredInReach = reach.filter((d) => prefer.includes(dowOf(d)));
     while (need > 0) {
       const tmp = { ...cur, items };
       const inp = buildEngineInput(tmp, today);
@@ -100,11 +111,13 @@ export function planHabits(plan, today, { nowMin = nowMinutes(), by = 'auto', no
       const skipDays = [...new Set(taken.map((i) => i.day))].filter((d) => countOn(taken, d) >= maxDay);
       const task = {
         id: `habit:${h.id}`, title: h.name, area: h.area, kind: 'task', win, winLabel: windowLabel(win), skipDays,
-        prio: 3, effort: 'light', dur: h.dur || 60, orig: today, dl: w.sun, dlHard: true, place: 'Casa', notBefore: ''
+        prio: 3, effort: 'light', dur: h.dur || 60, orig: today, dl: pr.to, dlHard: true, place: 'Casa', notBefore: ''
       };
-      const res = runEngine(inp.cfg, [task], { today, nowMin, blocks: inp.blocks });
-      const p = res.placed[0];
-      if (!p) break; // nothing else fits this week: do the most that fits
+      const run = (extra) => runEngine(inp.cfg, [{ ...task, ...extra }], { today, nowMin, blocks: inp.blocks });
+      let p = null; let res = null;
+      if (preferredInReach.length) { res = run({ onlyDays: preferredInReach }); p = res.placed[0]; }
+      if (!p) { res = run({}); p = res.placed[0]; }
+      if (!p) break; // nothing else fits this period: do the most that fits
       const day = res.G.days[p.choice.d];
       const item = { id: `hb:${h.id}:${day}`, area: h.area, text: h.name, done: false, day, at: p.choice.start, dur: h.dur || 60, gen, src: 'motor' };
       if (items.some((i) => i.id === item.id)) break;
@@ -126,4 +139,4 @@ export function runGenerators(plan, today = isoOf(new Date()), opts = {}) {
   return { plan: b.plan, changed: b.plan !== plan, fixedAdded: a.added, fixedRemoved: a.removed, habitsAdded: b.added, habitsMissed: b.missed };
 }
 
-export const newHabit = (areaId) => ({ id: `hb_${Math.random().toString(36).slice(2, 8)}`, name: 'Nuevo hábito', area: areaId || '', perWeek: 3, dur: 60, from: '', to: '', maxPerDay: 1, on: true });
+export const newHabit = (areaId) => ({ id: `hb_${Math.random().toString(36).slice(2, 8)}`, name: 'Nuevo hábito', area: areaId || '', perWeek: 3, period: 'week', prefer: [], dur: 60, from: '', to: '', maxPerDay: 1, on: true });
