@@ -72,14 +72,24 @@ export function habitStatus(plan, h, today) {
   return { done, planned, missing: Math.max(0, h.perWeek - done - planned), period: pr };
 }
 
+// What decides WHERE a habit's blocks go. If any of it changes, the upcoming blocks are placed again;
+// the name is not part of it (a rename only renames the upcoming blocks).
+const habitSig = (h) => JSON.stringify([h.area, h.dur || 60, h.from || '', h.to || '', h.prefer || [], h.period === 'month' ? 'month' : 'week', h.perWeek, h.maxPerDay || 1]);
+
 export function planHabits(plan, today, { nowMin = nowMinutes(), by = 'auto', now = new Date().toISOString() } = {}) {
   let cur = plan;
   const cfg0 = getScheduler(plan);
   const history = [];
-  let added = 0; let missed = 0; let removed = 0;
+  let added = 0; let missed = 0; let removed = 0; let renamed = 0;
+
+  // Blocks of a habit that was removed, switched off or lost its area disappear (the ones still ahead and not done).
+  const live = new Set((cfg0.habits || []).filter((h) => h.on !== false && h.perWeek > 0 && plan.areas.some((a) => a.id === h.area)).map((h) => `hb:${h.id}`));
+  const orphans = new Set(cur.items.filter((i) => i.gen && i.gen.startsWith('hb:') && !i.done && i.day >= today && !live.has(i.gen)).map((i) => i.id));
+  if (orphans.size) { cur = { ...cur, items: cur.items.filter((i) => !orphans.has(i.id)) }; removed += orphans.size; }
 
   (cfg0.habits || []).filter((h) => h.on !== false && h.perWeek > 0 && plan.areas.some((a) => a.id === h.area)).forEach((h) => {
     const gen = `hb:${h.id}`;
+    const sig = habitSig(h);
     const pr = periodOf(today, h.period);
     const mine = cur.items.filter((i) => i.gen === gen && inPeriod(i.day, pr));
     const done = mine.filter((i) => i.done);
@@ -87,11 +97,17 @@ export function planHabits(plan, today, { nowMin = nowMinutes(), by = 'auto', no
     let future = mine.filter((i) => !i.done && i.day >= today).sort((a, b) => (a.day < b.day ? -1 : 1));
     const remaining = Math.max(0, h.perWeek - done.length);
     const drop = new Set(pastPending.map((i) => i.id));
+    // Placed under other rules (or before the rules were saved): place them again under the current ones.
+    future.filter((i) => i.gsig !== sig).forEach((i) => drop.add(i.id));
+    future = future.filter((i) => !drop.has(i.id));
     if (future.length > remaining) future.slice(remaining).forEach((i) => drop.add(i.id)); // more planned than needed: keep the earliest
     future = future.filter((i) => !drop.has(i.id));
     pastPending.forEach((i) => history.push({ t: now, kind: 'habit-miss', id: i.id, title: h.name, from: { day: i.day, at: i.at }, by }));
     missed += pastPending.length; removed += drop.size;
-    let items = cur.items.filter((i) => !drop.has(i.id));
+    let items = cur.items.filter((i) => !drop.has(i.id)).map((i) => {
+      if (i.gen === gen && !i.done && i.day >= today && i.text !== h.name) { renamed += 1; return { ...i, text: h.name }; }
+      return i;
+    });
 
     const maxDay = Math.max(1, h.maxPerDay || 1);
     const countOn = (list, day) => list.filter((i) => i.day === day).length;
@@ -113,13 +129,15 @@ export function planHabits(plan, today, { nowMin = nowMinutes(), by = 'auto', no
         id: `habit:${h.id}`, title: h.name, area: h.area, kind: 'task', win, winLabel: windowLabel(win), skipDays,
         prio: 3, effort: 'light', dur: h.dur || 60, orig: today, dl: pr.to, dlHard: true, place: 'Casa', notBefore: ''
       };
-      const run = (extra) => runEngine(inp.cfg, [{ ...task, ...extra }], { today, nowMin, blocks: inp.blocks });
+      // A day the user prefers for this habit counts as open even if the Perfil marks it as a rest day (Sunday chores).
+      const prefCfg = { ...inp.cfg, profile: { ...inp.cfg.profile, open: inp.cfg.profile.open.map((o, d) => o || prefer.includes(d)) } };
+      const run = (extra, c = inp.cfg) => runEngine(c, [{ ...task, ...extra }], { today, nowMin, blocks: inp.blocks });
       let p = null; let res = null;
-      if (preferredInReach.length) { res = run({ onlyDays: preferredInReach }); p = res.placed[0]; }
+      if (preferredInReach.length) { res = run({ onlyDays: preferredInReach }, prefCfg); p = res.placed[0]; }
       if (!p) { res = run({}); p = res.placed[0]; }
       if (!p) break; // nothing else fits this period: do the most that fits
       const day = res.G.days[p.choice.d];
-      const item = { id: `hb:${h.id}:${day}`, area: h.area, text: h.name, done: false, day, at: p.choice.start, dur: h.dur || 60, gen, src: 'motor' };
+      const item = { id: `hb:${h.id}:${day}`, area: h.area, text: h.name, done: false, day, at: p.choice.start, dur: h.dur || 60, gen, gsig: sig, src: 'motor' };
       if (items.some((i) => i.id === item.id)) break;
       items = [...items, item]; placedNow.push(item); need -= 1; added += 1;
       history.push({ t: now, kind: 'habit-add', id: item.id, title: h.name, to: { day, at: p.choice.start }, by });
@@ -127,7 +145,7 @@ export function planHabits(plan, today, { nowMin = nowMinutes(), by = 'auto', no
     cur = { ...cur, items };
   });
 
-  if (!added && !removed) return { plan, added, missed, removed };
+  if (!added && !removed && !renamed) return { plan, added, missed, removed };
   const cfg = getScheduler(cur);
   return { plan: withScheduler(cur, cfg, { history: logEntries(cfg, history) }), added, missed, removed };
 }
@@ -139,4 +157,4 @@ export function runGenerators(plan, today = isoOf(new Date()), opts = {}) {
   return { plan: b.plan, changed: b.plan !== plan, fixedAdded: a.added, fixedRemoved: a.removed, habitsAdded: b.added, habitsMissed: b.missed };
 }
 
-export const newHabit = (areaId) => ({ id: `hb_${Math.random().toString(36).slice(2, 8)}`, name: 'Nuevo hábito', area: areaId || '', perWeek: 3, period: 'week', prefer: [], dur: 60, from: '', to: '', maxPerDay: 1, on: true });
+export const newHabit = (areaId) => ({ id: `hb_${Math.random().toString(36).slice(2, 8)}`, name: 'Nuevo hábito', area: areaId || '', perWeek: 3, period: 'week', prefer: [], dur: 60, from: '', to: '', maxPerDay: 1, on: false });

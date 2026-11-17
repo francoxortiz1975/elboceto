@@ -1,3 +1,4 @@
+import { newHabit as _nh } from '../../src/lib/scheduler/generate.js';
 import { planHabits, generateFixed, runGenerators } from '../../src/lib/scheduler/generate.js';
 const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
 const base = (extra = {}) => ({
@@ -56,9 +57,11 @@ ok(['2026-11-21', '2026-11-22'].includes(by('Lavadora').day), 'laundry (1/week, 
 ok(by('Limpiar casa').day === '2026-11-22' && by('Compras').day === '2026-11-22', 'cleaning and groceries (prefer Sunday) both land on Sunday');
 const sunday = ch.plan.items.filter((i) => i.day === '2026-11-22').sort((a, b) => a.at - b.at);
 ok(sunday.every((i, k) => k === 0 || i.at >= sunday[k - 1].at + sunday[k - 1].dur), 'same-day chores do not overlap');
-// preferred day impossible (Sunday closed) -> falls back to another day instead of doing nothing
-const closedSun = planHabits(lifeBase([H('casa', 'Limpiar casa', { prefer: [6] })], { profile: { open: [true, true, true, true, true, true, false] } }), '2026-11-16', { nowMin: 0 });
-ok(closedSun.plan.items.length === 1 && closedSun.plan.items[0].day !== '2026-11-22', 'preferred day closed: placed on another day of the week');
+// preferred day impossible (Sunday fully booked by a locked block) -> falls back to another day instead of doing nothing
+const bookedSun = { ...lifeBase([H('casa', 'Limpiar casa', { prefer: [6] })]), items: [{ id: 'busy', area: 'life', text: 'Todo el día', done: false, day: '2026-11-22', at: 8 * 60, dur: 14 * 60, lock: true }] };
+const fb = planHabits(bookedSun, '2026-11-16', { nowMin: 0 });
+const mine = fb.plan.items.filter((i) => i.gen === 'hb:casa');
+ok(mine.length === 1 && mine[0].day !== '2026-11-22', 'preferred day full: placed on another day of the week');
 // Sunday evening, not done: the week is over, next Monday starts fresh (nothing carried)
 const nextWeek = planHabits(ch.plan, '2026-11-23', { nowMin: 0 });
 ok(nextWeek.plan.items.filter((i) => !i.done && i.day >= '2026-11-23').length === 3, 'next week all three chores are planned again');
@@ -71,3 +74,34 @@ ok(planHabits(moDone, '2026-12-01', { nowMin: 0 }).plan.items.filter((i) => !i.d
 // Not done by the end of the month: counted missed, nothing carries into the new month beyond the new month's own one
 const moMissed = planHabits(mo.plan, '2026-11-30', { nowMin: 0 });
 ok(moMissed.missed === 1 && moMissed.plan.items.filter((i) => !i.done).length === 1 && moMissed.plan.items.find((i) => !i.done).day === '2026-11-30', 'monthly chore missed: last-chance slot on the last day of the month');
+// ---- regressions found on the phone ----
+// default Perfil: Sunday is a rest day. A chore that prefers Sunday must still land on Sunday.
+const restSunday = { areas: [{ id: 'life', name: 'Life', c: 0 }], hidden: [], scheduler: { habits: [H('compras', 'Compras', { prefer: [6] }), H('sab', 'Lavar sábanas', { period: 'month', prefer: [6], dur: 30 })] }, items: [] };
+let rs = planHabits(restSunday, '2026-11-17', { nowMin: 20 * 60 });
+ok(rs.plan.items.length === 2 && rs.plan.items.every((i) => i.day === '2026-11-22'), 'preferred Sunday works although the Perfil marks Sunday as rest');
+ok(planHabits(rs.plan, '2026-11-17', { nowMin: 20 * 60 }).plan === rs.plan, 'and it is stable on re-run');
+// editing a habit re-places its upcoming blocks (duration, preferred day) instead of leaving them stale
+let ed = { ...rs.plan, scheduler: { ...rs.plan.scheduler, habits: rs.plan.scheduler.habits.map((h) => (h.id === 'compras' ? { ...h, dur: 120, prefer: [5] } : h)) } };
+ed = planHabits(ed, '2026-11-17', { nowMin: 20 * 60 }).plan;
+const comp = ed.items.find((i) => i.text === 'Compras');
+ok(comp && comp.dur === 120 && comp.day === '2026-11-21', 'changing duration and preferred day moves/resizes the upcoming block');
+ok(ed.items.filter((i) => i.text === 'Compras').length === 1, 'no duplicate after editing');
+// renaming only renames
+let rn = { ...ed, scheduler: { ...ed.scheduler, habits: ed.scheduler.habits.map((h) => (h.id === 'compras' ? { ...h, name: 'Mercado' } : h)) } };
+const rn2 = planHabits(rn, '2026-11-17', { nowMin: 20 * 60 }).plan;
+ok(rn2.items.some((i) => i.text === 'Mercado' && i.day === '2026-11-21') && !rn2.items.some((i) => i.text === 'Compras'), 'renaming a habit renames its upcoming blocks in place');
+// done blocks keep their history when the habit is edited
+let dn = { ...ed, items: ed.items.map((i) => (i.text === 'Compras' ? { ...i, done: true } : i)) };
+dn = { ...dn, scheduler: { ...dn.scheduler, habits: dn.scheduler.habits.map((h) => (h.id === 'compras' ? { ...h, dur: 30 } : h)) } };
+ok(planHabits(dn, '2026-11-17', { nowMin: 20 * 60 }).plan.items.some((i) => i.text === 'Compras' && i.done && i.dur === 120), 'a done block is never touched');
+// removing or switching off a habit clears its upcoming blocks
+const offPlan = planHabits({ ...rs.plan, scheduler: { ...rs.plan.scheduler, habits: rs.plan.scheduler.habits.map((h) => (h.id === 'compras' ? { ...h, on: false } : h)) } }, '2026-11-17', { nowMin: 20 * 60 }).plan;
+ok(!offPlan.items.some((i) => i.text === 'Compras') && offPlan.items.some((i) => i.text === 'Lavar sábanas'), 'switching a habit off removes only its upcoming blocks');
+const gone = planHabits({ ...rs.plan, scheduler: { ...rs.plan.scheduler, habits: [] } }, '2026-11-17', { nowMin: 20 * 60 }).plan;
+ok(gone.items.length === 0, 'removing the habit removes its upcoming blocks');
+// blocks created by the older version (no signature) are re-placed once under the current rules
+const legacy = { ...rs.plan, items: rs.plan.items.map((i) => { const { gsig: _g, ...r } = i; return { ...r, day: '2026-11-18', at: 21.5 * 60 }; }) };
+const fixed = planHabits(legacy, '2026-11-17', { nowMin: 20 * 60 }).plan;
+ok(fixed.items.length === 2 && fixed.items.every((i) => i.day === '2026-11-22'), 'old misplaced blocks (Wednesday night) move to the preferred Sunday');
+const nh = _nh;
+ok(nh('life').on === false, 'a brand-new habit is switched off until it is configured');

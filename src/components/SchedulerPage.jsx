@@ -390,7 +390,7 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
     const life = p.areas.find((a) => a.name.trim().toLowerCase() === 'life') || p.areas[0];
     if (!life) return p;
     const c = getScheduler(p);
-    const mk = (name, extra) => ({ ...newHabit(life.id), name, ...extra });
+    const mk = (name, extra) => ({ ...newHabit(life.id), on: true, name, ...extra });
     const adds = [
       mk('Lavadora (ropa)', { perWeek: 1, dur: 30, prefer: [5, 6] }),
       mk('Lavar sábanas', { perWeek: 1, period: 'month', dur: 30, prefer: [6] }),
@@ -411,7 +411,7 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
   return (
     <>
       <div className="sc-stage">Hábitos flexibles · N veces por semana o por mes</div>
-      <p className="sc-note">Para lo que no tiene hora fija, como el gym o las tareas del hogar: dices cuántas veces por semana (o por mes) y el motor coloca esos bloques solo, mejor en tus días preferidos. Si un día no lo haces, se recoloca dentro del mismo periodo. Si ya no quedan días suficientes, planifica lo máximo posible; lo que no cupo no pasa al periodo siguiente, que empieza de cero.</p>
+      <p className="sc-note">Para lo que no tiene hora fija, como el gym o las tareas del hogar: dices cuántas veces por semana (o por mes) y el motor coloca esos bloques solo, mejor en tus días preferidos. Si un día no lo haces, se recoloca dentro del mismo periodo. Si ya no quedan días suficientes, planifica lo máximo posible; lo que no cupo no pasa al periodo siguiente, que empieza de cero. Un día preferido vale aunque tu Perfil lo marque como descanso. Si cambias las reglas de un hábito, sus bloques próximos se recolocan solos.</p>
       <div className="sc-stack">
         {cfg.habits.map((h, i) => {
           const st = habitStatus(plan, h, today);
@@ -458,6 +458,7 @@ function HabitsSection({ plan, cfg, patch, update, today, onChange }) {
                 <span className="sc-stat">Sin horas propias usa las de su área (Motor → Áreas).</span>
               </div>
               {!plan.areas.some((a) => a.id === h.area) && <div className="sc-prop no">Elige un área para que el motor pueda colocarlo.</div>}
+              {h.on === false && <div className="sc-prop no">Desactivado: todavía no crea bloques. Márcalo como Activo cuando lo tengas configurado.</div>}
             </div>
           );
         })}
