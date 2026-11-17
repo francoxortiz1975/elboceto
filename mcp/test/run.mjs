@@ -61,7 +61,8 @@ t = await call('delete_item', { id: 'a3' }); ok(!db.plan.items.some((i) => i.id 
 const content = JSON.parse(fs.readFileSync(new URL('../../docs/sumay-instagram.plan.json', import.meta.url)));
 t = await call('import_content_plan', { plan: content }); ok(/39 bloques nuevos/.test(t) && db.plan.stacks['sumay-instagram-stories'], 'import_content_plan');
 t = await call('get_range', { from: iso(today), to: '2030-01-01', area: 'Sumay' }); ok(t.includes('Reel ·'), 'get_range by area');
-t = await call('get_overdue'); ok(t.includes('ATRASADO (0)'), 'overdue empty after completing');
+// The imported Sumay plan has fixed 2026 dates, so it becomes overdue as time passes: only check the completed item.
+t = await call('get_overdue'); ok(!t.includes('Pagar luz'), 'completed item is no longer overdue');
 // ---- scheduler tools ----
 db.plan.items.push({ id: 'od1', area: 'loginet', text: 'Factura atrasada', done: false, day: iso(yday), at: 'any' });
 db.plan.items.push({ id: 'od2', area: 'life', text: 'Llamar al banco', done: false, day: iso(new Date(today.getTime() - 3 * 864e5)), at: 600, dur: 30 });
