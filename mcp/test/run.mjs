@@ -40,7 +40,7 @@ const url = `http://127.0.0.1:${srv.address().port}`;
 const client = new Client({ name: 'test', version: '1' });
 await client.connect(new StdioClientTransport({
   command: 'node', args: ['dist/server.mjs'],
-  env: { ...process.env, BOCETO_SUPABASE_URL: url, BOCETO_SUPABASE_KEY: 'anon', BOCETO_TOKEN: 'secret', HOME: '/nonexistent' }
+  env: { ...process.env, BOCETO_SUPABASE_URL: url, BOCETO_SUPABASE_KEY: 'anon', BOCETO_TOKEN: 'secret', HOME: '/nonexistent', IRIS_AREAS: JSON.stringify({ areas: { Loginet: '/Users/x/loginet-web' } }) }
 }));
 const call = async (name, args = {}) => { const r = await client.callTool({ name, arguments: args }); return (r.isError ? 'ERROR: ' : '') + r.content[0].text; };
 const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
@@ -137,6 +137,20 @@ t = await call('delete_item', { id: 'mv1' }); ok(notes().some((n) => /se borró 
   await new Promise((resolve) => execFile('node', ['dist/iris-launcher.mjs', '--once'], { env: { ...process.env, HOME: tmp0, BOCETO_SUPABASE_URL: url, BOCETO_SUPABASE_KEY: 'anon', BOCETO_TOKEN: 'secret', IRIS_AREAS: '{}', IRIS_STAGGER_MS: '0' }, timeout: 20000 }, () => resolve()));
   ok(notes().some((n) => n.item === 'fin1' && n.dir === 'to_hub' && n.from === 'launcher' && /se marcó como hecho/.test(n.text)) && db.plan.items.find((i) => i.id === 'fin1').iris.reported === true, 'a finished IRIS+ order gets a report for the hub even if the conversation had no report_progress');
 }
+// ---- IRIS+: opening by itself is the DEFAULT (no need to ask for it) ----
+{
+  const mk = async (args) => { await call('assign_order', { brief: 'x', time: '10:00', ...args }); return db.plan.items.filter((i) => i.text === args.text).at(-1); };
+  let it1 = await mk({ area: 'Loginet', text: 'def-on', day: 'tomorrow' });
+  ok(it1.iris && it1.iris.launch === true && it1.iris.state === 'pending', 'default: a timed task in an area with a registered folder opens by itself');
+  t = await call('assign_order', { area: 'Loginet', text: 'def-on-msg', brief: 'x', day: 'tomorrow', time: '11:00' }); ok(/se abrirá sola cuando empiece el bloque/.test(t), 'and the answer says so');
+  it1 = await mk({ area: 'Loginet', text: 'def-off-explicit', day: 'tomorrow', autostart: false }); ok(!it1.iris, 'autostart: false turns it off');
+  it1 = await mk({ area: 'Loginet', text: 'def-meeting', day: 'tomorrow', kind: 'meeting' }); ok(!it1.iris, 'a meeting never opens a session by default');
+  it1 = await mk({ area: 'Life', text: 'def-nofolder', day: 'tomorrow' }); ok(!it1.iris, 'an area with no folder registered here is not marked by default');
+  t = await call('assign_order', { area: 'Life', text: 'def-nofolder-msg', brief: 'x', day: 'tomorrow', time: '12:00' }); ok(/no tiene carpeta registrada/.test(t) && !/OJO/.test(t) && !/se abrirá sola cuando empiece/.test(t), 'and the answer says why, calmly');
+  it1 = await mk({ area: 'Loginet', text: 'def-past', day: iso(yday) }); ok(!it1.iris, 'a block whose time already passed is not marked');
+  it1 = await mk({ area: 'Loginet', text: 'def-later', day: 'later', time: undefined }); ok(!it1.iris, 'something without day and time cannot open by itself');
+  t = await call('assign_order', { area: 'Life', text: 'force-nofolder', brief: 'x', day: 'tomorrow', time: '13:00', autostart: true }); ok(/OJO: el área Life no tiene carpeta/.test(t), 'forcing it where there is no folder warns loudly');
+}
 // ---- IRIS+: the launcher opens an area's conversation when its block starts ----
 const os = await import('node:os'); const pathMod = await import('node:path');
 const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'iris-launch-'));
@@ -149,7 +163,7 @@ const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m %
 if (nowMin >= 5 && nowMin < 23 * 60) {
   t = await call('assign_order', { area: 'Loginet', text: 'Arrancar solo', brief: 'Cargar los textos finales y avisar.', day: 'today', time: hhmm(nowMin - 2), duration_minutes: 60, autostart: true });
   const auto = db.plan.items.find((i) => i.text === 'Arrancar solo');
-  ok(!t.startsWith('ERROR') && auto && auto.iris.launch === true && auto.iris.state === 'pending' && /OJO: el área Loginet no tiene carpeta/.test(t), 'assign_order with autostart marks the block (and warns when this computer has no folder for the area)');
+  ok(!t.startsWith('ERROR') && auto && auto.iris.launch === true && auto.iris.state === 'pending' && !/OJO/.test(t), 'assign_order with autostart: true marks the block');
   t = await call('assign_order', { area: 'Loginet', text: 'Sin hora', brief: 'x', day: 'tomorrow', autostart: true }); ok(t.startsWith('ERROR') && /hora exacta|time/.test(t), 'autostart without an exact time is refused');
   let l = await launcher(['--dry-run']); ok(/abriría: Arrancar solo/.test(l.out) && !fs.existsSync(log), 'dry run says what it would open and opens nothing');
   ok(db.plan.items.find((i) => i.id === auto.id).iris.state === 'pending', 'and changes nothing');

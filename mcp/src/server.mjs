@@ -328,32 +328,39 @@ server.registerTool('assign_order', {
     area: areaArg, text: z.string().min(1).describe('Título corto del bloque'),
     brief: z.string().min(1).describe('El encargo completo para la conversación del área: qué hay que hacer, contexto, criterios de terminado. Debe entenderse sin este chat.'),
     ...timing, kind: z.enum(['task', 'meeting']).optional(), lock: z.boolean().optional().describe('true si tiene que hacerse justo en ese bloque (entrega, reunión)'),
-    autostart: z.boolean().optional().describe('true para que la conversación del área se abra SOLA cuando empiece el bloque, con este encargo (IRIS+). Pónlo solo si el usuario lo pidió ("que se abra sola"). Requiere día y hora exactos.')
+    autostart: z.boolean().optional().describe('Que la conversación del área se abra SOLA cuando empiece el bloque, con este encargo (IRIS+). POR DEFECTO ESTÁ ACTIVADO para una tarea con día y hora exactos, que aún no ha pasado, en un área con carpeta registrada en este ordenador: no hace falta pedirlo ni preguntarlo. Pon false solo si el usuario dice que NO quiere que se abra sola. true fuerza el intento (requiere día y hora exactos).')
   }
 }, safe(async (a) => {
   const day = resolveDay(a.day) || 'later';
   const at = day === 'later' ? 'any' : atFrom(a);
   if (a.autostart && typeof at !== 'number') throw new Error('Para que se abra sola hacen falta día y hora exactos (time).');
   let warn = '';
+  let auto = false;
   const out = await mutatePlan(cfg, (plan) => {
     const area = areaOf(plan, a.area);
     if (!area) throw new Error(noArea(plan, a.area));
     const dur = a.duration_minutes || kindDur(getScheduler(plan), area.id, a.kind === 'meeting' ? 'meeting' : 'task') || 60;
-    if (a.autostart && !Object.keys(loadAreas().areas).some((k) => k.trim().toLowerCase() === area.name.trim().toLowerCase())) warn = `\nOJO: el área ${area.name} no tiene carpeta registrada en este ordenador, así que NO se abrirá sola. Corre: npm run iris:install -- "${area.name}" /ruta/al/repo`;
+    const hasDir = Object.keys(loadAreas().areas).some((k) => k.trim().toLowerCase() === area.name.trim().toLowerCase());
+    // Default: ON for a timed task that has not ended yet, in an area whose repo is registered here. A meeting is a person, not a coding session.
+    const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+    const notOver = typeof at === 'number' && (day > today() || (day === today() && nowMin < at + dur));
+    auto = a.autostart === true ? true : a.autostart === false ? false : (a.kind !== 'meeting' && notOver && hasDir);
+    if (auto && !hasDir) warn = `\nOJO: el área ${area.name} no tiene carpeta registrada en este ordenador, así que NO se abrirá sola. Corre: npm run iris:install -- "${area.name}" /ruta/al/repo`;
+    else if (!auto && a.autostart === undefined && a.kind !== 'meeting' && notOver && !hasDir) warn = `\n(El área ${area.name} no tiene carpeta registrada en este ordenador, así que no se abrirá sola. Para registrarla: npm run iris:install -- "${area.name}" /ruta/al/repo)`;
     const item = {
       id: uid(), area: area.id, text: a.text.trim(), done: false, day, at, src: 'iris',
-      ...(a.autostart ? { iris: { launch: true, state: 'pending' } } : {}),
+      ...(auto ? { iris: { launch: true, state: 'pending' } } : {}),
       ...(a.kind === 'meeting' ? { kind: 'meeting' } : {}), ...(a.lock && day !== 'later' ? { lock: true } : {}),
       ...(typeof at === 'number' ? { dur } : {})
     };
     const next = addNotes({ ...plan, items: [...plan.items, item] }, [{ area: area.id, kind: 'order', from: 'hub', item: item.id, text: `${a.brief.trim()}\n(Bloque: ${a.text.trim()} · ${when(item)}${item.lock ? ' · con candado' : ''}.)` }]);
     return { plan: next, result: lineOf(next, item) };
   });
-  return text(`Encargo creado y avisado al área${a.autostart ? '; se abrirá sola cuando empiece el bloque' : ''}:\n${out}${warn}`);
+  return text(`Encargo creado y avisado al área${auto ? '; se abrirá sola cuando empiece el bloque' : ''}:\n${out}${warn}`);
 }));
 
 server.registerTool('autostart_item', {
-  description: 'IRIS+: activa o desactiva que la conversación del área se abra SOLA cuando empiece este bloque (con el encargo que el centro dejó para él). El bloque necesita día y hora exactos. Solo si el usuario lo pidió.',
+  description: 'IRIS+: activa o desactiva que la conversación del área se abra SOLA cuando empiece este bloque (con el encargo que el centro dejó para él). El bloque necesita día y hora exactos. assign_order ya lo activa por defecto; úsalo para bloques que ya existían o para quitarlo (on=false) si el usuario no quiere que se abra sola.',
   inputSchema: { id: z.string(), on: z.boolean().optional().describe('true (por defecto) la activa; false la quita') }
 }, safe(async ({ id, on = true }) => {
   let warn = '';

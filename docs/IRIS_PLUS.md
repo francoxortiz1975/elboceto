@@ -6,7 +6,7 @@ a link can prefill a message but never sends it, so there is always one click fr
 (Alternative: `"mode": "terminal"` in `iris-areas.json` opens a Terminal window and starts the `claude` command with the order, which does send by itself but needs that command installed and logged in.)
 
 ```
-hub: assign_order(..., autostart: true)  ->  block 21:00 + brief in the area inbox, marked "abre sola"
+hub: assign_order(...)  ->  block 21:00 + brief in the area inbox, marked "abre sola" BY DEFAULT
 launcher (every minute) -> 21:00 -> claude://code/new?folder=<repo>&q=<order>  (opens the Claude app, you press Enter)
 area conversation -> works -> report_progress(...)  ->  note + block done, visible in Motor > IRIS
 ```
@@ -30,7 +30,7 @@ Because the block's own time is the trigger, if the planner moves the block (nig
    Remove: `npm run iris:launcher:uninstall`. Without launchd: `npm run iris:launcher` keeps it running in a terminal.
 
 ## Use
-- In the hub: "Encárgale a Loginet X para hoy a las 21:00 y que se abra sola" -> `assign_order` with `autostart: true`.
+- In the hub: "Encárgale a Loginet X para hoy a las 21:00" -> `assign_order`. **Opening by itself is the default** for a timed task that has not ended yet, in an area whose folder is registered on this Mac (not for meetings). Say "que no se abra sola" to turn it off (`autostart: false`).
 - An existing block: `autostart_item(id)`. To cancel: `autostart_item(id, on: false)`.
 - Motor > IRIS in the app lists the blocks that open by themselves and their state (por abrir / abierta / perdida).
 
