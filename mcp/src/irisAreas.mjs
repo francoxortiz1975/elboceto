@@ -5,12 +5,12 @@
 //     "modes": { "Loginet": "resume" | "notify" | "app" | "terminal" },  <- per area; default: resume if a session is pinned, else notify
 //     "mode": "notify" | "app" | "terminal", "opener": "optional script", "maxPerTick": 3, "claudeBin": "/path/to/claude",
 //     "model": "claude-sonnet-5-5", "effort": "medium",           <- what IRIS runs on (these are the defaults)
-//     "permissionMode": "auto", "disallowedTools": ["Bash(git push *)", ...] }   <- unattended runs: auto mode + things never allowed
+//     "permissionMode": "auto", "disallowedTools": [...], "allowedTools": [...] }   <- unattended runs: auto mode + things never allowed
 // `npm run iris:install -- "MediLyft" /path` fills it in. IRIS_AREAS (a JSON string) overrides the file, for tests.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_DENY } from './irisResume.mjs';
+import { DEFAULT_DENY, DEFAULT_ALLOW } from './irisResume.mjs';
 
 // Terminal.app opens a clean login shell: a `claude` installed through nvm (or Homebrew) is often NOT on its PATH.
 // So the launcher calls it by its full path. Order: "claudeBin" in the file, then the usual places.
@@ -31,5 +31,5 @@ export function loadAreas() {
   try {
     raw = process.env.IRIS_AREAS ? JSON.parse(process.env.IRIS_AREAS) : JSON.parse(fs.readFileSync(areasFile(), 'utf8'));
   } catch { /* no file yet */ }
-  return { areas: raw.areas || {}, sessions: raw.sessions || {}, modes: raw.modes || {}, opener: process.env.IRIS_OPENER || raw.opener || '', mode: ['notify', 'app', 'terminal', 'resume'].includes(raw.mode) ? raw.mode : '', maxPerTick: raw.maxPerTick || 3, notifySound: raw.notifySound || '', model: raw.model || 'claude-sonnet-5-5', effort: raw.effort || 'medium', permissionMode: raw.permissionMode || 'auto', disallowedTools: Array.isArray(raw.disallowedTools) ? raw.disallowedTools : DEFAULT_DENY, claudeBin: findClaude(process.env.IRIS_CLAUDE || raw.claudeBin || '') };
+  return { areas: raw.areas || {}, sessions: raw.sessions || {}, modes: raw.modes || {}, opener: process.env.IRIS_OPENER || raw.opener || '', mode: ['notify', 'app', 'terminal', 'resume'].includes(raw.mode) ? raw.mode : '', maxPerTick: raw.maxPerTick || 3, notifySound: raw.notifySound || '', model: raw.model || 'claude-sonnet-5-5', effort: raw.effort || 'medium', permissionMode: raw.permissionMode || 'auto', disallowedTools: Array.isArray(raw.disallowedTools) ? raw.disallowedTools : DEFAULT_DENY, allowedTools: Array.isArray(raw.allowedTools) ? raw.allowedTools : DEFAULT_ALLOW, claudeBin: findClaude(process.env.IRIS_CLAUDE || raw.claudeBin || '') };
 }

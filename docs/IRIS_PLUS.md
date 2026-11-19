@@ -46,6 +46,7 @@ Because the block's own time is the trigger, if the planner moves the block (nig
 
 Optional, in `~/.config/boceto-mcp/iris-areas.json`: `"modes": { "MediLyft": "notify" }` (per area), `"notifySound": "Glass"` (notifications are silent by default),
 `"claudeBin": "/path/to/claude"` (found automatically in the usual places, including nvm).
+Level 1 (default, "work on your Mac, upload nothing"): `--allowedTools` lets it edit and write files, create a branch, `git add` / `commit` locally and run tests, lint and build; `--disallowedTools` blocks pushing, publishing, deploying, merging, `rm -rf` and reading `.env`. Override with `"allowedTools"` / `"disallowedTools"` in `iris-areas.json`.
 Unattended permissions: IRIS runs with `--permission-mode auto` (a classifier approves or blocks each action, like the desktop app) plus `--disallowedTools` for pushing, publishing, deploying and merging (`git push`, `npm publish`, `vercel`, `gh pr merge`, `supabase db push`, `supabase functions deploy`). Change with `"permissionMode"` (manual, acceptEdits, auto, dontAsk, plan, bypassPermissions) and `"disallowedTools"` in `iris-areas.json`.
 IRIS always runs on **Sonnet 5.5 with medium effort** (`--model claude-sonnet-5-5 --effort medium`) in `resume` and `terminal` modes. Change it with `"model"` and `"effort"` (low, medium, high, xhigh, max) in `iris-areas.json`.
 

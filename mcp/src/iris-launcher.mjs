@@ -42,7 +42,7 @@ async function openFor(c, file, conf) {
     else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; }
     else {
       write(resumeMessage(c.item, c.areaName));
-      await terminalDo(resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools }));
+      await terminalDo(resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools, allow: conf.allowedTools }));
       return 'resume';
     }
   }
@@ -54,7 +54,7 @@ async function openFor(c, file, conf) {
   if (mode === 'terminal') {
     const bin = conf.claudeBin ? q(conf.claudeBin) : 'claude';
     const withPath = conf.claudeBin ? `PATH=${q(path.dirname(conf.claudeBin))}:"$PATH" ` : '';
-    await terminalDo(`cd ${q(c.dir)} && ${withPath}${bin} "$(cat ${q(file)})"${modelFlags(conf.model, conf.effort)}${permissionFlags(conf.permissionMode, conf.disallowedTools)}`);
+    await terminalDo(`cd ${q(c.dir)} && ${withPath}${bin} "$(cat ${q(file)})"${modelFlags(conf.model, conf.effort)}${permissionFlags(conf.permissionMode, conf.disallowedTools, conf.allowedTools)}`);
     return 'terminal';
   }
   await exec('open', [deepLink(c.dir, c.prompt)]);

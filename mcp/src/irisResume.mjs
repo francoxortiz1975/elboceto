@@ -113,11 +113,11 @@ export function resumeMessage(item, areaName, startTime = '') {
 }
 
 // Shell command for Terminal.app. `claude` is called by full path with its own folder on PATH (a fresh Terminal window has no nvm).
-export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '', permissionMode = '', deny = [] }) {
+export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '', permissionMode = '', deny = [], allow = [] }) {
   const bin = claudeBin ? q(claudeBin) : 'claude';
   const withPath = claudeBin ? `PATH=${q(path.dirname(claudeBin))}:"$PATH" ` : '';
   // The message comes right after the id and every flag after it: --disallowedTools takes a list and would swallow a message placed behind it.
-  return `cd ${q(dir)} && ${withPath}${bin} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny)}`;
+  return `cd ${q(dir)} && ${withPath}${bin} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny, allow)}`;
 }
 
 // IRIS always runs on one model and effort (default Sonnet 5.5, medium): "model" / "effort" in iris-areas.json change it.
@@ -131,12 +131,16 @@ export const cleanEffort = (e) => (EFFORTS.includes(e) ? e : DEFAULT_EFFORT);
 // (pushing, publishing, deploying, merging). Other modes: manual, acceptEdits, dontAsk, plan, bypassPermissions (not recommended).
 export const PERMISSION_MODES = ['manual', 'acceptEdits', 'auto', 'dontAsk', 'plan', 'bypassPermissions'];
 export const DEFAULT_PERMISSION_MODE = 'auto';
-export const DEFAULT_DENY = ['Bash(git push *)', 'Bash(git push)', 'Bash(npm publish*)', 'Bash(vercel *)', 'Bash(gh pr merge *)', 'Bash(supabase db push*)', 'Bash(supabase functions deploy*)'];
+export const DEFAULT_DENY = ['Bash(git push *)', 'Bash(git push)', 'Bash(npm publish*)', 'Bash(vercel *)', 'Bash(gh pr merge *)', 'Bash(supabase db push*)', 'Bash(supabase functions deploy*)', 'Bash(rm -rf*)', 'Read(.env*)', 'Bash(cat .env*)'];
+// Level 1 ("work on your Mac, upload nothing"): read, edit, branch, commit locally, run tests / lint / build. Anything else is left to the auto-mode classifier.
+export const DEFAULT_ALLOW = ['Edit', 'Write', 'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git add*)', 'Bash(git commit*)', 'Bash(git checkout -b *)', 'Bash(git switch -c *)', 'Bash(git branch*)', 'Bash(npm run test*)', 'Bash(npm test*)', 'Bash(npm run lint*)', 'Bash(npm run build*)', 'Bash(npx tsc*)'];
 export const cleanPermissionMode = (m) => (PERMISSION_MODES.includes(m) ? m : DEFAULT_PERMISSION_MODE);
 export const cleanDeny = (list) => (Array.isArray(list) ? list : []).map(String).filter((t) => /^[\w ()*.:/@-]{1,80}$/.test(t));
-export const permissionFlags = (mode, deny) => {
-  const list = cleanDeny(deny);
-  return `${mode ? ` --permission-mode ${q(cleanPermissionMode(mode))}` : ''}${list.length ? ` --disallowedTools ${q(list.join(','))}` : ''}`;
+// Both tool flags take a list, so each gets ONE comma-joined value and they go last (after the message).
+export const permissionFlags = (mode, deny, allow = []) => {
+  const no = cleanDeny(deny);
+  const yes = cleanDeny(allow);
+  return `${mode ? ` --permission-mode ${q(cleanPermissionMode(mode))}` : ''}${yes.length ? ` --allowedTools ${q(yes.join(','))}` : ''}${no.length ? ` --disallowedTools ${q(no.join(','))}` : ''}`;
 };
 export const modelFlags = (model, effort) => `${model ? ` --model ${q(cleanModel(model))}` : ''}${effort ? ` --effort ${q(cleanEffort(effort))}` : ''}`;
 
