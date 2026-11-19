@@ -50,7 +50,7 @@ ok(/bloque "Formulario" \(21:00–22:00\) del área Loginet/.test(msg) && /repor
 const cmd = R.resumeCommand({ dir: "/Users/x/it's here", sid: 'bbb-222', promptFile: '/tmp/m.txt', claudeBin: '/Users/x/.nvm/versions/node/v22/bin/claude' });
 ok(cmd === `cd '/Users/x/it'\\''s here' && PATH='/Users/x/.nvm/versions/node/v22/bin':"$PATH" '/Users/x/.nvm/versions/node/v22/bin/claude' --resume 'bbb-222' "$(cat '/tmp/m.txt')"`, 'resume command: quoted folder, claude by full path with its folder on PATH, --resume <id>');
 ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p' }) === `cd '/a' && claude --resume 's' "$(cat '/p')"`, 'without a known claude path it uses plain `claude`');
-ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', model: 'claude-sonnet-5-5', effort: 'medium' }) === `cd '/a' && claude --resume 's' --model 'claude-sonnet-5-5' --effort 'medium' "$(cat '/p')"`, 'IRIS runs on Sonnet 5.5 with medium effort: --model and --effort go into the command');
+ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', model: 'claude-sonnet-5-5', effort: 'medium' }) === `cd '/a' && claude --resume 's' "$(cat '/p')" --model 'claude-sonnet-5-5' --effort 'medium'`, 'IRIS runs on Sonnet 5.5 with medium effort: --model and --effort go into the command');
 ok(R.modelFlags("x; rm -rf /", 'bogus') === ` --model 'claude-sonnet-5-5' --effort 'medium'`, 'a model or effort with odd characters or an unknown level falls back to the defaults');
 ok(R.modelFlags('claude-opus-5-5', 'high') === ` --model 'claude-opus-5-5' --effort 'high'` && R.modelFlags('', '') === '', 'other models and efforts can be configured; none means no flags');
 const na = R.notifyArgs('IRIS · Loginet', 'Empieza "x"; rm -rf /');
@@ -65,3 +65,11 @@ ok(fa && fa.cwd === other && fa.projectDir === R.projectDirName(other), 'a conve
 ok(R.findSessionAnywhere('nope-000') === null && R.findSessionAnywhere('../x') === null, 'unknown ids and ids with a path give nothing');
 ok(R.pinnedDir({ sessions: { Loginet: { id: 'zzz-999', dir: other } } }, 'loginet') === other && R.pinnedDir({ sessions: { Loginet: 'zzz-999' } }, 'Loginet') === '', 'pinnedDir: only when one was saved');
 ok(!R.notifyArgs('t', 'x').join(' ').includes('sound') && R.notifyArgs('t', 'x', 'Glass').join(' ').includes('sound name "Glass"') && !R.notifyArgs('t', 'x', 'Gl"; do shell script').join(' ').includes('do shell'), 'notification sound: silent by default, only plain sound names are accepted');
+
+// permissions for unattended runs
+ok(R.permissionFlags('auto', ['Bash(git push *)', 'Bash(npm publish*)']) === ` --permission-mode 'auto' --disallowedTools 'Bash(git push *),Bash(npm publish*)'`, 'unattended runs: --permission-mode auto plus a comma-joined list of tools that are never allowed');
+ok(R.permissionFlags('', []) === '' && R.permissionFlags('bogus', []) === ` --permission-mode 'auto'`, 'no mode means no flag; an unknown mode falls back to auto');
+ok(R.cleanDeny(['Bash(git push *)', "x'; rm -rf /", 'a"b', 5]).join('|') === 'Bash(git push *)|5', 'tool patterns with quotes or shell characters are dropped');
+const full = R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', model: 'claude-sonnet-5-5', effort: 'medium', permissionMode: 'auto', deny: R.DEFAULT_DENY });
+ok(full.indexOf('"$(cat') < full.indexOf('--model') && full.indexOf('"$(cat') < full.indexOf('--disallowedTools') && full.endsWith(`--disallowedTools '${R.DEFAULT_DENY.join(',')}'`), 'the message comes before every flag and the variadic --disallowedTools is last, so it cannot swallow the message');
+ok(R.DEFAULT_DENY.some((d) => /git push/.test(d)) && R.DEFAULT_DENY.some((d) => /publish/.test(d)) && R.DEFAULT_DENY.some((d) => /vercel/.test(d)), 'the default deny list covers push, publish and deploy');

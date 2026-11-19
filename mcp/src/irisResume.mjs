@@ -113,10 +113,11 @@ export function resumeMessage(item, areaName, startTime = '') {
 }
 
 // Shell command for Terminal.app. `claude` is called by full path with its own folder on PATH (a fresh Terminal window has no nvm).
-export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '' }) {
+export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '', permissionMode = '', deny = [] }) {
   const bin = claudeBin ? q(claudeBin) : 'claude';
   const withPath = claudeBin ? `PATH=${q(path.dirname(claudeBin))}:"$PATH" ` : '';
-  return `cd ${q(dir)} && ${withPath}${bin} --resume ${q(sid)}${modelFlags(model, effort)} "$(cat ${q(promptFile)})"`;
+  // The message comes right after the id and every flag after it: --disallowedTools takes a list and would swallow a message placed behind it.
+  return `cd ${q(dir)} && ${withPath}${bin} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny)}`;
 }
 
 // IRIS always runs on one model and effort (default Sonnet 5.5, medium): "model" / "effort" in iris-areas.json change it.
@@ -126,6 +127,17 @@ export const DEFAULT_EFFORT = 'medium';
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 export const cleanModel = (m) => (/^[\w.-]{1,60}$/.test(String(m || '')) ? String(m) : DEFAULT_MODEL);
 export const cleanEffort = (e) => (EFFORTS.includes(e) ? e : DEFAULT_EFFORT);
+// Unattended runs: "auto" (a classifier approves or blocks each action, like the desktop app) plus a hard list of things that are never allowed
+// (pushing, publishing, deploying, merging). Other modes: manual, acceptEdits, dontAsk, plan, bypassPermissions (not recommended).
+export const PERMISSION_MODES = ['manual', 'acceptEdits', 'auto', 'dontAsk', 'plan', 'bypassPermissions'];
+export const DEFAULT_PERMISSION_MODE = 'auto';
+export const DEFAULT_DENY = ['Bash(git push *)', 'Bash(git push)', 'Bash(npm publish*)', 'Bash(vercel *)', 'Bash(gh pr merge *)', 'Bash(supabase db push*)', 'Bash(supabase functions deploy*)'];
+export const cleanPermissionMode = (m) => (PERMISSION_MODES.includes(m) ? m : DEFAULT_PERMISSION_MODE);
+export const cleanDeny = (list) => (Array.isArray(list) ? list : []).map(String).filter((t) => /^[\w ()*.:/@-]{1,80}$/.test(t));
+export const permissionFlags = (mode, deny) => {
+  const list = cleanDeny(deny);
+  return `${mode ? ` --permission-mode ${q(cleanPermissionMode(mode))}` : ''}${list.length ? ` --disallowedTools ${q(list.join(','))}` : ''}`;
+};
 export const modelFlags = (model, effort) => `${model ? ` --model ${q(cleanModel(model))}` : ''}${effort ? ` --effort ${q(cleanEffort(effort))}` : ''}`;
 
 // osascript arguments for a macOS notification (text passed as arguments, never spliced into the script).
