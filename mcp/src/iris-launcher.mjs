@@ -12,7 +12,7 @@ import { execFile } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
-import { modeFor, pinnedSession, pinnedDir, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs } from './irisResume.mjs';
+import { modeFor, pinnedSession, pinnedDir, modelFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs } from './irisResume.mjs';
 import { findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { addNotes } from '../../src/lib/iris';
 
@@ -42,7 +42,7 @@ async function openFor(c, file, conf) {
     else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; }
     else {
       write(resumeMessage(c.item, c.areaName));
-      await terminalDo(resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin }));
+      await terminalDo(resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort }));
       return 'resume';
     }
   }
@@ -54,7 +54,7 @@ async function openFor(c, file, conf) {
   if (mode === 'terminal') {
     const bin = conf.claudeBin ? q(conf.claudeBin) : 'claude';
     const withPath = conf.claudeBin ? `PATH=${q(path.dirname(conf.claudeBin))}:"$PATH" ` : '';
-    await terminalDo(`cd ${q(c.dir)} && ${withPath}${bin} "$(cat ${q(file)})"`);
+    await terminalDo(`cd ${q(c.dir)} && ${withPath}${bin}${modelFlags(conf.model, conf.effort)} "$(cat ${q(file)})"`);
     return 'terminal';
   }
   await exec('open', [deepLink(c.dir, c.prompt)]);

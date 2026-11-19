@@ -31,6 +31,8 @@ fs.utimesSync(path.join(dir, 'aaa-111.jsonl'), new Date(), new Date());
 ok(R.sessionInUse(repo, 'aaa-111', { psOut: '' }) === true, 'a conversation touched seconds ago is in use');
 ok(R.sessionInUse(repo, 'bbb-222', { psOut: '/x/node /x/bin/claude --resume bbb-222' }) === true, 'a claude process started with that id means in use');
 ok(R.sessionInUse(repo, 'bbb-222', { psOut: '/usr/bin/vim notes-bbb-222.txt' }) === false, 'a process that is not claude does not count');
+ok(R.sessionInUse(repo, 'bbb-222', { psOut: '/bin/zsh -c cat ~/.claude/projects/-Users-x-loginet-web/bbb-222.jsonl' }) === false, 'the id inside a path or command text (not as an argument) does not count');
+ok(R.sessionInUse(repo, 'bbb-222', { psOut: '/app/claude --output-format stream-json --resume bbb-222 --effort=medium' }) === true && R.sessionInUse(repo, 'bbb-222', { psOut: '/x/claude -r bbb-222' }) === true && R.sessionInUse(repo, 'bbb-222', { psOut: '/x/claude --session-id=bbb-222 --verbose' }) === true, 'the id as the argument of --resume, -r or --session-id counts');
 
 // mode choice
 const conf = (o) => ({ sessions: {}, modes: {}, mode: '', ...o });
@@ -48,6 +50,9 @@ ok(/bloque "Formulario" \(21:00–22:00\) del área Loginet/.test(msg) && /repor
 const cmd = R.resumeCommand({ dir: "/Users/x/it's here", sid: 'bbb-222', promptFile: '/tmp/m.txt', claudeBin: '/Users/x/.nvm/versions/node/v22/bin/claude' });
 ok(cmd === `cd '/Users/x/it'\\''s here' && PATH='/Users/x/.nvm/versions/node/v22/bin':"$PATH" '/Users/x/.nvm/versions/node/v22/bin/claude' --resume 'bbb-222' "$(cat '/tmp/m.txt')"`, 'resume command: quoted folder, claude by full path with its folder on PATH, --resume <id>');
 ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p' }) === `cd '/a' && claude --resume 's' "$(cat '/p')"`, 'without a known claude path it uses plain `claude`');
+ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', model: 'claude-sonnet-5-5', effort: 'medium' }) === `cd '/a' && claude --resume 's' --model 'claude-sonnet-5-5' --effort 'medium' "$(cat '/p')"`, 'IRIS runs on Sonnet 5.5 with medium effort: --model and --effort go into the command');
+ok(R.modelFlags("x; rm -rf /", 'bogus') === ` --model 'claude-sonnet-5-5' --effort 'medium'`, 'a model or effort with odd characters or an unknown level falls back to the defaults');
+ok(R.modelFlags('claude-opus-5-5', 'high') === ` --model 'claude-opus-5-5' --effort 'high'` && R.modelFlags('', '') === '', 'other models and efforts can be configured; none means no flags');
 const na = R.notifyArgs('IRIS · Loginet', 'Empieza "x"; rm -rf /');
 ok(na[na.length - 1] === 'Empieza "x"; rm -rf /' && !na.slice(0, -2).join(' ').includes('rm -rf'), 'notification text goes as an argument, never inside the script');
 

@@ -73,7 +73,9 @@ export function sessionInUse(repo, id, { now = Date.now(), quietMs = 120000, psO
   try { if (now - fs.statSync(sessionFile(repo, id)).mtimeMs < quietMs) return true; } catch { /* no file */ }
   let out = psOut;
   if (out === undefined) { try { out = execFileSync('ps', ['-axo', 'command='], { encoding: 'utf8', timeout: 4000 }); } catch { out = ''; } }
-  return out.split('\n').some((l) => l.includes(String(id)) && /claude/.test(l));
+  // The id must be an ARGUMENT of a claude process (`--resume <id>`, `-r <id>`, `--session-id <id>`), not just appear in some path or command text.
+  const arg = new RegExp(`(--resume|--session-id|\\s-r)(=|\\s)+${String(id).replace(/[^\w-]/g, '')}(\\s|$)`);
+  return out.split('\n').some((l) => /claude/.test(l) && arg.test(l));
 }
 
 // The folder to run `--resume` from: the one saved with the pin (if the conversation lives elsewhere), else the area's folder.
@@ -105,16 +107,26 @@ export function resumeMessage(item, areaName, startTime = '') {
     'Tu buzón de IRIS tiene el encargo completo (el hook te lo muestra; si no lo ves, léelo con read_notes).',
     'Trabaja en una rama, sin desplegar ni publicar nada, y pide confirmación antes de cualquier cosa destructiva.',
     `Al terminar, o si te bloqueas, avisa con report_progress(area="${areaName}", item_id="${item.id}", text="…", done=true si terminó).`,
-    'Si no tienes report_progress, marca el bloque con complete_item y cuenta el resultado en tu respuesta.'
+    'Los servidores MCP pueden tardar unos segundos en conectar al arrancar: si no ves report_progress, complete_item o read_notes, búscalas con ToolSearch (espera a que conecte boceto) antes de decir que no las tienes.',
+    'Si de verdad no existen, cuenta el resultado en tu respuesta.'
   ].join('\n');
 }
 
 // Shell command for Terminal.app. `claude` is called by full path with its own folder on PATH (a fresh Terminal window has no nvm).
-export function resumeCommand({ dir, sid, promptFile, claudeBin = '' }) {
+export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '' }) {
   const bin = claudeBin ? q(claudeBin) : 'claude';
   const withPath = claudeBin ? `PATH=${q(path.dirname(claudeBin))}:"$PATH" ` : '';
-  return `cd ${q(dir)} && ${withPath}${bin} --resume ${q(sid)} "$(cat ${q(promptFile)})"`;
+  return `cd ${q(dir)} && ${withPath}${bin} --resume ${q(sid)}${modelFlags(model, effort)} "$(cat ${q(promptFile)})"`;
 }
+
+// IRIS always runs on one model and effort (default Sonnet 5.5, medium): "model" / "effort" in iris-areas.json change it.
+// Only plain values are accepted, so nothing odd can reach the shell command.
+export const DEFAULT_MODEL = 'claude-sonnet-5-5';
+export const DEFAULT_EFFORT = 'medium';
+export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+export const cleanModel = (m) => (/^[\w.-]{1,60}$/.test(String(m || '')) ? String(m) : DEFAULT_MODEL);
+export const cleanEffort = (e) => (EFFORTS.includes(e) ? e : DEFAULT_EFFORT);
+export const modelFlags = (model, effort) => `${model ? ` --model ${q(cleanModel(model))}` : ''}${effort ? ` --effort ${q(cleanEffort(effort))}` : ''}`;
 
 // osascript arguments for a macOS notification (text passed as arguments, never spliced into the script).
 // Silent by default (so it never wakes you at night); set "notifySound": "Glass" in iris-areas.json for a sound.

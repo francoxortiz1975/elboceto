@@ -46,6 +46,7 @@ Because the block's own time is the trigger, if the planner moves the block (nig
 
 Optional, in `~/.config/boceto-mcp/iris-areas.json`: `"modes": { "MediLyft": "notify" }` (per area), `"notifySound": "Glass"` (notifications are silent by default),
 `"claudeBin": "/path/to/claude"` (found automatically in the usual places, including nvm).
+IRIS always runs on **Sonnet 5.5 with medium effort** (`--model claude-sonnet-5-5 --effort medium`) in `resume` and `terminal` modes. Change it with `"model"` and `"effort"` (low, medium, high, xhigh, max) in `iris-areas.json`.
 
 ## Use
 - In the hub: "Encárgale a Loginet X para hoy a las 21:00" -> `assign_order`. **Opening by itself is the default** for a timed task that has not ended yet, in an area whose folder is registered on this Mac (not for meetings). Say "que no se abra sola" to turn it off (`autostart: false`).
