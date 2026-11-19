@@ -39,7 +39,7 @@ async function openFor(c, file, conf) {
     const sid = pinnedSession(conf, c.areaName);
     const rdir = pinnedDir(conf, c.areaName) || c.dir; // the conversation may live in another folder than the area's repo
     if (!sid || !sessionExists(rdir, sid)) { mode = 'notify'; why = 'la conversación fijada no existe en esa carpeta'; }
-    else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; }
+    else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; if (c.item.iris && c.item.iris.notified) return `wait (${why})`; }
     else {
       write(resumeMessage(c.item, c.areaName));
       await terminalDo(resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools, allow: conf.allowedTools }));
@@ -104,7 +104,6 @@ export async function tick({ now = new Date(), dry = false } = {}) {
     next = setLaunchState(next, missedIds, 'missed', now.toISOString());
     const areaName = (id) => (p.areas.find((a) => a.id === id) || {}).name || id;
     next = addNotes(next, [
-      ...claimed.map((c) => ({ area: c.item.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: c.item.id, text: c.mode === 'notify' ? `Empezó “${c.item.text}”: se avisó por notificación; la conversación de ${areaName(c.item.area)} recogerá el encargo con su siguiente mensaje.` : c.mode === 'resume' ? `Se reanudó la conversación de ${areaName(c.item.area)} para “${c.item.text}”.` : `Se abrió la conversación de ${areaName(c.item.area)} para “${c.item.text}”.` })),
       ...cur.missed.map((i) => ({ area: i.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: i.id, text: `“${i.text}” no se abrió a tiempo (el ordenador estaba apagado o dormido, o el lanzador no corría).` }))
     ], now.toISOString());
     return { plan: next, result: null };
@@ -117,8 +116,28 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       const file = path.join(dir, `${c.item.id.replace(/[^\w.-]/g, '_')}.txt`);
       const how = await openFor(c, file, conf);
-      opened.push(c.item.id);
-      log(`${how.startsWith('notify') ? 'avisada' : 'abierta'}: ${c.item.text} (${c.dir}) [${how}]`);
+      const areaLabel = c.areaName || c.item.area;
+      const fellBack = c.mode === 'resume' && (how.startsWith('notify (') || how.startsWith('wait ('));
+      const say = (text) => ({ area: c.item.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: c.item.id, text });
+      if (fellBack) {
+        // Could not resume (the conversation is in use or gone): the block is NOT opened. Keep it pending so the next pass tries again
+        // while the block lasts, and say it once, truthfully.
+        const first = how.startsWith('notify (');
+        await mutatePlan(cfg, (p) => {
+          let next = setLaunchState(p, [c.item.id], 'pending', now.toISOString());
+          next = { ...next, items: next.items.map((i) => (i.id === c.item.id ? { ...i, iris: { ...i.iris, notified: true } } : i)) };
+          if (first) next = addNotes(next, [say(`No se pudo reanudar la conversación de ${areaLabel} para “${c.item.text}”: ${how.slice(8, -1)}. Se avisó por notificación y se reintenta cada minuto mientras dure el bloque.`)], now.toISOString());
+          return { plan: next, result: null };
+        });
+        log(`${first ? 'avisada' : 'esperando'}: ${c.item.text} (${c.dir}) [${how}] — se reintenta mientras dure el bloque`);
+      } else {
+        opened.push(c.item.id);
+        const text = how === 'resume' ? `Se reanudó la conversación de ${areaLabel} para “${c.item.text}”.`
+          : how === 'notify' ? `Empezó “${c.item.text}”: se avisó por notificación; la conversación de ${areaLabel} recogerá el encargo con su siguiente mensaje.`
+          : `Se abrió la conversación de ${areaLabel} para “${c.item.text}”.`;
+        await mutatePlan(cfg, (p) => ({ plan: addNotes(p, [say(text)], now.toISOString()), result: null }));
+        log(`${how.startsWith('notify') ? 'avisada' : 'abierta'}: ${c.item.text} (${c.dir}) [${how}]`);
+      }
       await new Promise((r) => setTimeout(r, Number(process.env.IRIS_STAGGER_MS ?? 4000))); // do not open several windows on top of each other
     } catch (e) {
       log(`no pude abrir ${c.item.text}: ${e.message}`);
