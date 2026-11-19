@@ -55,6 +55,9 @@ IRIS always runs on **Sonnet 5.5 with medium effort** (`--model claude-sonnet-5-
 - An existing block: `autostart_item(id)`. To cancel: `autostart_item(id, on: false)`.
 - Motor > IRIS in the app lists the blocks that open by themselves and their state (por abrir / abierta / perdida).
 
+## The hub learns by itself how an order ended
+After `assign_order`, the hub conversation starts `node mcp/dist/iris-wait.mjs <block id> --timeout <min>` in the background (hub rule 9). It polls the cloud every 10 s (no model tokens), prints each report of the area (plan, final report) and exits when the block is done (0), the time limit passes (2) or the block was missed/removed (3). That exit wakes the hub chat, which summarises it to the user while they keep talking to IRIS.
+
 ## If a block does not open
 1. Motor > IRIS: is the block under "Se abren solas"? If not, it was never marked: the **hub session has an old MCP loaded**. After every `npm run mcp:build`, close and reopen every Claude session that uses it (the hub first).
    A correct `assign_order` answer says "se abrirá sola cuando empiece el bloque".

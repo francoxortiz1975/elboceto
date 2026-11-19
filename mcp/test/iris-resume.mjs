@@ -77,3 +77,26 @@ ok(lvl1.indexOf('--allowedTools') > lvl1.indexOf('--permission-mode') && lvl1.in
 ok(R.DEFAULT_ALLOW.includes('Edit') && R.DEFAULT_ALLOW.includes('Bash(git commit*)') && !R.DEFAULT_ALLOW.some((x) => /push|publish|vercel|merge|deploy/.test(x)), 'level 1 allows edit and local commits and nothing that uploads or deploys');
 ok(['Bash(git push *)', 'Read(.env*)', 'Bash(rm -rf*)'].every((d) => R.DEFAULT_DENY.includes(d)) && R.DEFAULT_ALLOW.every((a) => !R.DEFAULT_DENY.includes(a)), 'the deny list covers push, .env and rm -rf, and nothing is both allowed and denied');
 ok(R.DEFAULT_DENY.some((d) => /git push/.test(d)) && R.DEFAULT_DENY.some((d) => /publish/.test(d)) && R.DEFAULT_DENY.some((d) => /vercel/.test(d)), 'the default deny list covers push, publish and deploy');
+
+// ---- iris-wait: what the hub is told about one block ----
+const W = await import('../src/irisWait.mjs');
+const wplan = (over = {}) => ({
+  areas: [{ id: 'm', name: 'MediLyft' }],
+  items: [{ id: 'b1', area: 'm', text: 'Botón de login', done: false, iris: { launch: true, state: 'launched' }, ...over }],
+  iris: { notes: [
+    { id: 'n1', item: 'b1', dir: 'to_hub', from: 'launcher', t: '2026-11-19T17:00:00Z', text: 'Se reanudó la conversación de MediLyft.' },
+    { id: 'n2', item: 'b1', dir: 'to_hub', from: 'area', t: '2026-11-19T17:00:30Z', text: 'PLAN: cambiar .btn-submit\na rojo.' },
+    { id: 'n3', item: 'other', dir: 'to_hub', from: 'area', t: '2026-11-19T17:00:40Z', text: 'de otro bloque' },
+    { id: 'n4', item: 'b1', dir: 'to_area', from: 'hub', t: '2026-11-19T16:59:00Z', text: 'el encargo' }
+  ] }
+});
+const seenW = new Set();
+let st = W.stepWait(wplan(), 'b1', seenW);
+ok(st.lines.length === 2 && st.lines[0].includes('[IRIS · lanzador]') && st.lines[1] === '[IRIS · MediLyft] PLAN: cambiar .btn-submit a rojo.', 'only the reports of that block that go to the hub are printed, in order, with who said them and on one line');
+ok(!st.done && !st.missed, 'a launched block that is not done keeps waiting');
+ok(W.stepWait(wplan(), 'b1', seenW).lines.length === 0, 'a report already printed is not printed again');
+ok(W.stepWait(wplan({ done: true }), 'b1', seenW).done === true, 'done means the wait can end');
+ok(W.stepWait(wplan({ iris: { launch: true, state: 'missed' } }), 'b1', new Set()).missed === true, 'a missed block ends the wait');
+st = W.stepWait(wplan(), 'nope', new Set());
+ok(st.missed && st.gone && /ya no existe/.test(st.lines[0]), 'a block that no longer exists ends the wait with a clear line');
+ok(/Pasaron 3 min/.test(W.timeoutLine(wplan(), 'b1', 3)) && /arrancó pero sin informe final/.test(W.timeoutLine(wplan(), 'b1', 3)) && /sin arrancar/.test(W.timeoutLine(wplan({ iris: { launch: true, state: 'pending' } }), 'b1', 3)), 'the timeout line says how long and what state the block is in');
