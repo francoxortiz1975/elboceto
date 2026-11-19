@@ -1,12 +1,15 @@
 // Connects one repo (one conversation per area) to IRIS: adds the two hooks to <repo>/.claude/settings.local.json
 // (the "local" file is private to this computer and git ignores it).
 // Usage: node mcp/scripts/iris-install.mjs "MediLyft" /path/to/the/repo
+//        add --hooks-only to install the hooks in a folder WITHOUT making it the area's folder (e.g. a notes folder where the area's
+//        long conversation lives while the repo is somewhere else).
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const [area, repoArg] = process.argv.slice(2);
+const hooksOnly = process.argv.includes('--hooks-only');
+const [area, repoArg] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 if (!area || !repoArg) { console.error('Uso: npm run iris:install -- "MediLyft" /ruta/al/repo'); process.exit(1); }
 const repo = path.resolve(repoArg.replace(/^~(?=$|\/)/, process.env.HOME || '~'));
 if (!fs.existsSync(repo) || !fs.statSync(repo).isDirectory()) { console.error(`No existe la carpeta ${repo}`); process.exit(1); }
@@ -44,8 +47,10 @@ try {
   const areasFile = path.join(os.homedir(), '.config', 'boceto-mcp', 'iris-areas.json');
   let conf = {};
   try { conf = JSON.parse(fs.readFileSync(areasFile, 'utf8')); } catch { /* new file */ }
-  conf.areas = { ...(conf.areas || {}), [area]: repo };
-  fs.mkdirSync(path.dirname(areasFile), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(areasFile, `${JSON.stringify(conf, null, 2)}\n`, { mode: 0o600 });
+  if (!hooksOnly) {
+    conf.areas = { ...(conf.areas || {}), [area]: repo };
+    fs.mkdirSync(path.dirname(areasFile), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(areasFile, `${JSON.stringify(conf, null, 2)}\n`, { mode: 0o600 });
+  }
 } catch (e) { console.error(`(No pude guardar la carpeta del área para IRIS+: ${e.message})`); }
-console.log(`IRIS conectado: ${repo}\n  área: ${area}\n  hooks: SessionStart + UserPromptSubmit en ${file}\nAbre una conversación nueva en esa carpeta: lo primero que verá es su buzón.`);
+console.log(`IRIS conectado: ${repo}${hooksOnly ? ' (solo los hooks; la carpeta del área no cambia)' : ''}\n  área: ${area}\n  hooks: SessionStart + UserPromptSubmit en ${file}\nAbre una conversación nueva en esa carpeta: lo primero que verá es su buzón.`);
