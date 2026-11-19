@@ -15,7 +15,8 @@
     "iris:install": "node mcp/scripts/iris-install.mjs",
     "iris:launcher:install": "node mcp/scripts/iris-launcher-install.mjs",
     "iris:launcher:uninstall": "node mcp/scripts/iris-launcher-install.mjs --uninstall",
-    "iris:launcher": "node mcp/dist/iris-launcher.mjs --watch"
+    "iris:launcher": "node mcp/dist/iris-launcher.mjs --watch",
+    "iris:pin": "node mcp/scripts/iris-pin.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

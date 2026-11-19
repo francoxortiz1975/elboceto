@@ -3,8 +3,7 @@
 //   node iris-launcher.mjs --once      one pass (what launchd runs)
 //   node iris-launcher.mjs --watch     a pass every 30 s, in this terminal
 //   node iris-launcher.mjs --dry-run   say what it would open, change nothing
-// It opens a Terminal window in the area's repo running `claude "<order>"` with the NORMAL permission prompts: you see it, you answer it.
-// Nothing is deployed, published or sent by it.
+// Nothing is deployed, published or sent by it; permission prompts are never skipped.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,28 +12,53 @@ import { execFile } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
+import { modeFor, pinnedSession, pinnedDir, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs } from './irisResume.mjs';
 import { findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 const log = (...a) => console.log(`[${new Date().toLocaleTimeString('es-ES')}]`, ...a);
 
-// Three ways to open, in this order: a custom script ("opener"), the Terminal ("mode": "terminal", needs the `claude` command logged in),
-// and by default the Claude desktop app through a claude:// link: a new Code session in the folder with the order typed in.
-// The app asks to trust the folder and waits for you to press Enter: a link cannot send the message by itself.
-function open(dir, promptFile, prompt, conf) {
-  return new Promise((resolve, reject) => {
-    const done = (err) => (err ? reject(err) : resolve());
-    if (conf.opener) return execFile(conf.opener, [dir, promptFile], done);
-    if (process.platform !== 'darwin') return reject(new Error('Solo sé abrir la app en macOS; define "opener" en iris-areas.json.'));
-    if (conf.mode === 'terminal') {
-      const bin = conf.claudeBin ? q(conf.claudeBin) : 'claude';
-      const withPath = conf.claudeBin ? `PATH=${q(path.dirname(conf.claudeBin))}:"$PATH" ` : '';
-      const command = `cd ${q(dir)} && ${withPath}${bin} "$(cat ${q(promptFile)})"`;
-      return execFile('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'do script (item 1 of argv)', '-e', 'end tell', '-e', 'end run', command], done);
+// What happens when a block with an order starts, per area (see irisResume.mjs):
+//   resume   the area's pinned conversation is continued in Terminal: `claude --resume <id> "<message>"` (same history, nothing re-learned)
+//   notify   a macOS notification; nothing opens. You type "ok" in the area's usual conversation and its IRIS hook delivers the order
+//   app      a NEW Code session in the Claude desktop app through a claude:// link (you press Enter)
+//   terminal a NEW conversation in Terminal (`claude "<order>"`, needs the command logged in)
+// resume falls back to notify when the pinned conversation does not exist or is in use right now (never two windows on one history).
+// A custom "opener" script, if set, wins over all of them. Permission prompts are never skipped; nothing is deployed or published.
+const exec = (cmd, args) => new Promise((resolve, reject) => execFile(cmd, args, (e) => (e ? reject(e) : resolve())));
+const terminalDo = (command) => exec('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'do script (item 1 of argv)', '-e', 'end tell', '-e', 'end run', command]);
+
+async function openFor(c, file, conf) {
+  const write = (text) => fs.writeFileSync(file, text, { mode: 0o600 });
+  if (conf.opener) { write(c.prompt); await exec(conf.opener, [c.dir, file]); return 'opener'; }
+  if (process.platform !== 'darwin') throw new Error('Solo sé abrir conversaciones en macOS; define "opener" en iris-areas.json.');
+  let mode = c.mode;
+  let why = '';
+  if (mode === 'resume') {
+    const sid = pinnedSession(conf, c.areaName);
+    const rdir = pinnedDir(conf, c.areaName) || c.dir; // the conversation may live in another folder than the area's repo
+    if (!sid || !sessionExists(rdir, sid)) { mode = 'notify'; why = 'la conversación fijada no existe en esa carpeta'; }
+    else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; }
+    else {
+      write(resumeMessage(c.item, c.areaName));
+      await terminalDo(resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin }));
+      return 'resume';
     }
-    return execFile('open', [deepLink(dir, prompt)], done);
-  });
+  }
+  if (mode === 'notify') {
+    await exec('osascript', notifyArgs(`IRIS · ${c.areaName}`, `Empieza “${c.item.text}”. Escribe “ok” en la conversación de ${c.areaName}: recogerá el encargo.`, conf.notifySound));
+    return why ? `notify (${why})` : 'notify';
+  }
+  write(c.prompt);
+  if (mode === 'terminal') {
+    const bin = conf.claudeBin ? q(conf.claudeBin) : 'claude';
+    const withPath = conf.claudeBin ? `PATH=${q(path.dirname(conf.claudeBin))}:"$PATH" ` : '';
+    await terminalDo(`cd ${q(c.dir)} && ${withPath}${bin} "$(cat ${q(file)})"`);
+    return 'terminal';
+  }
+  await exec('open', [deepLink(c.dir, c.prompt)]);
+  return 'app';
 }
 
 // One pass. Returns what it did (for logs and tests).
@@ -56,7 +80,10 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   const peek = findDue(plan, now, conf.areas);
   if (!peek.due.length && !peek.missed.length && !peek.noDir.length) return { opened: [], missed: [], noDir: [], reported: finished.map((i) => i.id) };
   if (dry) {
-    peek.due.forEach((d) => log(`abriría: ${d.item.text} -> ${d.dir}`));
+    peek.due.forEach((d) => {
+      const areaName = (plan.areas.find((x) => x.id === d.item.area) || {}).name || '';
+      log(`abriría: ${d.item.text} -> ${d.dir} [${conf.opener ? 'opener' : modeFor(conf, areaName)}]`);
+    });
     peek.missed.forEach((i) => log(`perdido: ${i.text}`));
     peek.noDir.forEach((i) => log(`sin carpeta para el área de: ${i.text}`));
     return { opened: peek.due.map((d) => d.item.id), missed: peek.missed.map((i) => i.id), noDir: peek.noDir.map((i) => i.id), dry: true };
@@ -67,14 +94,17 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   const missedIds = [];
   await mutatePlan(cfg, (p) => {
     const cur = findDue(p, now, conf.areas);
-    claimed = cur.due.slice(0, conf.maxPerTick).map((d) => ({ item: d.item, dir: d.dir, prompt: launchPrompt(p, d.item) }));
+    claimed = cur.due.slice(0, conf.maxPerTick).map((d) => {
+      const areaName = (p.areas.find((a) => a.id === d.item.area) || {}).name || '';
+      return { item: d.item, dir: d.dir, areaName, mode: conf.opener ? 'opener' : modeFor(conf, areaName), prompt: launchPrompt(p, d.item) };
+    });
     missedIds.splice(0, missedIds.length, ...cur.missed.map((i) => i.id));
     if (!claimed.length && !cur.missed.length) return { plan: p, result: null };
     let next = setLaunchState(p, claimed.map((c) => c.item.id), 'launched', now.toISOString());
     next = setLaunchState(next, missedIds, 'missed', now.toISOString());
     const areaName = (id) => (p.areas.find((a) => a.id === id) || {}).name || id;
     next = addNotes(next, [
-      ...claimed.map((c) => ({ area: c.item.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: c.item.id, text: `Se abrió la conversación de ${areaName(c.item.area)} para “${c.item.text}”.` })),
+      ...claimed.map((c) => ({ area: c.item.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: c.item.id, text: c.mode === 'notify' ? `Empezó “${c.item.text}”: se avisó por notificación; la conversación de ${areaName(c.item.area)} recogerá el encargo con su siguiente mensaje.` : c.mode === 'resume' ? `Se reanudó la conversación de ${areaName(c.item.area)} para “${c.item.text}”.` : `Se abrió la conversación de ${areaName(c.item.area)} para “${c.item.text}”.` })),
       ...cur.missed.map((i) => ({ area: i.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: i.id, text: `“${i.text}” no se abrió a tiempo (el ordenador estaba apagado o dormido, o el lanzador no corría).` }))
     ], now.toISOString());
     return { plan: next, result: null };
@@ -86,10 +116,9 @@ export async function tick({ now = new Date(), dry = false } = {}) {
     try {
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       const file = path.join(dir, `${c.item.id.replace(/[^\w.-]/g, '_')}.txt`);
-      fs.writeFileSync(file, c.prompt, { mode: 0o600 });
-      await open(c.dir, file, c.prompt, conf);
+      const how = await openFor(c, file, conf);
       opened.push(c.item.id);
-      log(`abierta: ${c.item.text} (${c.dir})`);
+      log(`${how.startsWith('notify') ? 'avisada' : 'abierta'}: ${c.item.text} (${c.dir}) [${how}]`);
       await new Promise((r) => setTimeout(r, Number(process.env.IRIS_STAGGER_MS ?? 4000))); // do not open several windows on top of each other
     } catch (e) {
       log(`no pude abrir ${c.item.text}: ${e.message}`);

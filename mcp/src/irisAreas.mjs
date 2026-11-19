@@ -1,5 +1,9 @@
 // Which folder (repo) belongs to each area on THIS computer, for IRIS+ (opening conversations by themselves).
-// File: ~/.config/boceto-mcp/iris-areas.json  { "areas": { "MediLyft": "/path/to/repo", ... }, "mode": "app" | "terminal", "opener": "optional script", "maxPerTick": 3 }
+// File: ~/.config/boceto-mcp/iris-areas.json
+//   { "areas": { "Loginet": "/path/to/repo" },
+//     "sessions": { "Loginet": { "id": "<claude session id>" } },   <- the area's conversation to continue (`npm run iris:pin`)
+//     "modes": { "Loginet": "resume" | "notify" | "app" | "terminal" },  <- per area; default: resume if a session is pinned, else notify
+//     "mode": "notify" | "app" | "terminal", "opener": "optional script", "maxPerTick": 3, "claudeBin": "/path/to/claude" }
 // `npm run iris:install -- "MediLyft" /path` fills it in. IRIS_AREAS (a JSON string) overrides the file, for tests.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -24,5 +28,5 @@ export function loadAreas() {
   try {
     raw = process.env.IRIS_AREAS ? JSON.parse(process.env.IRIS_AREAS) : JSON.parse(fs.readFileSync(areasFile(), 'utf8'));
   } catch { /* no file yet */ }
-  return { areas: raw.areas || {}, opener: process.env.IRIS_OPENER || raw.opener || '', mode: raw.mode === 'terminal' ? 'terminal' : 'app', maxPerTick: raw.maxPerTick || 3, claudeBin: findClaude(process.env.IRIS_CLAUDE || raw.claudeBin || '') };
+  return { areas: raw.areas || {}, sessions: raw.sessions || {}, modes: raw.modes || {}, opener: process.env.IRIS_OPENER || raw.opener || '', mode: ['notify', 'app', 'terminal', 'resume'].includes(raw.mode) ? raw.mode : '', maxPerTick: raw.maxPerTick || 3, notifySound: raw.notifySound || '', claudeBin: findClaude(process.env.IRIS_CLAUDE || raw.claudeBin || '') };
 }

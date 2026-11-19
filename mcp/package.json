@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "esbuild src/server.mjs src/iris-hook.mjs src/iris-launcher.mjs --bundle --platform=node --format=esm --outdir=dist --out-extension:.js=.mjs --banner:js=\"import {createRequire} from 'module';const require=createRequire(import.meta.url);\"",
-    "test": "node test/run.mjs"
+    "test": "node test/run.mjs && node test/iris-resume.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
