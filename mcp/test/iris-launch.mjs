@@ -53,3 +53,14 @@ ok(L.findCompanions(bp2, bp2.items[0]).map((i) => i.id).join() === 'b,c', 'batch
 ok(L.findCompanions(bp2, bp2.items[0], { max: 2 }).map((i) => i.id).join() === 'b', 'batch size is capped');
 ok(L.findCompanions(bp2, bp2.items[0], { windowMin: 20 }).length === 0, 'blocks outside the window do not join');
 ok(L.isNight(90) && L.isNight(22 * 60) && !L.isNight(10 * 60), 'night is 21:00-07:00');
+
+import { completePastClasses } from '../../src/lib/areaPlan.js';
+const cp = { items: [
+  { id: 'im-g2:2026-11-20:08:30', day: '2026-11-20', at: 510, dur: 90, done: false },
+  { id: 'im-g2:2026-11-20:12:00', day: '2026-11-20', at: 720, dur: 90, done: false },
+  { id: 'im-g2:2026-11-19:08:30', day: '2026-11-19', at: 510, dur: 90, done: false },
+  { id: 'ap_x', day: '2026-11-20', at: 60, dur: 30, done: false }
+] };
+const cn = completePastClasses(cp, new Date(2026, 10, 20, 12, 44));
+ok(cn.items.map((i) => i.done).join() === 'true,false,true,false', 'classes that ended are done; one in progress and other blocks are not touched');
+ok(completePastClasses(cn, new Date(2026, 10, 20, 12, 44)) === cn, 'nothing to change returns the same plan');

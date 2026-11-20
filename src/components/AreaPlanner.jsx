@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronUp } from 'lucide-react';
 import {
   AREA_COLORS, AREA_DRAG_TYPE, SLOTS, BANDS, SLOT_STEP, SNAP, DAY_FROM, DAY_TO,
-  hasAreaDrag, placeAreaItem, pickArea, uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes
+  hasAreaDrag, placeAreaItem, pickArea, uid, isoOf, addDays, dayLabel, fmtMin, durLabel, durOf, rowStart, effectiveSlot, computeLanes, completePastClasses
 } from '../lib/areaPlan';
 import { openReel } from '../lib/contentPlan';
 import { getScheduler, kindDur } from '../lib/scheduler/config';
@@ -41,6 +41,9 @@ export function AreaPlanner({ plan, onChange, onBack, compact, tab, onTabChange,
     const t = setInterval(() => setClock(new Date()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Classes that already ended are ticked by themselves (each minute and on opening).
+  useEffect(() => { onChange((prev) => completePastClasses(prev, clock)); }, [clock]);
 
   const today = isoOf(clock);
   const tomorrow = addDays(today, 1);

@@ -14,6 +14,7 @@ import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
 import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs } from './irisResume.mjs';
 import { findCompanions, isNight, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
+import { completePastClasses } from '../../src/lib/areaPlan';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -86,6 +87,11 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       return { plan: next, result: null };
     });
     log(`avisado al centro: ${finished.map((i) => i.text).join(', ')}`);
+  }
+  // Classes that already ended are ticked as done (the app does the same when it is open; this works with it closed)
+  if (!dry && completePastClasses(plan, now) !== plan) {
+    await mutatePlan(cfg, (p) => ({ plan: completePastClasses(p, now), result: null }));
+    log('clases terminadas marcadas como hechas');
   }
   const peek = findDue(plan, now, conf.areas);
   if (!peek.due.length && !peek.missed.length && !peek.noDir.length) return { opened: [], missed: [], noDir: [], reported: finished.map((i) => i.id) };

@@ -218,6 +218,17 @@ export function importSchedule(plan, schedule) {
   return { plan: { ...plan, areas, items: [...plan.items, ...fresh] }, added: fresh.length, total: schedule.items.length };
 }
 
+// Imported timetable classes (id "im-…", with a start time) are ticked as done once they have ended: nobody does them "later".
+// Only classes; every other block stays as it is. Returns the same plan object when nothing changes.
+export const isClass = (it) => typeof it.id === 'string' && it.id.startsWith('im-') && typeof it.at === 'number';
+export function completePastClasses(plan, now = new Date()) {
+  const today = isoOf(now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const over = (it) => !it.done && isClass(it) && (it.day < today || (it.day === today && nowMin >= it.at + durOf(it)));
+  if (!plan.items.some(over)) return plan;
+  return { ...plan, items: plan.items.map((it) => (over(it) ? { ...it, done: true } : it)) };
+}
+
 // Dragging a backlog item out of the left panel onto the calendars.
 export const AREA_DRAG_TYPE = 'application/x-boceto-area-item';
 export const hasAreaDrag = (e) => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes(AREA_DRAG_TYPE);
