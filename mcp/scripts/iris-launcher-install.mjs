@@ -33,6 +33,7 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
   <key>Label</key><string>${label}</string>
   <key>ProgramArguments</key><array><string>${esc(process.execPath)}</string><string>${esc(script)}</string><string>--once</string></array>
   <key>StartInterval</key><integer>60</integer>
+  <key>AbandonProcessGroup</key><true/>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>${esc(logFile)}</string>
   <key>StandardErrorPath</key><string>${esc(logFile)}</string>

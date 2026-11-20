@@ -100,3 +100,4 @@ ok(W.stepWait(wplan({ iris: { launch: true, state: 'missed' } }), 'b1', new Set(
 st = W.stepWait(wplan(), 'nope', new Set());
 ok(st.missed && st.gone && /ya no existe/.test(st.lines[0]), 'a block that no longer exists ends the wait with a clear line');
 ok(/Pasaron 3 min/.test(W.timeoutLine(wplan(), 'b1', 3)) && /arrancó pero sin informe final/.test(W.timeoutLine(wplan(), 'b1', 3)) && /sin arrancar/.test(W.timeoutLine(wplan({ iris: { launch: true, state: 'pending' } }), 'b1', 3)), 'the timeout line says how long and what state the block is in');
+ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', logFile: '/l.log' }) === `cd '/a' && claude -p --resume 's' "$(cat '/p')" >> '/l.log' 2>&1`, 'background run: print mode, no window, output to a log file');

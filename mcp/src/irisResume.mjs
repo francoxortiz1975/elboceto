@@ -113,11 +113,14 @@ export function resumeMessage(item, areaName, startTime = '') {
 }
 
 // Shell command for Terminal.app. `claude` is called by full path with its own folder on PATH (a fresh Terminal window has no nvm).
-export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '', permissionMode = '', deny = [], allow = [] }) {
+export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '', permissionMode = '', deny = [], allow = [], logFile = '' }) {
   const bin = claudeBin ? q(claudeBin) : 'claude';
   const withPath = claudeBin ? `PATH=${q(path.dirname(claudeBin))}:"$PATH" ` : '';
   // The message comes right after the id and every flag after it: --disallowedTools takes a list and would swallow a message placed behind it.
-  return `cd ${q(dir)} && ${withPath}${bin} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny, allow)}`;
+  // logFile = background run: no window, `-p` (print mode: works, answers, exits), everything it prints goes to that file
+  const p = logFile ? ' -p' : '';
+  const tail = logFile ? ` >> ${q(logFile)} 2>&1` : '';
+  return `cd ${q(dir)} && ${withPath}${bin}${p} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny, allow)}${tail}`;
 }
 
 // IRIS always runs on one model and effort (default Sonnet 5.5, medium): "model" / "effort" in iris-areas.json change it.

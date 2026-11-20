@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
@@ -29,6 +29,14 @@ const log = (...a) => console.log(`[${new Date().toLocaleTimeString('es-ES')}]`,
 const exec = (cmd, args) => new Promise((resolve, reject) => execFile(cmd, args, (e) => (e ? reject(e) : resolve())));
 const terminalDo = (command) => exec('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'do script (item 1 of argv)', '-e', 'end tell', '-e', 'end run', command]);
 
+// Background run: its own session (survives the launcher, which exits every minute), no window; the output goes to ~/Library/Logs/iris-runs/.
+function runLog(sid) {
+  const dir = path.join(os.homedir(), 'Library', 'Logs', 'iris-runs');
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${String(sid).slice(0, 8)}.log`);
+}
+const background = (command) => { const c = spawn('/bin/sh', ['-c', command], { detached: true, stdio: 'ignore' }); c.unref(); };
+
 async function openFor(c, file, conf) {
   const write = (text) => fs.writeFileSync(file, text, { mode: 0o600 });
   if (conf.opener) { write(c.prompt); await exec(conf.opener, [c.dir, file]); return 'opener'; }
@@ -42,7 +50,9 @@ async function openFor(c, file, conf) {
     else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; if (c.item.iris && c.item.iris.notified) return `wait (${why})`; }
     else {
       write(resumeMessage(c.item, c.areaName));
-      await terminalDo(resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools, allow: conf.allowedTools }));
+      const logFile = conf.background ? runLog(sid) : '';
+      const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools, allow: conf.allowedTools, logFile });
+      if (logFile) background(command); else await terminalDo(command);
       return 'resume';
     }
   }
