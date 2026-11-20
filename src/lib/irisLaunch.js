@@ -36,6 +36,21 @@ export function findDue(plan, now, areas = {}) {
   return { due, missed, noDir };
 }
 
+// Batching: blocks of the SAME area that start soon after the one that is due now run in the SAME conversation turn (one cold cache, not one per block).
+// lead: the due item. Returns up to max-1 other pending auto-start blocks of that area that start within windowMin minutes after it, in time order.
+const absMin = (it) => Date.parse(`${it.day}T00:00:00Z`) / 60000 + it.at;
+export function findCompanions(plan, lead, { windowMin = 180, max = 3 } = {}) {
+  if (!isoRe.test(lead.day || '') || typeof lead.at !== 'number' || max < 2) return [];
+  const t0 = absMin(lead);
+  return plan.items
+    .filter((it) => it.id !== lead.id && it.area === lead.area && isAutoStart(it) && !it.done && stateOf(it) === 'pending' && isoRe.test(it.day || '') && typeof it.at === 'number'
+      && absMin(it) > t0 && absMin(it) <= t0 + windowMin)
+    .sort((a, b) => absMin(a) - absMin(b))
+    .slice(0, max - 1);
+}
+// Is this start time "night" (default 21:00-07:00)? Batching is meant for the late-night runs.
+export const isNight = (at, from = 21 * 60, to = 7 * 60) => (from > to ? at >= from || at < to : at >= from && at < to);
+
 // Blocks that were opened by IRIS+ and have since been ticked as done, but nobody reported yet. The conversation is supposed to call
 // report_progress; when it cannot (an older MCP loaded), the launcher reports for it so the hub never misses a finished order.
 export const findFinished = (plan) => plan.items.filter((i) => isAutoStart(i) && stateOf(i) === 'launched' && i.done && !i.iris.reported);

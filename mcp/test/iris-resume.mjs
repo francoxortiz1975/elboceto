@@ -101,3 +101,14 @@ st = W.stepWait(wplan(), 'nope', new Set());
 ok(st.missed && st.gone && /ya no existe/.test(st.lines[0]), 'a block that no longer exists ends the wait with a clear line');
 ok(/Pasaron 3 min/.test(W.timeoutLine(wplan(), 'b1', 3)) && /arrancó pero sin informe final/.test(W.timeoutLine(wplan(), 'b1', 3)) && /sin arrancar/.test(W.timeoutLine(wplan({ iris: { launch: true, state: 'pending' } }), 'b1', 3)), 'the timeout line says how long and what state the block is in');
 ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', logFile: '/l.log' }) === `cd '/a' && claude -p --resume 's' "$(cat '/p')" >> '/l.log' 2>&1`, 'background run: print mode, no window, output to a log file');
+// ---- night batching (message and cap) ----
+const bp = { items: [
+  { id: 'a', area: 'm', day: '2026-11-20', at: 60, dur: 30, iris: { launch: true } },
+  { id: 'b', area: 'm', day: '2026-11-20', at: 90, dur: 30, iris: { launch: true } },
+  { id: 'c', area: 'm', day: '2026-11-20', at: 150, dur: 30, iris: { launch: true } },
+  { id: 'd', area: 'm', day: '2026-11-20', at: 600, dur: 30, iris: { launch: true } },
+  { id: 'e', area: 'x', day: '2026-11-20', at: 100, dur: 30, iris: { launch: true } },
+  { id: 'f', area: 'm', day: '2026-11-20', at: 100, dur: 30, done: true, iris: { launch: true } }
+] };
+ok(/2 bloques seguidos/.test(R.resumeMessage(bp.items[0], 'M', '', [bp.items[1]])) && /item_id="b"/.test(R.resumeMessage(bp.items[0], 'M', '', [bp.items[1]])), 'batch message lists every block with its id');
+ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', logFile: '/l', maxBudget: 5 }).includes(" --max-budget-usd 5 >> '/l'"), 'background runs carry a spending cap');

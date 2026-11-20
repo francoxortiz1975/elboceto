@@ -13,7 +13,7 @@ import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
 import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs } from './irisResume.mjs';
-import { findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
+import { findCompanions, isNight, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -49,9 +49,9 @@ async function openFor(c, file, conf) {
     if (!sid || !sessionExists(rdir, sid)) { mode = 'notify'; why = 'la conversación fijada no existe en esa carpeta'; }
     else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; if (c.item.iris && c.item.iris.notified) return `wait (${why})`; }
     else {
-      write(resumeMessage(c.item, c.areaName));
+      write(resumeMessage(c.item, c.areaName, '', c.more || []));
       const logFile = conf.background ? runLog(sid) : '';
-      const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools, allow: conf.allowedTools, logFile });
+      const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools, allow: conf.allowedTools, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
       if (logFile) background(command); else await terminalDo(command);
       return 'resume';
     }
@@ -104,13 +104,23 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   const missedIds = [];
   await mutatePlan(cfg, (p) => {
     const cur = findDue(p, now, conf.areas);
-    claimed = cur.due.slice(0, conf.maxPerTick).map((d) => {
+    const taken = new Set();
+    claimed = [];
+    for (const d of cur.due) {
+      if (claimed.length >= conf.maxPerTick) break;
+      if (taken.has(d.item.id)) continue; // already travelling in another block's batch
       const areaName = (p.areas.find((a) => a.id === d.item.area) || {}).name || '';
-      return { item: d.item, dir: d.dir, areaName, mode: conf.opener ? 'opener' : modeFor(conf, areaName), prompt: launchPrompt(p, d.item) };
-    });
+      const mode = conf.opener ? 'opener' : modeFor(conf, areaName);
+      // Late-night batching: the next blocks of the same area ride in this same conversation turn (only when the conversation can be resumed)
+      const sid = mode === 'resume' ? pinnedSession(conf, areaName) : '';
+      const night = !conf.batchNightOnly || isNight(d.item.at);
+      const more = sid && night && conf.batchMinutes > 0 ? findCompanions(p, d.item, { windowMin: conf.batchMinutes, max: conf.batchMax }).filter((i) => !taken.has(i.id)) : [];
+      more.forEach((i) => taken.add(i.id));
+      claimed.push({ item: d.item, dir: d.dir, areaName, mode, prompt: launchPrompt(p, d.item), more });
+    }
     missedIds.splice(0, missedIds.length, ...cur.missed.map((i) => i.id));
     if (!claimed.length && !cur.missed.length) return { plan: p, result: null };
-    let next = setLaunchState(p, claimed.map((c) => c.item.id), 'launched', now.toISOString());
+    let next = setLaunchState(p, claimed.flatMap((c) => [c.item.id, ...c.more.map((i) => i.id)]), 'launched', now.toISOString());
     next = setLaunchState(next, missedIds, 'missed', now.toISOString());
     const areaName = (id) => (p.areas.find((a) => a.id === id) || {}).name || id;
     next = addNotes(next, [
@@ -134,18 +144,19 @@ export async function tick({ now = new Date(), dry = false } = {}) {
         // while the block lasts, and say it once, truthfully.
         const first = how.startsWith('notify (');
         await mutatePlan(cfg, (p) => {
-          let next = setLaunchState(p, [c.item.id], 'pending', now.toISOString());
+          let next = setLaunchState(p, [c.item.id, ...c.more.map((i) => i.id)], 'pending', now.toISOString());
           next = { ...next, items: next.items.map((i) => (i.id === c.item.id ? { ...i, iris: { ...i.iris, notified: true } } : i)) };
           if (first) next = addNotes(next, [say(`No se pudo reanudar la conversación de ${areaLabel} para “${c.item.text}”: ${how.slice(8, -1)}. Se avisó por notificación y se reintenta cada minuto mientras dure el bloque.`)], now.toISOString());
           return { plan: next, result: null };
         });
         log(`${first ? 'avisada' : 'esperando'}: ${c.item.text} (${c.dir}) [${how}] — se reintenta mientras dure el bloque`);
       } else {
-        opened.push(c.item.id);
+        opened.push(c.item.id, ...c.more.map((i) => i.id));
         const text = how === 'resume' ? `Se reanudó la conversación de ${areaLabel} para “${c.item.text}”.`
           : how === 'notify' ? `Empezó “${c.item.text}”: se avisó por notificación; la conversación de ${areaLabel} recogerá el encargo con su siguiente mensaje.`
           : `Se abrió la conversación de ${areaLabel} para “${c.item.text}”.`;
-        await mutatePlan(cfg, (p) => ({ plan: addNotes(p, [say(text)], now.toISOString()), result: null }));
+        const extra = c.more.map((i) => ({ area: i.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: i.id, text: `Se reanudó la conversación de ${areaLabel} y “${i.text}” va en el mismo lote que “${c.item.text}” (se hace después, en orden).` }));
+        await mutatePlan(cfg, (p) => ({ plan: addNotes(p, [say(text), ...extra], now.toISOString()), result: null }));
         log(`${how.startsWith('notify') ? 'avisada' : 'abierta'}: ${c.item.text} (${c.dir}) [${how}]`);
       }
       await new Promise((r) => setTimeout(r, Number(process.env.IRIS_STAGGER_MS ?? 4000))); // do not open several windows on top of each other

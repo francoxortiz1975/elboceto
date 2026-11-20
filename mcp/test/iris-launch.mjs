@@ -38,3 +38,18 @@ const fp = { ...plan, items: [blk('f1', { done: true, iris: { launch: true, stat
 ok(findFinished(fp).map((i) => i.id).join() === 'f1', 'finished = opened by IRIS+, now done, not yet reported (not-done, already-reported and never-opened ones are ignored)');
 ok(findFinished(markReported(fp, ['f1'])).length === 0, 'once reported it is not reported again');
 ok(/complete_item/.test(launchPrompt({ ...plan, items: [blk('a')] }, blk('a'))), 'the prompt tells the conversation what to do if it has no report_progress');
+
+import { findCompanions, isNight } from '../../src/lib/irisLaunch.js';
+const L = { findCompanions, isNight };
+const bp2 = { items: [
+  { id: 'a', area: 'm', day: '2026-11-20', at: 60, dur: 30, iris: { launch: true } },
+  { id: 'b', area: 'm', day: '2026-11-20', at: 90, dur: 30, iris: { launch: true } },
+  { id: 'c', area: 'm', day: '2026-11-20', at: 150, dur: 30, iris: { launch: true } },
+  { id: 'd', area: 'm', day: '2026-11-20', at: 600, dur: 30, iris: { launch: true } },
+  { id: 'e', area: 'x', day: '2026-11-20', at: 100, dur: 30, iris: { launch: true } },
+  { id: 'f', area: 'm', day: '2026-11-20', at: 100, dur: 30, done: true, iris: { launch: true } }
+] };
+ok(L.findCompanions(bp2, bp2.items[0]).map((i) => i.id).join() === 'b,c', 'batch: next blocks of the same area within 3 h, in time order, max 3 in total');
+ok(L.findCompanions(bp2, bp2.items[0], { max: 2 }).map((i) => i.id).join() === 'b', 'batch size is capped');
+ok(L.findCompanions(bp2, bp2.items[0], { windowMin: 20 }).length === 0, 'blocks outside the window do not join');
+ok(L.isNight(90) && L.isNight(22 * 60) && !L.isNight(10 * 60), 'night is 21:00-07:00');

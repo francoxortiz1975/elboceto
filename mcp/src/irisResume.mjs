@@ -101,7 +101,19 @@ export function modeFor(conf, areaName) {
 }
 
 // The message sent into the resumed conversation. The full order is in the area's IRIS inbox, which the hook shows.
-export function resumeMessage(item, areaName, startTime = '') {
+export function resumeMessage(item, areaName, startTime = '', more = []) {
+  if (more.length) {
+    const all = [item, ...more];
+    return [
+      `IRIS: empiezan ${all.length} bloques seguidos del área ${areaName}. Hazlos EN ESTE ORDEN, uno tras otro, en esta misma sesión:`,
+      ...all.map((it, i) => `${i + 1}. "${it.text}" (item_id="${it.id}")`),
+      'Tu buzón de IRIS tiene el encargo completo de cada uno (el hook te lo muestra; si no lo ves, léelo con read_notes).',
+      'Trabaja cada uno en su propia rama, sin desplegar ni publicar nada, y no pidas confirmación al usuario: si algo exige una decisión, déjalo anotado y pasa al siguiente.',
+      `Al terminar cada uno, o si te bloqueas, avisa con report_progress(area="${areaName}", item_id=<su id>, text="…", done=true si terminó). Un bloque bloqueado no detiene los demás.`,
+      'Los servidores MCP pueden tardar unos segundos en conectar al arrancar: si no ves report_progress, complete_item o read_notes, búscalas con ToolSearch (espera a que conecte boceto) antes de decir que no las tienes.',
+      'Si de verdad no existen, cuenta los resultados en tu respuesta.'
+    ].join('\n');
+  }
   return [
     `IRIS: empieza el bloque "${item.text}"${startTime ? ` (${startTime})` : ''} del área ${areaName}.`,
     'Tu buzón de IRIS tiene el encargo completo (el hook te lo muestra; si no lo ves, léelo con read_notes).',
@@ -113,14 +125,15 @@ export function resumeMessage(item, areaName, startTime = '') {
 }
 
 // Shell command for Terminal.app. `claude` is called by full path with its own folder on PATH (a fresh Terminal window has no nvm).
-export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '', permissionMode = '', deny = [], allow = [], logFile = '' }) {
+export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = '', effort = '', permissionMode = '', deny = [], allow = [], logFile = '', maxBudget = 0 }) {
   const bin = claudeBin ? q(claudeBin) : 'claude';
   const withPath = claudeBin ? `PATH=${q(path.dirname(claudeBin))}:"$PATH" ` : '';
   // The message comes right after the id and every flag after it: --disallowedTools takes a list and would swallow a message placed behind it.
   // logFile = background run: no window, `-p` (print mode: works, answers, exits), everything it prints goes to that file
   const p = logFile ? ' -p' : '';
+  const budget = logFile && maxBudget > 0 ? ` --max-budget-usd ${Number(maxBudget)}` : '';
   const tail = logFile ? ` >> ${q(logFile)} 2>&1` : '';
-  return `cd ${q(dir)} && ${withPath}${bin}${p} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny, allow)}${tail}`;
+  return `cd ${q(dir)} && ${withPath}${bin}${p} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny, allow)}${budget}${tail}`;
 }
 
 // IRIS always runs on one model and effort (default Sonnet 5.5, medium): "model" / "effort" in iris-areas.json change it.
