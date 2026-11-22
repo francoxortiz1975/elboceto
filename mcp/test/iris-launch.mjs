@@ -119,3 +119,7 @@ ok(!bo.error && bo.plan.items.every((i) => i.iris.batch === bo.batch) && bo.plan
 const lead = bo.plan.items[0];
 ok(findCompanions(bo.plan, lead, { windowMin: 1, max: 2 }).map((i) => i.id).join() === 'y,z', 'a user batch ignores the night window and the size cap: every feature of the batch rides along');
 ok(setDevBatch(bb, ['x'], { day: '2026-11-30', time: 600 }).error !== '' && setDevBatch(bb, ['x', 'y'], { day: 'later', time: 600 }).error !== '', 'a batch needs two features and an exact day and time');
+
+import { unbatch } from '../../src/lib/devStacks.js';
+const ub = unbatch(bo.plan, bo.batch);
+ok(ub.items.every((i) => !i.iris.batch && i.iris.launch === true), 'undoing a batch keeps each feature launching on its own');

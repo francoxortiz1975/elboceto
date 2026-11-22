@@ -169,3 +169,6 @@ export function setDevBatch(plan, stackIds, { day, time, now = new Date().toISOS
   });
   return { plan: next, error: '', batch };
 }
+
+// Dissolves a batch: each feature keeps its own time and still starts by itself, but no longer shares one conversation.
+export const unbatch = (plan, batchId) => ({ ...plan, items: plan.items.map((i) => { if (!(i.iris && i.iris.batch === batchId)) return i; const { batch, ...iris } = i.iris; return { ...i, iris }; }) });
