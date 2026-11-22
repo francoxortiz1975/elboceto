@@ -61,3 +61,9 @@
 
 .ds-bstate.ended { color: #D1892F; }
 .ds-bstate.done { color: #6E8B5B; }
+
+.ds-code { margin-right: 6px; padding: 1px 5px; border-radius: 3px; background: color-mix(in srgb, var(--c) 30%, transparent); font: 600 0.66rem var(--font-mono); letter-spacing: 0.04em; vertical-align: 1px; }
+.ds-mod { font: 400 0.7rem var(--font-body); color: var(--text-ink); background: var(--bg-note); border: var(--border-hairline); border-radius: 4px; padding: 1px 4px; max-width: 190px; }
+.ds-mod:disabled { opacity: 0.7; }
+.ds-modbtn { border: 0; background: none; color: var(--text-muted); font: 400 0.7rem var(--font-body); cursor: pointer; padding: 0; }
+.ds-modbtn:hover { color: var(--text-ink); }

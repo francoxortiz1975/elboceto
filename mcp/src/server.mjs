@@ -11,6 +11,7 @@ import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engi
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
 import { devStacks, isDev, DEV_ROLES, addDevSlot, addDevStack, editDevItem, moveDevStack, setDevTime, setDevLaunch, setDevBatch } from '../../src/lib/devStacks';
+import { findByRef, assignCode, addModification, codeOf, codeConfig, nextFeatureCode } from '../../src/lib/devCodes';
 import { loadAreas } from './irisAreas.mjs';
 import { addNotes, notesOf, unreadFor, markRead, noteLine, areaSummary, whenText, NOTE_KINDS } from '../../src/lib/iris';
 
@@ -53,7 +54,7 @@ const when = (it) => {
 };
 const lineOf = (plan, it) => {
   const a = plan.areas.find((x) => x.id === it.area);
-  return `${it.done ? '[x]' : '[ ]'}${it.lock ? ' [candado]' : ''}${it.iris && it.iris.launch ? ` [abre sola: ${({ pending: 'pendiente', launched: 'abierta', missed: 'perdida', skipped: 'omitida' })[it.iris.state] || it.iris.state}]` : ''}${it.kind === 'meeting' ? ' [reunión]' : ''} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
+  return `${it.done ? '[x]' : '[ ]'}${it.dev && it.dev.code ? ` [${it.dev.code}]` : ''}${it.lock ? ' [candado]' : ''}${it.iris && it.iris.launch ? ` [abre sola: ${({ pending: 'pendiente', launched: 'abierta', missed: 'perdida', skipped: 'omitida' })[it.iris.state] || it.iris.state}]` : ''}${it.kind === 'meeting' ? ' [reunión]' : ''} ${it.text} · ${a ? a.name : '?'} · ${when(it)} · id ${it.id}${it.note ? `\n      nota: ${it.note.split('\n')[0].slice(0, 120)}` : ''}`;
 };
 const sortKey = (it) => `${it.day}${typeof it.at === 'number' ? String(it.at).padStart(5, '0') : '99999'}`;
 const list = (plan, items, empty) => (items.length ? [...items].sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : 1)).map((it) => lineOf(plan, it)).join('\n') : empty);
@@ -116,7 +117,7 @@ server.registerTool('list_dev_stacks', {
   const stacks = devStacks(plan, a.id);
   const loose = plan.items.filter((i) => i.area === a.id && !i.done && !isDev(i) && !i.stackId && !i.reel && !i.film && !i.gen);
   const piece = (label, it) => (it ? `   ${label}: ${it.done ? (it.dev && it.dev.v ? '[x validado]' : '[x por validar]') : '[ ]'} ${it.text} · id ${it.id}${it.iris && it.iris.launch ? ` [abre sola: ${it.iris.state || 'pendiente'}]` : ''}${it.note ? `\n      ${it.note.split('\n').join('\n      ').slice(0, 600)}` : ''}` : '');
-  const block = stacks.map((st) => [`• ${st.main.text} · ${when(st.main)}`, ...DEV_ROLES.map((r) => piece(r.label, r.role === 'build' ? st.main : st[r.role]))].filter(Boolean).join('\n'));
+  const block = stacks.map((st) => [`• ${codeOf(st.main) ? `${codeOf(st.main)} · ` : ''}${st.main.text} · ${when(st.main)}`, ...DEV_ROLES.map((r) => piece(r.label, r.role === 'build' ? st.main : st[r.role]))].filter(Boolean).join('\n'));
   return text(`DESARROLLO · ${a.name} (${stacks.length} stacks)\n${block.join('\n\n') || '(vacío)'}${loose.length ? `\n\nTAREAS ABIERTAS QUE AÚN NO SON STACKS (${loose.length}; se convierten al abrir la pestaña Desarrollo)\n${loose.map((it) => lineOf(plan, it)).join('\n')}` : ''}`);
 }));
 
@@ -130,8 +131,8 @@ server.registerTool('add_dev_piece', {
   }
 }, safe(async ({ stack_id, role, text: title, note }) => {
   const out = await mutatePlan(cfg, (plan) => {
-    let it = plan.items.find((i) => i.id === stack_id);
-    if (!it) throw new Error(`No hay ninguna tarea con id ${stack_id}.`);
+    let it = findByRef(plan, stack_id);
+    if (!it) throw new Error(`No hay ninguna tarea con id o código ${stack_id}.`);
     let p = plan;
     if (isDev(it)) it = plan.items.find((i) => i.id === it.dev.s) || it; // a piece id points to its stack
     if (!isDev(it)) p = editDevItem(p, it.id, { dev: { s: it.id, r: 'build' } }); // an open task becomes a stack first
@@ -153,8 +154,8 @@ server.registerTool('set_dev_stack', {
   }
 }, safe(async ({ stack_id, day, time, launch }) => {
   const out = await mutatePlan(cfg, (plan) => {
-    let it = plan.items.find((i) => i.id === stack_id);
-    if (!it) throw new Error(`No hay ninguna tarea con id ${stack_id}.`);
+    let it = findByRef(plan, stack_id);
+    if (!it) throw new Error(`No hay ninguna tarea con id o código ${stack_id}.`);
     let p = plan;
     if (isDev(it)) it = plan.items.find((i) => i.id === it.dev.s) || it;
     if (!isDev(it)) { p = editDevItem(p, it.id, { dev: { s: it.id, r: 'build' } }); } // an open task becomes a stack first
@@ -196,25 +197,54 @@ server.registerTool('batch_dev_stacks', {
     if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new Error('La hora debe ser HH:MM (24 h).');
     let p = plan;
     // open tasks that are not stacks yet become stacks first
-    stack_ids.forEach((id) => { const it = p.items.find((i) => i.id === id); if (!it) throw new Error(`No hay ninguna tarea con id ${id}.`); if (!isDev(it)) p = editDevItem(p, id, { dev: { s: id, r: 'build' } }); });
-    const made = setDevBatch(p, stack_ids.map((id) => (p.items.find((i) => i.id === id).dev.s)), { day: d, time: Number(m[1]) * 60 + Number(m[2]) });
+    const refs = stack_ids.map((ref) => { const it = findByRef(p, ref); if (!it) throw new Error(`No hay ninguna tarea con id o código ${ref}.`); if (!isDev(it)) p = editDevItem(p, it.id, { dev: { s: it.id, r: 'build' } }); return it.id; });
+    const made = setDevBatch(p, refs.map((id) => (p.items.find((i) => i.id === id).dev.s)), { day: d, time: Number(m[1]) * 60 + Number(m[2]) });
     if (made.error) throw new Error(made.error);
-    return { plan: made.plan, result: stack_ids.map((id) => lineOf(made.plan, made.plan.items.find((i) => i.id === id))).join('\n') };
+    return { plan: made.plan, result: refs.map((id) => lineOf(made.plan, made.plan.items.find((i) => i.id === id))).join('\n') };
   });
   return text(`Lote creado (se abre una sola vez y las hace en este orden):\n${out}`);
 }));
 
+server.registerTool('add_dev_modification', {
+  description: 'Pestaña Desarrollo: crea una MODIFICACIÓN de una feature con ticket (código MC001 → MC001.1, MC001.2…). parent es el código (o id) de la feature. La modificación queda como un stack nuevo, sin hora; para ponerle día, hora o lanzarla usa set_dev_stack.',
+  inputSchema: { parent: z.string(), name: z.string(), day: z.string().optional().describe('AAAA-MM-DD, "today", "tomorrow" o "later"') }
+}, safe(async ({ parent, name, day }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const d = day === 'today' ? isoOf(new Date()) : day === 'tomorrow' ? addDays(isoOf(new Date()), 1) : (day || 'later');
+    const made = addModification(plan, parent, name, { day: d });
+    if (made.error) throw new Error(made.error);
+    return { plan: made.plan, result: lineOf(made.plan, made.plan.items.find((i) => i.id === made.id)) };
+  });
+  return text(`Modificación creada:\n${out}`);
+}));
+
+server.registerTool('assign_dev_code', {
+  description: 'Pestaña Desarrollo: da código de ticket a un stack que no lo tiene (p. ej. MC001). stack es el id o el código del stack; module son las letras del módulo (MediLyft: P psicología, T teleconsulta, C chat WhatsApp, CB chat B2B, CC chat B2C, CE chat empresarial, D demos empresariales, A agenda y citas, E empresas/OIM, S seguridad y privacidad, M panel del médico, G gestión interna). Un código ya asignado no cambia.',
+  inputSchema: { stack: z.string(), module: z.string() }
+}, safe(async ({ stack, module }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const it = findByRef(plan, stack);
+    if (!it) throw new Error(`No hay ninguna tarea con id o código ${stack}.`);
+    const made = assignCode(plan, it.id, String(module).toUpperCase());
+    if (made.error) throw new Error(made.error);
+    return { plan: made.plan, result: lineOf(made.plan, made.plan.items.find((i) => i.id === it.id)) };
+  });
+  return text(`Ticket asignado:\n${out}`);
+}));
+
 server.registerTool('add_dev_stack', {
   description: 'Pestaña Desarrollo: crea una feature nueva (stack) con su pieza de Desarrollo, sin hora. Para que además empiece sola a una hora, usa assign_order. Luego puedes añadirle Plan y Verificación con add_dev_piece.',
-  inputSchema: { name: z.string(), area: z.string().optional().describe('Nombre del área; por defecto MediLyft'), day: z.string().optional().describe('AAAA-MM-DD, "today", "tomorrow" o "later"'), note: z.string().optional() }
-}, safe(async ({ name, area, day, note }) => {
+  inputSchema: { name: z.string(), area: z.string().optional().describe('Nombre del área; por defecto MediLyft'), module: z.string().optional().describe('Módulo del ticket (letras: P, T, C, CB, CC, CE, D, A, E, S, M, G en MediLyft). Le asigna el código, p. ej. MC001'), day: z.string().optional().describe('AAAA-MM-DD, "today", "tomorrow" o "later"'), note: z.string().optional() }
+}, safe(async ({ name, area, module, day, note }) => {
   const out = await mutatePlan(cfg, (plan) => {
     const a = area ? areaOf(plan, area) : plan.areas.find((x) => /medilyft/i.test(x.name));
     if (!a) throw new Error(noArea(plan, area || 'MediLyft'));
     const d = day === 'today' ? isoOf(new Date()) : day === 'tomorrow' ? addDays(isoOf(new Date()), 1) : (day || 'later');
     const made = addDevStack(plan, { area: a.id, name, day: d, note: note || '' });
     if (!made.id) throw new Error('La feature necesita un nombre.');
-    return { plan: made.plan, result: lineOf(made.plan, made.plan.items.find((i) => i.id === made.id)) };
+    let np = made.plan;
+    if (module) { const c = assignCode(np, made.id, String(module).toUpperCase()); if (c.error) throw new Error(c.error); np = c.plan; }
+    return { plan: np, result: lineOf(np, np.items.find((i) => i.id === made.id)) };
   });
   return text(`Feature creada:\n${out}`);
 }));

@@ -203,6 +203,14 @@ if (nowMin >= 5 && nowMin < 23 * 60) {
   t = await call('batch_dev_stacks', { stack_ids: [bId, cId], day: 'tomorrow', time: '22:00' });
   const bi = db.plan.items.find((i) => i.id === bId); const ci = db.plan.items.find((i) => i.id === cId);
   ok(!t.startsWith('ERROR') && bi.iris.batch && bi.iris.batch === ci.iris.batch && ci.at === bi.at + bi.dur && bi.iris.launch && ci.iris.launch && db.plan.iris.notes.filter((n) => [bId, cId].includes(n.item) && n.kind === 'order').length === 2, 'batch_dev_stacks puts the features one after another with the same batch id and leaves one order per feature');
+  // ticket codes (MediLyft has a code scheme)
+  db.plan.areas.push({ id: 'medilyft', name: 'MediLyft', c: 4 });
+  t = await call('add_dev_stack', { name: 'Flujo del bot', area: 'MediLyft', module: 'cb', day: 'later' }); ok(!t.startsWith('ERROR') && /MCB001/.test(t), 'add_dev_stack with a module gives the ticket code');
+  t = await call('add_dev_modification', { parent: 'mcb001', name: 'Cambiar el saludo' }); ok(!t.startsWith('ERROR') && /MCB001\.1/.test(t), 'add_dev_modification numbers it under the feature');
+  t = await call('add_dev_piece', { stack_id: 'MCB001', role: 'plan' }); ok(!t.startsWith('ERROR') && db.plan.items.some((i) => i.dev && i.dev.r === 'plan' && i.text.includes('Flujo del bot')), 'tools accept the ticket code instead of the id');
+  t = await call('assign_dev_code', { stack: 'MCB001', module: 'A' }); ok(t.startsWith('ERROR') && /no cambian/.test(t), 'a code that exists cannot be reassigned');
+  t = await call('list_dev_stacks', { area: 'MediLyft' }); ok(/MCB001 · Flujo del bot/.test(t) && /MCB001\.1 · Cambiar el saludo/.test(t), 'list_dev_stacks shows the codes');
+  db.plan.areas = db.plan.areas.filter((a) => a.id !== 'medilyft'); db.plan.items = db.plan.items.filter((i) => i.area !== 'medilyft');
   t = await call('list_dev_stacks', { area: 'Life' }); ok(/Recordatorios/.test(t) && /Plan:/.test(t) && /Probar con paciente real/.test(t), 'list_dev_stacks shows features with their pieces and comments');
 } else { console.log('skip  IRIS+ launcher checks (too close to midnight to test with the real clock)'); }
 await client.close(); srv.close();

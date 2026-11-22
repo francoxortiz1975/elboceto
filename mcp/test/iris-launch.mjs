@@ -151,3 +151,23 @@ ok(!ab.error && ab.plan.items.find((i) => i.id === 'n1').at === 720 && ab.plan.i
 const started = { items: pb.items.map((i) => (i.id === 'p1' ? { ...i, iris: { ...i.iris, state: 'launched' } } : i)) };
 ok(addToBatch(started, 'bb', ['n1']).error.includes('ya empezó'), 'a batch that already started refuses new features');
 ok(addToBatch({ items: [...pb.items, ...['x', 'y', 'z'].map((id) => ({ id, area: 'm', text: id, done: false, day: '2026-11-23', at: 'any', dev: { s: id, r: 'build' } }))] }, 'bb', ['n1', 'x', 'y', 'z']).error.includes('5'), 'a batch holds at most 5');
+
+import { findByRef, assignCode, addModification, suggestModule, bulkAssign, nextFeatureCode, codeOf } from '../../src/lib/devCodes.js';
+const cp2 = { areas: [{ id: 'medilyft', name: 'MediLyft' }], items: [
+  { id: 'k1', area: 'medilyft', text: 'Chat: flujo del bot', done: false, day: '2026-11-25', at: 'any', dev: { s: 'k1', r: 'build' } },
+  { id: 'k2', area: 'medilyft', text: 'Agendamiento 1/3', done: false, day: '2026-11-24', at: 'any', dev: { s: 'k2', r: 'build' } },
+  { id: 'k3', area: 'medilyft', text: 'Algo sin clasificar', done: false, day: '2026-11-24', at: 'any', dev: { s: 'k3', r: 'build' } },
+  { id: 'k4', area: 'medilyft', text: 'Otro del bot de WhatsApp', done: false, day: '2026-11-26', at: 'any', dev: { s: 'k4', r: 'build' } }
+] };
+const a1c = assignCode(cp2, 'k1', 'CB');
+ok(a1c.code === 'MCB001' && assignCode(a1c.plan, 'k1', 'CB').error.includes('no cambian') && assignCode(cp2, 'k1', 'ZZ').error !== '', 'the first ticket of a module is 001, a code never changes and an unknown module is refused');
+const a2c = assignCode(a1c.plan, 'k4', 'CB');
+ok(a2c.code === 'MCB002' && nextFeatureCode(a2c.plan, 'medilyft', 'A') === 'MA001', 'numbers run per module (MCB002 after MCB001, MA starts at 001)');
+const md = addModification(a2c.plan, 'mcb001', 'Cambiar el saludo');
+const md2 = addModification(md.plan, 'MCB001', 'Otro ajuste');
+ok(md.code === 'MCB001.1' && md2.code === 'MCB001.2' && addModification(md2.plan, 'MCB001.1', 'Sobre una modificación').code === 'MCB001.3', 'modifications are numbered under their feature (.1, .2, .3), even when asked from another modification');
+ok(addModification(cp2, 'k1', 'x').error.includes('código'), 'a feature without a code cannot have modifications');
+ok(findByRef(md2.plan, 'mcb001.2').id === md2.id && findByRef(md2.plan, 'k2').id === 'k2', 'a stack can be found by id or by code, in any case');
+ok(suggestModule('Agendamiento 3/3: Mis citas', 'medilyft') === 'A' && suggestModule('Demo Nova: ensayo', 'medilyft') === 'D' && suggestModule('Adaptar métricas del panel de psicología', 'medilyft') === 'P' && suggestModule('Notificaciones a la psicóloga (WhatsApp)', 'medilyft') === 'P' && suggestModule('xyz', 'medilyft') === '' && suggestModule('bot', 'otra') === '', 'module suggestions by title; none when unsure or for an area without codes');
+const bk = bulkAssign(cp2, 'medilyft');
+ok(bk.n === 3 && bk.left === 1 && codeOf(bk.plan.items.find((i) => i.id === 'k2')) === 'MA001' && !codeOf(bk.plan.items.find((i) => i.id === 'k3')), 'bulk assign gives codes to the ones with a suggestion and leaves the rest for the user');

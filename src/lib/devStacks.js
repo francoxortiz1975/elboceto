@@ -136,7 +136,9 @@ export function devBrief(plan, stackId) {
   const st = devStacks(plan).find((s) => s.id === stackId);
   if (!st) return '';
   const part = (label, it) => (it ? `${label}: ${it.text}${it.note ? `\n${it.note}` : ''}` : '');
-  return [part('Feature', st.main), part('Plan', st.plan), part('Verificación', st.check)].filter(Boolean).join('\n\n');
+  const code = st.main.dev && st.main.dev.code;
+  const head = code ? `Ticket ${code}. Rama: iris/${code}-<nombre corto>. Cita el código en el commit y en el informe.` : '';
+  return [head, part('Feature', st.main), part('Plan', st.plan), part('Verificación', st.check)].filter(Boolean).join('\n\n');
 }
 
 // on: the conversation of the area starts by itself at the block's time (needs a day and a time) and gets the brief as its order.

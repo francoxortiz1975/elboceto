@@ -106,7 +106,7 @@ export function resumeMessage(item, areaName, startTime = '', more = []) {
     const all = [item, ...more];
     return [
       `IRIS: empiezan ${all.length} bloques seguidos del área ${areaName}. Hazlos EN ESTE ORDEN, uno tras otro, en esta misma sesión:`,
-      ...all.map((it, i) => `${i + 1}. "${it.text}" (item_id="${it.id}")`),
+      ...all.map((it, i) => `${i + 1}. ${it.dev && it.dev.code ? `[${it.dev.code}] ` : ''}"${it.text}" (item_id="${it.id}")`),
       'Tu buzón de IRIS tiene el encargo completo de cada uno (el hook te lo muestra; si no lo ves, léelo con read_notes).',
       'Trabaja cada uno en su propia rama, sin desplegar ni publicar nada, y no pidas confirmación al usuario: si algo exige una decisión, déjalo anotado y pasa al siguiente.',
       `Al terminar cada uno, o si te bloqueas, avisa con report_progress(area="${areaName}", item_id=<su id>, text="…", done=true si terminó). Un bloque bloqueado no detiene los demás.`,
@@ -116,7 +116,7 @@ export function resumeMessage(item, areaName, startTime = '', more = []) {
     ].join('\n');
   }
   return [
-    `IRIS: empieza el bloque "${item.text}"${startTime ? ` (${startTime})` : ''} del área ${areaName}.`,
+    `IRIS: empieza el bloque ${item.dev && item.dev.code ? `[${item.dev.code}] ` : ''}"${item.text}"${startTime ? ` (${startTime})` : ''} del área ${areaName}.`,
     'Tu buzón de IRIS tiene el encargo completo (el hook te lo muestra; si no lo ves, léelo con read_notes).',
     'Trabaja en una rama, sin desplegar ni publicar nada, y pide confirmación antes de cualquier cosa destructiva.',
     `Al terminar, o si te bloqueas, avisa con report_progress(area="${areaName}", item_id="${item.id}", text="…", done=true si terminó).`,

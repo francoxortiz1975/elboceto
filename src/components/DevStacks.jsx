@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
 import { PlanTabs } from './PlanTabs';
+import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
 import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch } from '../lib/devStacks';
 import './SocialManager.css';
@@ -21,6 +22,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [name, setName] = useState('');
   const [day, setDay] = useState(() => isoOf(new Date()));
   const [time, setTime] = useState('');
+  const [newMod, setNewMod] = useState('');
   const [auto, setAuto] = useState(true); // default tick: start by itself when it has a day and a time
   const [drag, setDrag] = useState(null); // id of the piece being dragged
   const [over, setOver] = useState(null);
@@ -37,6 +39,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const color = area ? AREA_COLORS[area.c % AREA_COLORS.length] : AREA_COLORS[0];
   const all = devStacks(plan, areaId);
   const stacks = showAll ? all : all.filter((st) => !stackSettled(st));
+  const cfg = codeConfig(plan, areaId);
+  const uncoded = cfg ? all.filter((st) => !codeOf(st.main) && suggestModule(st.main.text, areaId, plan)).length : 0;
   const toReview = plan.items.filter((i) => i.area === areaId && needsReview(i)).length;
   const pick = (v) => { setAreaId(v); try { localStorage.setItem(KEY, v); } catch { /* storage unavailable */ } };
 
@@ -57,7 +61,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
         </div>
       ) : (
         <button className="rr-open" onClick={() => setOpen(it.id)} title="Editar texto y comentarios">
-          <span className="rs-name">{it.text}</span>
+          <span className="rs-name">{codeOf(it) && <b className="ds-code">{codeOf(it)}</b>}{it.text}</span>
           {needsReview(it) && <span className="ds-badge">Terminado · por validar</span>}
           {!needsReview(it) && firstLine(it.note) && <span className="rs-snip">{firstLine(it.note)}</span>}
         </button>
@@ -158,6 +162,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       </div>
       <div className="ap-filters">
         {onTabChange && <PlanTabs value={tab} onChange={onTabChange} />}
+        {uncoded > 0 && <button className="ap-btn" title="Asigna a cada stack el código del módulo que sugiero por su título. Los que no sé clasificar quedan para ti." onClick={() => { if (window.confirm(`Asignar código a ${uncoded} stacks según el módulo sugerido por su título?\nLos códigos no cambian después.`)) mutate((p) => bulkAssign(p, areaId).plan); }}>Asignar {uncoded} códigos sugeridos</button>}
         {toReview > 0 && <span className="ds-count">{toReview} por validar</span>}
         <label className="ds-auto"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Mostrar validados</label>
         <select className="ds-area" value={areaId} onChange={(e) => pick(e.target.value)} aria-label="Área">
@@ -235,12 +240,19 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
             e.preventDefault();
             const out = addDevStack(plan, { area: areaId, name, day });
             if (!out.id) return;
+            if (newMod) { const c = assignCode(out.plan, out.id, newMod); if (!c.error) out.plan = c.plan; }
             const [h, m] = (time || '').split(':').map(Number);
             let next = Number.isFinite(h) ? setDevTime(out.plan, out.id, h * 60 + m) : out.plan;
             if (auto) next = setDevLaunch(next, out.id, true);
             mutate(() => next); setName(''); setOpen(out.id);
           }}>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ Nueva feature: ponle un nombre" aria-label="Nombre de la nueva feature" />
+            {cfg && (
+              <select className="ds-mod" value={newMod} onChange={(e) => setNewMod(e.target.value)} aria-label="Módulo del nuevo ticket">
+                <option value="">Sin código</option>
+                {Object.entries(cfg.modules).map(([k, label]) => <option key={k} value={k}>{k} · {label}</option>)}
+              </select>
+            )}
             <input type="date" value={day} onChange={(e) => setDay(e.target.value)} aria-label="Día" />
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Hora de inicio (opcional)" />
             <label className="ds-auto"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> <Rocket size={11} /> Lanzar solo</label>
