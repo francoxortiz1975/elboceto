@@ -10,7 +10,7 @@ import { buildEngineInput, nowMinutes, getScheduler, kindDur, areaWindow, window
 import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
-import { devStacks, isDev, DEV_ROLES, addDevSlot, addDevStack, editDevItem } from '../../src/lib/devStacks';
+import { devStacks, isDev, DEV_ROLES, addDevSlot, addDevStack, editDevItem, moveDevStack, setDevTime, setDevLaunch } from '../../src/lib/devStacks';
 import { loadAreas } from './irisAreas.mjs';
 import { addNotes, notesOf, unreadFor, markRead, noteLine, areaSummary, whenText, NOTE_KINDS } from '../../src/lib/iris';
 
@@ -141,6 +141,45 @@ server.registerTool('add_dev_piece', {
     return { plan: next, result: lineOf(next, next.items.find((i) => i.id === made.id)) };
   });
   return text(`Añadido a la feature:\n${out}`);
+}));
+
+server.registerTool('set_dev_stack', {
+  description: 'Pestaña Desarrollo: cambia el día, la hora y/o el tick "Lanzar solo" de una feature (stack). stack_id es el id de su pieza de Desarrollo (list_dev_stacks). El día se aplica a todas las piezas del stack. launch=true hace que la conversación del área empiece sola a esa hora con el encargo (la feature, sus comentarios, Plan y Verificación); necesita día y hora exactos. Varios stacks seguidos de noche (21:00-07:00) van en un solo lote. time="none" quita la hora (y el lanzamiento). No uses esto para pasar un encargo nuevo con fecha: para eso assign_order.',
+  inputSchema: {
+    stack_id: z.string(),
+    day: z.string().optional().describe('AAAA-MM-DD, "today", "tomorrow" o "later"'),
+    time: z.string().optional().describe('HH:MM (24 h) o "none" para quitar la hora'),
+    launch: z.boolean().optional().describe('true = empieza sola a su hora; false = no')
+  }
+}, safe(async ({ stack_id, day, time, launch }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    let it = plan.items.find((i) => i.id === stack_id);
+    if (!it) throw new Error(`No hay ninguna tarea con id ${stack_id}.`);
+    let p = plan;
+    if (isDev(it)) it = plan.items.find((i) => i.id === it.dev.s) || it;
+    if (!isDev(it)) { p = editDevItem(p, it.id, { dev: { s: it.id, r: 'build' } }); } // an open task becomes a stack first
+    if (day) {
+      const d = day === 'today' ? isoOf(new Date()) : day === 'tomorrow' ? addDays(isoOf(new Date()), 1) : day;
+      if (d !== 'later' && !ISO.test(d)) throw new Error('El día debe ser AAAA-MM-DD, "today", "tomorrow" o "later".');
+      p = moveDevStack(p, it.id, d);
+    }
+    if (time !== undefined) {
+      if (time === 'none') p = setDevLaunch(setDevTime(p, it.id, null), it.id, false);
+      else {
+        const m = /^(\d{1,2}):(\d{2})$/.exec(time);
+        if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new Error('La hora debe ser HH:MM (24 h) o "none".');
+        p = setDevTime(p, it.id, Number(m[1]) * 60 + Number(m[2]));
+      }
+    }
+    if (launch !== undefined) {
+      const cur = p.items.find((i) => i.id === it.id);
+      if (launch && (typeof cur.at !== 'number' || !ISO.test(cur.day || ''))) throw new Error('Para que empiece sola el stack necesita un día y una hora exactos (day y time).');
+      p = setDevLaunch(p, it.id, launch);
+    }
+    const final = p.items.find((i) => i.id === it.id);
+    return { plan: p, result: lineOf(p, final) };
+  });
+  return text(`Stack actualizado:\n${out}`);
 }));
 
 server.registerTool('add_dev_stack', {

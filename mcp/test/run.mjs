@@ -192,6 +192,11 @@ if (nowMin >= 5 && nowMin < 23 * 60) {
   await call('add_item', { area: 'Life', text: 'Tarea suelta de desarrollo', day: 'later' });
   const looseId = db.plan.items.find((i) => i.text === 'Tarea suelta de desarrollo').id;
   t = await call('add_dev_piece', { stack_id: looseId, role: 'check', text: 'Probar con paciente real' }); ok(!t.startsWith('ERROR') && db.plan.items.find((i) => i.id === looseId).dev.r === 'build', 'an open task that is not a stack yet becomes one when it gets a piece');
+  t = await call('set_dev_stack', { stack_id: devId, launch: true }); ok(t.startsWith('ERROR') && /día y una hora/.test(t), 'launch needs an exact day and time');
+  t = await call('set_dev_stack', { stack_id: devId, day: '2026-12-01', time: '21:30', launch: true });
+  ok(!t.startsWith('ERROR') && db.plan.items.filter((i) => i.dev && i.dev.s === devId).every((i) => i.day === '2026-12-01') && db.plan.items.find((i) => i.id === devId).at === 1290 && db.plan.items.find((i) => i.id === devId).iris.launch === true && db.plan.iris.notes.some((n) => n.item === devId && n.kind === 'order'), 'set_dev_stack moves every piece, sets the time and leaves the order for the area when the launch is on');
+  t = await call('set_dev_stack', { stack_id: devId, time: 'none' }); ok(!t.startsWith('ERROR') && db.plan.items.find((i) => i.id === devId).at === 'any' && db.plan.items.find((i) => i.id === devId).iris.launch === false, 'time none clears the time and the launch');
+  t = await call('set_dev_stack', { stack_id: devId, time: '25:99' }); ok(t.startsWith('ERROR'), 'a wrong time is refused');
   t = await call('list_dev_stacks', { area: 'Life' }); ok(/Recordatorios/.test(t) && /Plan:/.test(t) && /Probar con paciente real/.test(t), 'list_dev_stacks shows features with their pieces and comments');
 } else { console.log('skip  IRIS+ launcher checks (too close to midnight to test with the real clock)'); }
 await client.close(); srv.close();
