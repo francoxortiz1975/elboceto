@@ -120,7 +120,7 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       // Late-night batching: the next blocks of the same area ride in this same conversation turn (only when the conversation can be resumed)
       const sid = mode === 'resume' ? pinnedSession(conf, areaName) : '';
       const night = !conf.batchNightOnly || isNight(d.item.at);
-      const more = sid && night && conf.batchMinutes > 0 ? findCompanions(p, d.item, { windowMin: conf.batchMinutes, max: conf.batchMax }).filter((i) => !taken.has(i.id)) : [];
+      const more = sid && d.item.iris && d.item.iris.batch ? findCompanions(p, d.item).filter((i) => !taken.has(i.id)) : sid && night && conf.batchMinutes > 0 ? findCompanions(p, d.item, { windowMin: conf.batchMinutes, max: conf.batchMax }).filter((i) => !taken.has(i.id)) : [];
       more.forEach((i) => taken.add(i.id));
       claimed.push({ item: d.item, dir: d.dir, areaName, mode, prompt: launchPrompt(p, d.item), more });
     }

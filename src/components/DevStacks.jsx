@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
 import { PlanTabs } from './PlanTabs';
-import { AREA_COLORS, dayLabel, isoOf, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch } from '../lib/devStacks';
+import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -25,6 +25,9 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [drag, setDrag] = useState(null); // id of the piece being dragged
   const [over, setOver] = useState(null);
   const [msg, setMsg] = useState('');
+  const [pick2, setPick2] = useState([]); // stacks chosen for a batch, in the order they were ticked
+  const [bDay, setBDay] = useState(() => addDays(isoOf(new Date()), 1));
+  const [bTime, setBTime] = useState('22:00');
   const [showAll, setShowAll] = useState(false); // also the stacks that are done and validated
   const mutate = (fn) => onChange((p) => fn(p));
   // The tasks the area already has become stacks (once; running again changes nothing).
@@ -125,6 +128,11 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
                       onChange={(e) => e.target.value && mutate((p) => moveDevStack(p, st.id, e.target.value))} />
                     <input className="ds-date" type="time" value={typeof st.main.at === 'number' ? fmtMin(st.main.at) : ''} aria-label="Hora de inicio"
                       onChange={(e) => { const [h, m] = (e.target.value || '').split(':').map(Number); mutate((p) => { const t = setDevTime(p, st.id, Number.isFinite(h) ? h * 60 + m : null); return st.main.iris && st.main.iris.launch && !Number.isFinite(h) ? setDevLaunch(t, st.id, false) : t; }); }} />
+                    {!st.main.done && !(st.main.iris && st.main.iris.state === 'launched') && (
+                      <label className="ds-auto" title="Márcalo junto a otras features para lanzarlas en un solo lote">
+                        <input type="checkbox" checked={pick2.includes(st.id)} onChange={(e) => setPick2((l) => (e.target.checked ? [...l, st.id] : l.filter((x) => x !== st.id)))} /> Lote{pick2.includes(st.id) ? ` ${pick2.indexOf(st.id) + 1}` : ''}
+                      </label>
+                    )}
                     <label className="ds-auto" title="La conversación del área empieza sola a esa hora con este encargo (varios seguidos de noche van en un lote)">
                       <input type="checkbox" checked={!!(st.main.iris && st.main.iris.launch)} disabled={typeof st.main.at !== 'number' || !/^\d{4}/.test(st.main.day || '')}
                         onChange={(e) => mutate((p) => setDevLaunch(p, st.id, e.target.checked))} />
@@ -139,6 +147,21 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
               </React.Fragment>
             );
           })}
+          {pick2.length > 0 && (
+            <div className="ds-batch" role="group" aria-label="Lote">
+              <strong>Lote · {pick2.length} {pick2.length === 1 ? 'feature' : 'features'}</strong>
+              <span className="ds-hint">se hacen en este orden, en una sola conversación (un solo arranque en frío)</span>
+              <input type="date" value={bDay} onChange={(e) => setBDay(e.target.value)} aria-label="Día del lote" />
+              <input type="time" value={bTime} onChange={(e) => setBTime(e.target.value)} aria-label="Hora de inicio del lote" />
+              <button className="ap-btn" disabled={pick2.length < 2} onClick={() => {
+                const [h, m] = bTime.split(':').map(Number);
+                const out = setDevBatch(plan, pick2, { day: bDay, time: h * 60 + m });
+                if (out.error) { setMsg(out.error); return; }
+                setMsg(''); mutate(() => out.plan); setPick2([]);
+              }}>Lanzar lote</button>
+              <button className="ap-btn" onClick={() => setPick2([])}>Cancelar</button>
+            </div>
+          )}
           {msg && <div className="ds-msg" role="status">{msg}</div>}
           {drag && (
             <div className={`ds-own${over === 'own' ? ' over' : ''}`}

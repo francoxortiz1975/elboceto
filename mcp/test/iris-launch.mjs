@@ -111,3 +111,11 @@ const vv = setDevValid(rm, 'd1', true);
 ok(isValidated(vv.items[0]) && stackSettled({ main: vv.items[0], plan: null, check: null }), 'once validated the stack settles (it leaves the default view)');
 ok(needsReview(toggleDevDone(toggleDevDone(vv, 'd1'), 'd1').items[0]), 'finishing it again starts a new review');
 ok(reportOf(rm, 'd1') === 'LISTO: 2 usuarios demo', 'the report shown is the area’s own, not the launcher’s notice');
+
+import { setDevBatch } from '../../src/lib/devStacks.js';
+const bb = { items: ['x', 'y', 'z'].map((id) => ({ id, area: 'm', text: id, done: false, day: '2026-11-30', at: 'any', dev: { s: id, r: 'build' } })) };
+const bo = setDevBatch(bb, ['x', 'y', 'z'], { day: '2026-11-30', time: 600 });
+ok(!bo.error && bo.plan.items.every((i) => i.iris.batch === bo.batch) && bo.plan.items.map((i) => i.at).join() === '600,660,720', 'a batch lines the features up one after another');
+const lead = bo.plan.items[0];
+ok(findCompanions(bo.plan, lead, { windowMin: 1, max: 2 }).map((i) => i.id).join() === 'y,z', 'a user batch ignores the night window and the size cap: every feature of the batch rides along');
+ok(setDevBatch(bb, ['x'], { day: '2026-11-30', time: 600 }).error !== '' && setDevBatch(bb, ['x', 'y'], { day: 'later', time: 600 }).error !== '', 'a batch needs two features and an exact day and time');

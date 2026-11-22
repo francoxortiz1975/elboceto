@@ -143,8 +143,29 @@ export function devBrief(plan, stackId) {
 export function setDevLaunch(plan, stackId, on, now = new Date().toISOString()) {
   const main = plan.items.find((i) => i.id === stackId);
   if (!main) return plan;
-  if (!on) return { ...plan, items: plan.items.map((i) => (i.id === stackId ? { ...i, iris: { ...(i.iris || {}), launch: false } } : i)) };
+  if (!on) return { ...plan, items: plan.items.map((i) => { if (i.id !== stackId) return i; const { batch, ...iris } = i.iris || {}; return { ...i, iris: { ...iris, launch: false } }; }) };
   if (typeof main.at !== 'number' || !/^\d{4}-\d{2}-\d{2}$/.test(main.day || '')) return plan;
   const next = { ...plan, items: plan.items.map((i) => (i.id === stackId ? { ...i, iris: { launch: true, state: 'pending' } } : i)) };
   return addNotes(next, [{ area: main.area, dir: 'to_area', kind: 'order', from: 'boceto', item: stackId, text: devBrief(next, stackId) }], now);
+}
+
+// ---- batches: several features in ONE conversation turn (one cold cache instead of one per feature) ----
+// The stacks run one after another in the order given, starting at `time` on `day`; each block follows the previous one on the calendar.
+// All of them get the same iris.batch id, so the launcher opens the conversation once, with every order in the same message.
+export function setDevBatch(plan, stackIds, { day, time, now = new Date().toISOString() } = {}) {
+  const ids = [...new Set(stackIds)].filter((id) => plan.items.some((i) => i.id === id && isDev(i) && i.dev.r === 'build'));
+  if (ids.length < 2) return { plan, error: 'Un lote necesita al menos dos features.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '') || typeof time !== 'number') return { plan, error: 'Un lote necesita día y hora exactos.' };
+  const area = plan.items.find((i) => i.id === ids[0]).area;
+  if (ids.some((id) => plan.items.find((i) => i.id === id).area !== area)) return { plan, error: 'Un lote es de una sola área (una conversación).' };
+  const batch = `b_${Math.random().toString(36).slice(2, 8)}`;
+  let next = plan;
+  let at = time;
+  ids.forEach((id) => {
+    next = moveDevStack(next, id, day);
+    next = { ...next, items: next.items.map((i) => (i.id === id ? { ...i, at, dur: i.dur || 60, iris: { launch: true, state: 'pending', batch } } : i)) };
+    at += next.items.find((i) => i.id === id).dur;
+    next = addNotes(next, [{ area, dir: 'to_area', kind: 'order', from: 'boceto', item: id, text: devBrief(next, id) }], now);
+  });
+  return { plan: next, error: '', batch };
 }

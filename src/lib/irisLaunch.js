@@ -40,6 +40,13 @@ export function findDue(plan, now, areas = {}) {
 // lead: the due item. Returns up to max-1 other pending auto-start blocks of that area that start within windowMin minutes after it, in time order.
 const absMin = (it) => Date.parse(`${it.day}T00:00:00Z`) / 60000 + it.at;
 export function findCompanions(plan, lead, { windowMin = 180, max = 3 } = {}) {
+  // An explicit batch (chosen by the user in the Desarrollo tab): every pending block of that batch rides along, whatever the hour.
+  if (lead.iris && lead.iris.batch) {
+    return plan.items
+      .filter((it) => it.id !== lead.id && isAutoStart(it) && it.iris.batch === lead.iris.batch && !it.done && stateOf(it) === 'pending')
+      .sort((a, b) => (a.day + String(a.at).padStart(5, '0')).localeCompare(b.day + String(b.at).padStart(5, '0')))
+      .slice(0, 5);
+  }
   if (!isoRe.test(lead.day || '') || typeof lead.at !== 'number' || max < 2) return [];
   const t0 = absMin(lead);
   return plan.items

@@ -10,7 +10,7 @@ import { buildEngineInput, nowMinutes, getScheduler, kindDur, areaWindow, window
 import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
-import { devStacks, isDev, DEV_ROLES, addDevSlot, addDevStack, editDevItem, moveDevStack, setDevTime, setDevLaunch } from '../../src/lib/devStacks';
+import { devStacks, isDev, DEV_ROLES, addDevSlot, addDevStack, editDevItem, moveDevStack, setDevTime, setDevLaunch, setDevBatch } from '../../src/lib/devStacks';
 import { loadAreas } from './irisAreas.mjs';
 import { addNotes, notesOf, unreadFor, markRead, noteLine, areaSummary, whenText, NOTE_KINDS } from '../../src/lib/iris';
 
@@ -180,6 +180,28 @@ server.registerTool('set_dev_stack', {
     return { plan: p, result: lineOf(p, final) };
   });
   return text(`Stack actualizado:\n${out}`);
+}));
+
+server.registerTool('batch_dev_stacks', {
+  description: 'Pestaña Desarrollo: lanza VARIAS features (2 a 5, del mismo área) en UN solo lote: la conversación del área se abre una sola vez a la hora dada y las hace una tras otra, en el orden que des. Así se paga un solo arranque en frío en vez de uno por feature (ahorra tokens). Cada feature queda en el calendario a continuación de la anterior. stack_ids son los ids de la pieza de Desarrollo (list_dev_stacks).',
+  inputSchema: {
+    stack_ids: z.array(z.string()).min(2).max(5).describe('En el orden en que se harán'),
+    day: z.string().describe('AAAA-MM-DD, "today" o "tomorrow"'),
+    time: z.string().describe('HH:MM (24 h): cuándo empieza la primera')
+  }
+}, safe(async ({ stack_ids, day, time }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const d = day === 'today' ? isoOf(new Date()) : day === 'tomorrow' ? addDays(isoOf(new Date()), 1) : day;
+    const m = /^(\d{1,2}):(\d{2})$/.exec(time);
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new Error('La hora debe ser HH:MM (24 h).');
+    let p = plan;
+    // open tasks that are not stacks yet become stacks first
+    stack_ids.forEach((id) => { const it = p.items.find((i) => i.id === id); if (!it) throw new Error(`No hay ninguna tarea con id ${id}.`); if (!isDev(it)) p = editDevItem(p, id, { dev: { s: id, r: 'build' } }); });
+    const made = setDevBatch(p, stack_ids.map((id) => (p.items.find((i) => i.id === id).dev.s)), { day: d, time: Number(m[1]) * 60 + Number(m[2]) });
+    if (made.error) throw new Error(made.error);
+    return { plan: made.plan, result: stack_ids.map((id) => lineOf(made.plan, made.plan.items.find((i) => i.id === id))).join('\n') };
+  });
+  return text(`Lote creado (se abre una sola vez y las hace en este orden):\n${out}`);
 }));
 
 server.registerTool('add_dev_stack', {

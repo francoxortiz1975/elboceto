@@ -32,3 +32,6 @@
 .ds-ok { white-space: nowrap; }
 .ds-undo { border: 0; background: none; color: var(--text-muted); cursor: pointer; }
 .ds-count { font: 500 0.72rem var(--font-mono); color: #D1892F; }
+
+.ds-batch { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border: var(--border-strong); border-radius: var(--radius-md); background: var(--bg-note); box-shadow: 0 -6px 18px rgba(0,0,0,0.25); font-size: 0.8rem; }
+.ds-hint { color: var(--text-muted); font-size: 0.72rem; flex: 1; min-width: 160px; }
