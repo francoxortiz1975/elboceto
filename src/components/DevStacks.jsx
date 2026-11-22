@@ -108,6 +108,47 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
           {slot(st, 'build')}
           {slot(st, 'check')}
           <div className="ds-foot">
+            {(() => {
+              const ts = ticketStatus(plan, st);
+              const schedule = () => {
+                const t = window.prompt('¿A qué hora debe empezar? (HH:MM)', '22:00');
+                const mm = /^(\d{1,2}):(\d{2})$/.exec(t || '');
+                if (!mm) return;
+                const d = /^\d{4}-/.test(st.main.day || '') ? st.main.day : addDays(isoOf(new Date()), 1);
+                mutate((p) => setDevLaunch(setDevTime(moveDevStack(p, st.id, d), st.id, Number(mm[1]) * 60 + Number(mm[2])), st.id, true));
+              };
+              const deploy = () => {
+                if (!window.confirm(`Subir ${st.main.dev.code || st.main.text} a main?\n\nLa conversación del área hará merge de su rama a main, push y comprobará el despliegue en producción. Se lanza ahora, solo para esto.`)) return;
+                const out = requestDeploy(plan, st.id);
+                if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); }
+              };
+              return (
+                <>
+                  <span className={`ds-status ${ts.key}`}>{ts.label}</span>
+                  {ts.action === 'schedule' && <button className="ds-act" onClick={schedule}>Agendar</button>}
+                  {ts.action === 'now' && <button className="ds-act" onClick={() => mutate((p) => launchNow(p, st.id))}>Lanzar ahora</button>}
+                  {ts.action === 'validate' && <button className="ds-act" onClick={() => setReviewId(st.id)}>Revisar y validar</button>}
+                  {(ts.action === 'deploy' || ts.action === 'retry') && <button className="ds-act deploy" onClick={deploy}>{ts.action === 'retry' ? 'Reintentar subida a main' : 'Subir a main'}</button>}
+                  {ts.action === 'deploy' && <button className="ds-modbtn" title="Este ticket no necesita deploy (sale de la vista)" onClick={() => mutate((p) => setNoDeploy(p, st.id))}>Sin deploy</button>}
+                </>
+              );
+            })()}
+            {cfg && (
+              <select className="ds-mod" value={st.main.dev.mod || ''} disabled={!!codeOf(st.main)} aria-label="Módulo del ticket"
+                title={codeOf(st.main) ? 'El código no cambia' : 'Elige el módulo: se le asigna su código'}
+                onChange={(e) => { if (!e.target.value) return; const out = assignCode(plan, st.id, e.target.value); if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); } }}>
+                <option value="">{suggestModule(st.main.text, areaId, plan) ? `Sin código · sugerido ${suggestModule(st.main.text, areaId, plan)}` : 'Sin código'}</option>
+                {Object.entries(cfg.modules).map(([k, label]) => <option key={k} value={k}>{k} · {label}</option>)}
+              </select>
+            )}
+            {codeOf(st.main) && (
+              <button className="ds-modbtn" title="Crea una modificación de esta feature (código .1, .2…)" onClick={() => {
+                const name = window.prompt(`Modificación de ${codeOf(st.main)}: ¿qué cambia?`);
+                if (!name) return;
+                const out = addModification(plan, st.id, name, { day: st.main.day });
+                if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); }
+              }}>+ Modificación</button>
+            )}
             <input className="ds-date" type="date" value={/^\d{4}/.test(st.main.day || '') ? st.main.day : ''} aria-label="Día del stack"
               onChange={(e) => e.target.value && mutate((p) => moveDevStack(p, st.id, e.target.value))} />
             <input className="ds-date" type="time" value={typeof st.main.at === 'number' ? fmtMin(st.main.at) : ''} aria-label="Hora de inicio"
