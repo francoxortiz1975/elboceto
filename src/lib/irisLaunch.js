@@ -95,7 +95,7 @@ export function launchPrompt(plan, item, { max = 1500 } = {}) {
 export function setLaunchState(plan, ids, state, now = new Date().toISOString()) {
   const set = new Set(ids);
   if (!set.size) return plan;
-  return { ...plan, items: plan.items.map((i) => (set.has(i.id) && isAutoStart(i) ? { ...i, iris: { ...i.iris, state, at: now } } : i)) };
+  return { ...plan, items: plan.items.map((i) => (set.has(i.id) && isAutoStart(i) ? { ...i, iris: { ...Object.fromEntries(Object.entries(i.iris).filter(([k]) => k !== 'ended')), state, at: now } } : i)) };
 }
 
 export const LAUNCH_STATE_ES = { pending: 'por abrir', launched: 'abierta', missed: 'perdida', skipped: 'omitida' };
@@ -103,3 +103,13 @@ export const LAUNCH_STATE_ES = { pending: 'por abrir', launched: 'abierta', miss
 // A link that opens the Claude desktop app on a NEW Code session in `dir` with the message typed in (it is not sent: the app
 // never sends by itself, and asks the user to trust the folder first).
 export const deepLink = (dir, text) => `claude://code/new?folder=${encodeURIComponent(dir)}&q=${encodeURIComponent(text)}`;
+
+// A launched block whose run has finished without the block being done (the area left it open on purpose, or it stopped).
+// `ended` is stamped by the launcher once nothing is working on the conversation any more.
+export const runEnded = (it) => !!(it && it.iris && it.iris.ended);
+export const staleLaunched = (plan, now = Date.now(), graceMs = 180000) =>
+  plan.items.filter((i) => isAutoStart(i) && stateOf(i) === 'launched' && !i.done && !i.iris.ended && i.iris.at && now - Date.parse(i.iris.at) > graceMs);
+export const markEnded = (plan, ids, now = new Date().toISOString()) => {
+  const set = new Set(ids);
+  return set.size ? { ...plan, items: plan.items.map((i) => (set.has(i.id) && isAutoStart(i) ? { ...i, iris: { ...i.iris, ended: now } } : i)) } : plan;
+};

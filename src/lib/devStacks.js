@@ -214,3 +214,38 @@ export function parseReport(raw = '') {
   out.summary = (out.done[0] || sentences[0] || '').slice(0, 160);
   return out;
 }
+
+// What a batch is doing, for its header: waiting, running, finished with everything done, or run finished with features left open.
+export function batchStatus(sts) {
+  const mains = sts.map((x) => x.main);
+  const open = mains.filter((m) => !m.done);
+  if (!open.length) return { key: 'done', label: 'terminado' };
+  const lead = mains[0].iris || {};
+  if (lead.state === 'pending') return { key: 'pending', label: 'pendiente' };
+  if (lead.state === 'missed') return { key: 'missed', label: 'perdido' };
+  if (open.every((m) => m.iris && m.iris.ended)) return { key: 'ended', label: `la ejecución terminó · ${open.length} ${open.length === 1 ? 'quedó abierta' : 'quedaron abiertas'}` };
+  return { key: 'running', label: 'en marcha' };
+}
+
+// Adds features to a batch that has NOT started yet. They run after the ones already in it. Returns { plan, error }.
+export function addToBatch(plan, batchId, stackIds, now = new Date().toISOString()) {
+  const members = plan.items.filter((i) => i.iris && i.iris.batch === batchId);
+  if (!members.length) return { plan, error: 'Ese lote ya no existe.' };
+  if (members.some((m) => m.iris.state !== 'pending')) return { plan, error: 'Ese lote ya empezó: no se le pueden añadir features. Déjala para el siguiente.' };
+  const ids = [...new Set(stackIds)].filter((id) => !members.some((m) => m.id === id));
+  const add = ids.map((id) => plan.items.find((i) => i.id === id)).filter((i) => i && isDev(i) && i.dev.r === 'build' && !i.done && !(i.iris && i.iris.state === 'launched'));
+  if (!add.length) return { plan, error: 'Marca primero las features que quieres añadir (que no estén hechas ni en otro lote en marcha).' };
+  if (add.some((i) => i.area !== members[0].area)) return { plan, error: 'Un lote es de una sola área.' };
+  if (members.length + add.length > 5) return { plan, error: 'Un lote admite hasta 5 features.' };
+  const day = members[0].day;
+  const last = members.slice().sort((a, b) => (a.at || 0) - (b.at || 0)).pop();
+  let at = (last.at || 0) + (last.dur || 60);
+  let next = plan;
+  add.forEach((it) => {
+    next = moveDevStack(next, it.id, day);
+    next = { ...next, items: next.items.map((i) => (i.id === it.id ? { ...i, at, dur: i.dur || 60, iris: { launch: true, state: 'pending', batch: batchId } } : i)) };
+    at += it.dur || 60;
+    next = addNotes(next, [{ area: it.area, dir: 'to_area', kind: 'order', from: 'boceto', item: it.id, text: devBrief(next, it.id) }], now);
+  });
+  return { plan: next, error: '' };
+}

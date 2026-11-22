@@ -58,3 +58,6 @@
 .dr-sec h4 { margin: 0 0 4px; font: 500 0.66rem var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: #D1892F; }
 .dr-sec ul, .dr-sec ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 0.85rem; line-height: 1.45; }
 .dr-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; position: sticky; bottom: -18px; padding: 10px 0 0; background: var(--bg-note); }
+
+.ds-bstate.ended { color: #D1892F; }
+.ds-bstate.done { color: #6E8B5B; }

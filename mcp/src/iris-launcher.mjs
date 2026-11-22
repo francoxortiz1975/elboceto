@@ -13,7 +13,7 @@ import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
 import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs, toolsFor } from './irisResume.mjs';
-import { findCompanions, isNight, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
+import { findCompanions, isNight, staleLaunched, markEnded, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { completePastClasses } from '../../src/lib/areaPlan';
 import { addNotes } from '../../src/lib/iris';
 
@@ -92,6 +92,16 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   if (!dry && completePastClasses(plan, now) !== plan) {
     await mutatePlan(cfg, (p) => ({ plan: completePastClasses(p, now), result: null }));
     log('clases terminadas marcadas como hechas');
+  }
+  // Blocks that were opened and are not done, once nothing is working on their conversation any more: stamp "ended" so the planner can say
+  // that the run is over (instead of "in progress" for ever). Only when the area's conversation is known and free.
+  if (!dry) {
+    const quiet = staleLaunched(plan, now.getTime()).filter((i) => {
+      const areaName = (plan.areas.find((a) => a.id === i.area) || {}).name || '';
+      const sid = pinnedSession(conf, areaName); const rdir = pinnedDir(conf, areaName) || conf.areas[areaName];
+      return sid && rdir && !sessionInUse(rdir, sid);
+    });
+    if (quiet.length) { await mutatePlan(cfg, (p) => ({ plan: markEnded(p, quiet.map((i) => i.id), now.toISOString()), result: null })); log(`ejecución terminada, quedan abiertas: ${quiet.map((i) => i.text).join(', ')}`); }
   }
   const peek = findDue(plan, now, conf.areas);
   if (!peek.due.length && !peek.missed.length && !peek.noDir.length) return { opened: [], missed: [], noDir: [], reported: finished.map((i) => i.id) };

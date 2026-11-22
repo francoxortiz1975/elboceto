@@ -130,3 +130,24 @@ ok(sr.structured && sr.summary === 'Botón rojo listo' && sr.done.length === 2 &
 const fr = parseReport('LISTO bloque X. Rama local iris/demo-nova, commit 93f8c16 sobre main, sin push. QUÉ HACE: lista de servicios. Decisión que quedó para Franco: encender las variables. No pude leer las variables de Vercel porque me fue denegado.');
 ok(!fr.structured && fr.branch === 'iris/demo-nova,' .replace(',', '') && fr.commit === '93f8c16' && fr.decisions.length === 1 && fr.pending.length === 1 && fr.done.length >= 1, 'a free-form report is split into sentences and sorted: decisions, things left undone, the rest as done; branch and commit are picked out');
 ok(parseReport('').done.length === 0, 'an empty report parses to nothing');
+
+import { batchStatus, addToBatch } from '../../src/lib/devStacks.js';
+import { staleLaunched, markEnded } from '../../src/lib/irisLaunch.js';
+const mk = (o) => ({ iris: { launch: true, state: 'launched', batch: 'b1', at: '2026-11-22T10:40:00Z', ...o.iris }, ...o, iris: { launch: true, state: 'launched', batch: 'b1', at: '2026-11-22T10:40:00Z', ...(o.iris || {}) } });
+const st = (m) => ({ main: m });
+ok(batchStatus([st(mk({ id: 'a', done: true })), st(mk({ id: 'b', done: false }))]).key === 'running', 'running while the other features are not finished and the run has not ended');
+ok(batchStatus([st(mk({ id: 'a', done: true })), st(mk({ id: 'b', done: false, iris: { ended: 'x' } }))]).key === 'ended', 'the run ended with a feature left open: says so instead of "en marcha"');
+ok(batchStatus([st(mk({ id: 'a', done: true })), st(mk({ id: 'b', done: true }))]).key === 'done' && batchStatus([st(mk({ id: 'a', iris: { state: 'pending' } }))]).key === 'pending', 'done and pending batches');
+const sp = { items: [mk({ id: 'a', done: false }), mk({ id: 'b', done: true }), mk({ id: 'c', done: false, iris: { at: new Date().toISOString() } })] };
+ok(staleLaunched(sp, Date.parse('2026-11-22T11:00:00Z')).map((i) => i.id).join() === 'a', 'only blocks launched a while ago and still open count as stale');
+ok(markEnded(sp, ['a']).items[0].iris.ended && !markEnded(sp, ['a']).items[1].iris.ended, 'the end is stamped on the chosen blocks only');
+const pb = { items: [
+  { id: 'p1', area: 'm', text: 'P1', done: false, day: '2026-11-23', at: 600, dur: 60, dev: { s: 'p1', r: 'build' }, iris: { launch: true, state: 'pending', batch: 'bb' } },
+  { id: 'p2', area: 'm', text: 'P2', done: false, day: '2026-11-23', at: 660, dur: 60, dev: { s: 'p2', r: 'build' }, iris: { launch: true, state: 'pending', batch: 'bb' } },
+  { id: 'n1', area: 'm', text: 'N1', done: false, day: '2026-11-25', at: 'any', dev: { s: 'n1', r: 'build' } }
+] };
+const ab = addToBatch(pb, 'bb', ['n1']);
+ok(!ab.error && ab.plan.items.find((i) => i.id === 'n1').at === 720 && ab.plan.items.find((i) => i.id === 'n1').day === '2026-11-23' && ab.plan.items.find((i) => i.id === 'n1').iris.batch === 'bb' && ab.plan.iris.notes.length === 1, 'adding to a pending batch puts the feature after the last one, same day, with its order');
+const started = { items: pb.items.map((i) => (i.id === 'p1' ? { ...i, iris: { ...i.iris, state: 'launched' } } : i)) };
+ok(addToBatch(started, 'bb', ['n1']).error.includes('ya empezó'), 'a batch that already started refuses new features');
+ok(addToBatch({ items: [...pb.items, ...['x', 'y', 'z'].map((id) => ({ id, area: 'm', text: id, done: false, day: '2026-11-23', at: 'any', dev: { s: id, r: 'build' } }))] }, 'bb', ['n1', 'x', 'y', 'z']).error.includes('5'), 'a batch holds at most 5');

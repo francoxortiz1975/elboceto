@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
 import { PlanTabs } from './PlanTabs';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -104,7 +104,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
               onChange={(e) => e.target.value && mutate((p) => moveDevStack(p, st.id, e.target.value))} />
             <input className="ds-date" type="time" value={typeof st.main.at === 'number' ? fmtMin(st.main.at) : ''} aria-label="Hora de inicio"
               onChange={(e) => { const [h, m] = (e.target.value || '').split(':').map(Number); mutate((p) => { const t = setDevTime(p, st.id, Number.isFinite(h) ? h * 60 + m : null); return st.main.iris && st.main.iris.launch && !Number.isFinite(h) ? setDevLaunch(t, st.id, false) : t; }); }} />
-            {!st.main.done && !(st.main.iris && st.main.iris.state === 'launched') && (
+            {!st.main.done && !(st.main.iris && (st.main.iris.state === 'launched' || st.main.iris.batch)) && (
               <label className="ds-auto" title="Márcalo junto a otras features para lanzarlas en un solo lote">
                 <input type="checkbox" checked={pick2.includes(st.id)} onChange={(e) => setPick2((l) => (e.target.checked ? [...l, st.id] : l.filter((x) => x !== st.id)))} /> Lote{pick2.includes(st.id) ? ` ${pick2.indexOf(st.id) + 1}` : ''}
               </label>
@@ -112,7 +112,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
             <label className="ds-auto" title="La conversación del área empieza sola a esa hora con este encargo (varios seguidos de noche van en un lote)">
               <input type="checkbox" checked={!!(st.main.iris && st.main.iris.launch)} disabled={typeof st.main.at !== 'number' || !/^\d{4}/.test(st.main.day || '')}
                 onChange={(e) => mutate((p) => setDevLaunch(p, st.id, e.target.checked))} />
-              <Rocket size={11} /> Lanzar solo{st.main.iris && st.main.iris.launch ? ` · ${({ pending: 'pendiente', launched: 'lanzado', missed: 'perdido', skipped: 'omitido' })[st.main.iris.state] || ''}` : ''}
+              <Rocket size={11} /> Lanzar solo{st.main.iris && st.main.iris.launch ? ` · ${(st.main.iris.state === 'launched' && st.main.iris.ended ? 'ejecución terminada' : ({ pending: 'pendiente', launched: 'lanzado', missed: 'perdido', skipped: 'omitido' })[st.main.iris.state]) || ''}` : ''}
             </label>
             <span className="ds-move">
               <button aria-label="Subir" onClick={() => mutate((p) => nudgeDevStack(p, st.id, -1))}><ArrowUp size={12} /></button>
@@ -135,11 +135,13 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   });
   const batchHead = (e) => {
     const lead = e.sts[0].main;
-    const state = ({ pending: 'pendiente', launched: 'en marcha', missed: 'perdido', skipped: 'omitido' })[(lead.iris && lead.iris.state)] || '';
+    const status = batchStatus(e.sts);
+    const canAdd = status.key === 'pending' && pick2.filter((id) => !e.sts.some((x) => x.id === id)).length > 0;
     return (
       <div className="ds-bhead">
         <strong>Lote</strong>
-        <span>{e.sts.length} features · una sola conversación · empieza a las {typeof lead.at === 'number' ? fmtMin(lead.at) : '--:--'} · {state}</span>
+        <span className={`ds-bstate ${status.key}`}>{e.sts.length} features · una sola conversación · empieza a las {typeof lead.at === 'number' ? fmtMin(lead.at) : '--:--'} · {status.label}</span>
+        {canAdd && <button className="ap-btn" onClick={() => { const out = addToBatch(plan, e.batch, pick2); if (out.error) { setMsg(out.error); return; } setMsg(''); mutate(() => out.plan); setPick2([]); }}>Añadir las {pick2.filter((id) => !e.sts.some((x) => x.id === id)).length} marcadas</button>}
         <button className="ap-btn" title="Cada feature vuelve a lanzarse sola a su propia hora" onClick={() => mutate((p) => unbatch(p, e.batch))}>Deshacer lote</button>
       </div>
     );
