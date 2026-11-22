@@ -32,7 +32,7 @@ export function addNotes(plan, list, now = new Date().toISOString()) {
   if (!valid.length) return plan;
   const added = valid.map((n) => ({
     id: nid(), t: now, area: n.area, dir: n.dir === 'to_hub' ? 'to_hub' : 'to_area', kind: NOTE_KINDS.includes(n.kind) ? n.kind : 'note',
-    text: String(n.text).slice(0, 2000), from: n.from || 'hub', ...(n.item ? { item: n.item } : {}), read: !!n.read
+    text: String(n.text).slice(0, n.kind === 'report' ? 6000 : 2000), from: n.from || 'hub', ...(n.item ? { item: n.item } : {}), read: !!n.read
   }));
   return { ...plan, iris: { ...(plan.iris || {}), notes: prune([...notesOf(plan), ...added]) } };
 }

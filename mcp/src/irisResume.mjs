@@ -110,6 +110,7 @@ export function resumeMessage(item, areaName, startTime = '', more = []) {
       'Tu buzón de IRIS tiene el encargo completo de cada uno (el hook te lo muestra; si no lo ves, léelo con read_notes).',
       'Trabaja cada uno en su propia rama, sin desplegar ni publicar nada, y no pidas confirmación al usuario: si algo exige una decisión, déjalo anotado y pasa al siguiente.',
       `Al terminar cada uno, o si te bloqueas, avisa con report_progress(area="${areaName}", item_id=<su id>, text="…", done=true si terminó). Un bloque bloqueado no detiene los demás.`,
+      'El texto de report_progress va con este formato (una sección por línea, viñetas cortas, sin párrafos): RESUMEN: / HECHO: / VERIFICAR: (pasos numerados para comprobarlo) / DECISIONES: (tomadas o que quedan para el usuario) / PENDIENTE: (lo que no pudiste completar y por qué) / RAMA: · COMMIT:.',
       'Los servidores MCP pueden tardar unos segundos en conectar al arrancar: si no ves report_progress, complete_item o read_notes, búscalas con ToolSearch (espera a que conecte boceto) antes de decir que no las tienes.',
       'Si de verdad no existen, cuenta los resultados en tu respuesta.'
     ].join('\n');
@@ -119,6 +120,7 @@ export function resumeMessage(item, areaName, startTime = '', more = []) {
     'Tu buzón de IRIS tiene el encargo completo (el hook te lo muestra; si no lo ves, léelo con read_notes).',
     'Trabaja en una rama, sin desplegar ni publicar nada, y pide confirmación antes de cualquier cosa destructiva.',
     `Al terminar, o si te bloqueas, avisa con report_progress(area="${areaName}", item_id="${item.id}", text="…", done=true si terminó).`,
+    'El texto de report_progress va con este formato (una sección por línea, viñetas cortas, sin párrafos): RESUMEN: / HECHO: / VERIFICAR: (pasos numerados para comprobarlo) / DECISIONES: (tomadas o que quedan para el usuario) / PENDIENTE: (lo que no pudiste completar y por qué) / RAMA: · COMMIT:.',
     'Los servidores MCP pueden tardar unos segundos en conectar al arrancar: si no ves report_progress, complete_item o read_notes, búscalas con ToolSearch (espera a que conecte boceto) antes de decir que no las tienes.',
     'Si de verdad no existen, cuenta el resultado en tu respuesta.'
   ].join('\n');

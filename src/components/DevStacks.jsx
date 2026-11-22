@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
 import { PlanTabs } from './PlanTabs';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -28,6 +28,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [pick2, setPick2] = useState([]); // stacks chosen for a batch, in the order they were ticked
   const [bDay, setBDay] = useState(() => addDays(isoOf(new Date()), 1));
   const [bTime, setBTime] = useState('22:00');
+  const [reviewId, setReviewId] = useState(null); // piece whose final report is open in the reader
   const [showAll, setShowAll] = useState(false); // also the stacks that are done and validated
   const mutate = (fn) => onChange((p) => fn(p));
   // The tasks the area already has become stacks (once; running again changes nothing).
@@ -63,7 +64,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       )}
       {needsReview(it) && open !== it.id && (
         <div className="ds-review">
-          {reportOf(plan, it.id) && <details><summary>Qué dijo al terminar</summary><p>{reportOf(plan, it.id)}</p></details>}
+          {reportOf(plan, it.id) ? <button className="ds-read" onClick={() => setReviewId(it.id)}><span>{parseReport(reportOf(plan, it.id)).summary || 'Ver el informe'}</span> <b>Revisar ›</b></button> : <span className="ds-hint">Sin informe del agente</span>}
           <button className="ap-btn ds-ok" onClick={() => mutate((p) => setDevValid(p, it.id, true))}>Validar ✓</button>
         </div>
       )}
@@ -179,6 +180,31 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
               </React.Fragment>
             );
           })}
+          {reviewId && (() => {
+            const it = plan.items.find((i) => i.id === reviewId);
+            const rep = parseReport(reportOf(plan, reviewId));
+            const list = (title, items, ordered) => (items.length ? (
+              <section className="dr-sec"><h4>{title}</h4>{ordered ? <ol>{items.map((x, i) => <li key={i}>{x}</li>)}</ol> : <ul>{items.map((x, i) => <li key={i}>{x}</li>)}</ul>}</section>
+            ) : null);
+            return it ? (
+              <div className="dr-back" role="dialog" aria-modal="true" aria-label="Informe" onClick={() => setReviewId(null)}>
+                <div className="dr" onClick={(e) => e.stopPropagation()}>
+                  <h3>{it.text}</h3>
+                  {rep.summary && <p className="dr-sum">{rep.summary}</p>}
+                  {(rep.branch || rep.commit) && <p className="dr-meta">{rep.branch && <span>Rama <code>{rep.branch}</code></span>} {rep.commit && <span>Commit <code>{rep.commit}</code></span>}</p>}
+                  {list('Qué se hizo', rep.done)}
+                  {list('Cómo verificarlo', rep.verify, true)}
+                  {list('Decisiones', rep.decisions)}
+                  {list('Pendiente / no se pudo completar', rep.pending)}
+                  {!rep.structured && <p className="ds-hint">Este informe no venía con el formato por secciones: se ordenó por frases. Los siguientes vendrán con «cómo verificarlo» paso a paso.</p>}
+                  <div className="dr-actions">
+                    <button className="ap-btn" onClick={() => setReviewId(null)}>Cerrar</button>
+                    <button className="ap-btn ds-ok" onClick={() => { mutate((p) => setDevValid(p, it.id, true)); setReviewId(null); }}>Validar ✓</button>
+                  </div>
+                </div>
+              </div>
+            ) : null;
+          })()}
           {pick2.length > 0 && (
             <div className="ds-batch" role="group" aria-label="Lote">
               <strong>Lote · {pick2.length} {pick2.length === 1 ? 'feature' : 'features'}</strong>

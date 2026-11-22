@@ -531,7 +531,7 @@ server.registerTool('mark_notes_read', {
 }));
 
 server.registerTool('report_progress', {
-  description: 'IRIS: la conversación de un área avisa al centro de mando de un avance o de que terminó un encargo. Opcionalmente marca el bloque como hecho. Úsalo al terminar algo relevante (una rama lista, algo bloqueado, una duda).',
+  description: 'IRIS: la conversación de un área avisa al centro de mando de un avance o de que terminó un encargo. Opcionalmente marca el bloque como hecho. Úsalo al terminar algo relevante (una rama lista, algo bloqueado, una duda). Escribe el texto con ESTE FORMATO (cada sección en su línea, viñetas cortas, sin párrafos largos; omite una sección solo si no aplica):\nRESUMEN: una línea\nHECHO:\n- qué quedó hecho\nVERIFICAR:\n1. pasos concretos para que el usuario lo compruebe\nDECISIONES:\n- decisiones que tomaste o que quedan para el usuario\nPENDIENTE:\n- lo que no pudiste completar y por qué\nRAMA: nombre · COMMIT: hash',
   inputSchema: { area: areaArg, text: z.string().min(1).describe('Qué pasó: qué se hizo, dónde está (rama, archivo) y qué falta'), item_id: z.string().optional().describe('Id del bloque del encargo, si lo hay'), done: z.boolean().optional().describe('true si el encargo quedó terminado: marca el bloque como hecho') }
 }, safe(async ({ area, text: body, item_id, done }) => {
   const out = await mutatePlan(cfg, (plan) => {

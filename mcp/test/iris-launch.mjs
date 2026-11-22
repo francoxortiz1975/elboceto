@@ -123,3 +123,10 @@ ok(setDevBatch(bb, ['x'], { day: '2026-11-30', time: 600 }).error !== '' && setD
 import { unbatch } from '../../src/lib/devStacks.js';
 const ub = unbatch(bo.plan, bo.batch);
 ok(ub.items.every((i) => !i.iris.batch && i.iris.launch === true), 'undoing a batch keeps each feature launching on its own');
+
+import { parseReport } from '../../src/lib/devStacks.js';
+const sr = parseReport('RESUMEN: Botón rojo listo\nHECHO:\n- Cambié .btn-submit\n- Probé el hover\nVERIFICAR:\n1. Abre /login\n2. Mira el botón\nDECISIONES:\n- Dejé --primary igual\nPENDIENTE:\n- Nada\nRAMA: iris/boton · COMMIT: 93f8c16');
+ok(sr.structured && sr.summary === 'Botón rojo listo' && sr.done.length === 2 && sr.verify.join() === 'Abre /login,Mira el botón' && sr.decisions.length === 1 && sr.branch === 'iris/boton' && sr.commit === '93f8c16', 'a report with sections is split into summary, done, verify steps, decisions, pending and branch/commit');
+const fr = parseReport('LISTO bloque X. Rama local iris/demo-nova, commit 93f8c16 sobre main, sin push. QUÉ HACE: lista de servicios. Decisión que quedó para Franco: encender las variables. No pude leer las variables de Vercel porque me fue denegado.');
+ok(!fr.structured && fr.branch === 'iris/demo-nova,' .replace(',', '') && fr.commit === '93f8c16' && fr.decisions.length === 1 && fr.pending.length === 1 && fr.done.length >= 1, 'a free-form report is split into sentences and sorted: decisions, things left undone, the rest as done; branch and commit are picked out');
+ok(parseReport('').done.length === 0, 'an empty report parses to nothing');

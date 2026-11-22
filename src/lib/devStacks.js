@@ -172,3 +172,45 @@ export function setDevBatch(plan, stackIds, { day, time, now = new Date().toISOS
 
 // Dissolves a batch: each feature keeps its own time and still starts by itself, but no longer shares one conversation.
 export const unbatch = (plan, batchId) => ({ ...plan, items: plan.items.map((i) => { if (!(i.iris && i.iris.batch === batchId)) return i; const { batch, ...iris } = i.iris; return { ...i, iris }; }) });
+
+// ---- reading an area's final report ----
+// Agents report with sections (RESUMEN / HECHO / VERIFICAR / DECISIONES / PENDIENTE / RAMA · COMMIT). Older or free-form reports are split into
+// sentences and sorted by keywords, so every report can be read as bullet points.
+const SECTION = /^\s*(RESUMEN|HECHO|VERIFICAR|DECISIONES|PENDIENTE|RAMA|COMMIT)\s*:\s*(.*)$/i;
+const bullet = (l) => l.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').trim();
+const KEY = { RESUMEN: 'summary', HECHO: 'done', VERIFICAR: 'verify', DECISIONES: 'decisions', PENDIENTE: 'pending' };
+export function parseReport(raw = '') {
+  const out = { summary: '', done: [], verify: [], decisions: [], pending: [], branch: '', commit: '', structured: false };
+  const text = String(raw || '');
+  const lines = text.split('\n');
+  let cur = null; let hits = 0;
+  lines.forEach((line) => {
+    const m = SECTION.exec(line);
+    if (m) {
+      hits += 1;
+      const k = m[1].toUpperCase();
+      if (k === 'RAMA' || k === 'COMMIT') {
+        const b = /RAMA\s*:\s*([^\s·|,;]+)/i.exec(line); const c = /COMMIT\s*:\s*([0-9a-f]{6,40})/i.exec(line);
+        if (b) out.branch = b[1]; if (c) out.commit = c[1]; cur = null; return;
+      }
+      cur = KEY[k];
+      if (m[2].trim()) { if (cur === 'summary') out.summary = m[2].trim(); else out[cur].push(bullet(m[2])); }
+      return;
+    }
+    const t = bullet(line);
+    if (!t || !cur) return;
+    if (cur === 'summary') out.summary += (out.summary ? ' ' : '') + t; else out[cur].push(t);
+  });
+  if (hits >= 2) { out.structured = true; return out; }
+  // free text: sentences, sorted by what they talk about
+  const b = /rama(?: local)?\s+([\w./-]{3,})/i.exec(text); const c = /commit\s+([0-9a-f]{7,40})/i.exec(text);
+  if (b) out.branch = b[1]; if (c) out.commit = c[1];
+  const sentences = text.replace(/\r/g, '').split(/\n\s*\n|(?<=[.;])\s+(?=[A-ZÁÉÍÓÚÑ¿(«"\d])/).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  sentences.forEach((x) => {
+    if (/(^|\W)(pendiente|falta|no pude|no se pudo|no pudo|bloquead|denegad|sin hacer)/i.test(x)) out.pending.push(x);
+    else if (/decisi[oó]n|decid|conflicto|elige|a elegir|queda para/i.test(x)) out.decisions.push(x);
+    else if (/^(RESPUESTA A LA PREGUNTA)/i.test(x)) { /* routing noise, not content */ } else out.done.push(x);
+  });
+  out.summary = (out.done[0] || sentences[0] || '').slice(0, 160);
+  return out;
+}
