@@ -166,7 +166,7 @@ export default function App() {
   const [planTab, setPlanTab] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_PLAN_TAB);
-      if (saved === 'day' || saved === 'board' || saved === 'week' || saved === 'month' || saved === 'social' || saved === 'motor') return saved;
+      if (saved === 'day' || saved === 'board' || saved === 'week' || saved === 'month' || saved === 'social' || saved === 'dev' || saved === 'motor') return saved;
     } catch { /* storage unavailable */ }
     return 'board';
   });

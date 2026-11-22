@@ -7,6 +7,7 @@ const TABS = [
   ['week', 'Semana'],
   ['month', 'Mes'],
   ['social', 'Redes'],
+  ['dev', 'Desarrollo'],
   ['motor', 'Motor']
 ];
 

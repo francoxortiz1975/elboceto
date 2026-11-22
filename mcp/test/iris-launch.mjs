@@ -64,3 +64,15 @@ const cp = { items: [
 const cn = completePastClasses(cp, new Date(2026, 10, 20, 12, 44));
 ok(cn.items.map((i) => i.done).join() === 'true,false,true,false', 'classes that ended are done; one in progress and other blocks are not touched');
 ok(completePastClasses(cn, new Date(2026, 10, 20, 12, 44)) === cn, 'nothing to change returns the same plan');
+
+import { devStacks, addDevStack, addDevSlot, moveDevStack, removeDevItem } from '../../src/lib/devStacks.js';
+let dp = { items: [{ id: 'z', area: 'm', text: 'otro', done: false, day: '2026-11-21', at: 'any' }] };
+const a1 = addDevStack(dp, { area: 'm', name: 'Recordatorios', day: '2026-11-23' });
+const a2 = addDevStack(a1.plan, { area: 'm', name: 'Login', day: '2026-11-22' });
+ok(addDevStack(dp, { area: 'm', name: '  ' }).id === null, 'a stack needs a name');
+ok(devStacks(a2.plan, 'm').map((s) => s.main.text).join() === 'Login,Recordatorios', 'stacks of an area come ordered by day; blocks that are not dev are ignored');
+const s1 = addDevSlot(a2.plan, a1.id, 'check');
+ok(devStacks(s1.plan, 'm').find((s) => s.id === a1.id).check.day === '2026-11-23' && addDevSlot(s1.plan, a1.id, 'check').id === null, 'plan / check pieces follow the feature day and are created once');
+const mv = moveDevStack(s1.plan, a1.id, '2026-11-25');
+ok(mv.items.filter((i) => i.dev && i.dev.s === a1.id).every((i) => i.day === '2026-11-25'), 'moving a stack moves all its pieces');
+ok(removeDevItem(mv, a1.id).items.every((i) => !(i.dev && i.dev.s === a1.id)) && removeDevItem(mv, s1.id).items.length === mv.items.length - 1, 'removing the feature removes the stack; removing a piece removes only that piece');

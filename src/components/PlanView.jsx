@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { AreaPlanner } from './AreaPlanner';
 import { WeeklyPlanner } from './WeeklyPlanner';
 import { SocialManager } from './SocialManager';
+import { DevStacks } from './DevStacks';
 import { SchedulerPage } from './SchedulerPage';
 import { PlanBadgeContext } from './planBadges';
 import { isoOf } from '../lib/areaPlan';
@@ -35,6 +36,9 @@ function PlanViewBody({ tab, onTabChange, areaPlan, onChangeAreaPlan, onBack, co
   }
   if (tab === 'social') {
     return <SocialManager plan={areaPlan} onChange={onChangeAreaPlan} onBack={onBack} compact={compact} tab={tab} onTabChange={onTabChange} />;
+  }
+  if (tab === 'dev') {
+    return <DevStacks plan={areaPlan} onChange={onChangeAreaPlan} onBack={onBack} compact={compact} tab={tab} onTabChange={onTabChange} />;
   }
   if (tab === 'motor') {
     return <SchedulerPage plan={areaPlan} onChange={onChangeAreaPlan} onBack={onBack} compact={compact} tab={tab} onTabChange={onTabChange} />;
