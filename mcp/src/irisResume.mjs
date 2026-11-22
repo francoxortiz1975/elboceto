@@ -165,3 +165,11 @@ export const modelFlags = (model, effort) => `${model ? ` --model ${q(cleanModel
 // osascript arguments for a macOS notification (text passed as arguments, never spliced into the script).
 // Silent by default (so it never wakes you at night); set "notifySound": "Glass" in iris-areas.json for a sound.
 export const notifyArgs = (title, text, sound = '') => ['-e', 'on run argv', '-e', `display notification (item 2 of argv) with title (item 1 of argv)${/^[A-Za-z]+$/.test(sound) ? ` sound name "${sound}"` : ''}`, '-e', 'end run', title, text];
+
+// Per-area exceptions ("areaAllow" in iris-areas.json): extra tools an area's unattended runs may use. A pattern that is allowed for an area
+// is taken out of the deny list for that area only; every other area keeps the full list.
+export function toolsFor(conf, areaName) {
+  const key = Object.keys(conf.areaAllow || {}).find((k) => k.trim().toLowerCase() === String(areaName || '').trim().toLowerCase());
+  const extra = cleanDeny(key ? conf.areaAllow[key] : []);
+  return { allow: [...new Set([...(conf.allowedTools || []), ...extra])], deny: (conf.disallowedTools || []).filter((d) => !extra.includes(d)) };
+}

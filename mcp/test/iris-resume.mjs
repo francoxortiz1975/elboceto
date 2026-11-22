@@ -112,3 +112,8 @@ const bp = { items: [
 ] };
 ok(/2 bloques seguidos/.test(R.resumeMessage(bp.items[0], 'M', '', [bp.items[1]])) && /item_id="b"/.test(R.resumeMessage(bp.items[0], 'M', '', [bp.items[1]])), 'batch message lists every block with its id');
 ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', logFile: '/l', maxBudget: 5 }).includes(" --max-budget-usd 5 >> '/l'"), 'background runs carry a spending cap');
+
+const tf = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: ['Bash(vercel *)', 'Bash(git push *)'], areaAllow: { MediLyft: ['Bash(vercel *)'] } }, 'medilyft');
+ok(tf.allow.includes('Bash(vercel *)') && tf.allow.includes('Edit') && !tf.deny.includes('Bash(vercel *)') && tf.deny.includes('Bash(git push *)'), 'an area exception allows that tool and lifts only that prohibition for that area');
+const tg = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: ['Bash(vercel *)'], areaAllow: { MediLyft: ['Bash(vercel *)'] } }, 'Loginet');
+ok(!tg.allow.includes('Bash(vercel *)') && tg.deny.includes('Bash(vercel *)'), 'other areas keep the full deny list');

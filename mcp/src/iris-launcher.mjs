@@ -12,7 +12,7 @@ import { execFile, spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { loadAreas } from './irisAreas.mjs';
-import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs } from './irisResume.mjs';
+import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs, toolsFor } from './irisResume.mjs';
 import { findCompanions, isNight, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { completePastClasses } from '../../src/lib/areaPlan';
 import { addNotes } from '../../src/lib/iris';
@@ -52,7 +52,7 @@ async function openFor(c, file, conf) {
     else {
       write(resumeMessage(c.item, c.areaName, '', c.more || []));
       const logFile = conf.background ? runLog(sid) : '';
-      const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: conf.disallowedTools, allow: conf.allowedTools, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
+      const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: toolsFor(conf, c.areaName).deny, allow: toolsFor(conf, c.areaName).allow, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
       if (logFile) background(command); else await terminalDo(command);
       return 'resume';
     }
