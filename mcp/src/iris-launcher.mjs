@@ -15,6 +15,7 @@ import { loadAreas } from './irisAreas.mjs';
 import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs, toolsFor } from './irisResume.mjs';
 import { findCompanions, isNight, staleLaunched, markEnded, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { completePastClasses } from '../../src/lib/areaPlan';
+import { applyDeploys } from '../../src/lib/devStacks';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -52,7 +53,7 @@ async function openFor(c, file, conf) {
     else {
       write(resumeMessage(c.item, c.areaName, '', c.more || []));
       const logFile = conf.background ? runLog(sid) : '';
-      const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: toolsFor(conf, c.areaName).deny, allow: toolsFor(conf, c.areaName).allow, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
+      const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).deny, allow: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).allow, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
       if (logFile) background(command); else await terminalDo(command);
       return 'resume';
     }
@@ -103,6 +104,11 @@ export async function tick({ now = new Date(), dry = false } = {}) {
     });
     if (quiet.length) { await mutatePlan(cfg, (p) => ({ plan: markEnded(p, quiet.map((i) => i.id), now.toISOString()), result: null })); log(`ejecución terminada, quedan abiertas: ${quiet.map((i) => i.text).join(', ')}`); }
   }
+  // A finished "subir a main" block marks its feature as deployed (works with the app closed)
+  if (!dry && applyDeploys(plan) !== plan) {
+    await mutatePlan(cfg, (p) => ({ plan: applyDeploys(p, now.toISOString()), result: null }));
+    log('subido a main: tickets marcados como deployados');
+  }
   const peek = findDue(plan, now, conf.areas);
   if (!peek.due.length && !peek.missed.length && !peek.noDir.length) return { opened: [], missed: [], noDir: [], reported: finished.map((i) => i.id) };
   if (dry) {
@@ -130,7 +136,7 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       // Late-night batching: the next blocks of the same area ride in this same conversation turn (only when the conversation can be resumed)
       const sid = mode === 'resume' ? pinnedSession(conf, areaName) : '';
       const night = !conf.batchNightOnly || isNight(d.item.at);
-      const more = sid && d.item.iris && d.item.iris.batch ? findCompanions(p, d.item).filter((i) => !taken.has(i.id)) : sid && night && conf.batchMinutes > 0 ? findCompanions(p, d.item, { windowMin: conf.batchMinutes, max: conf.batchMax }).filter((i) => !taken.has(i.id)) : [];
+      const more = d.item.deploy ? [] : sid && d.item.iris && d.item.iris.batch ? findCompanions(p, d.item).filter((i) => !taken.has(i.id)) : sid && night && conf.batchMinutes > 0 ? findCompanions(p, d.item, { windowMin: conf.batchMinutes, max: conf.batchMax }).filter((i) => !taken.has(i.id)) : [];
       more.forEach((i) => taken.add(i.id));
       claimed.push({ item: d.item, dir: d.dir, areaName, mode, prompt: launchPrompt(p, d.item), more });
     }

@@ -102,6 +102,15 @@ export function modeFor(conf, areaName) {
 
 // The message sent into the resumed conversation. The full order is in the area's IRIS inbox, which the hook shows.
 export function resumeMessage(item, areaName, startTime = '', more = []) {
+  if (item.deploy) {
+    return [
+      `IRIS: el usuario pidió SUBIR A MAIN lo de este bloque del área ${areaName}: "${item.text}".`,
+      'Tu buzón de IRIS tiene los pasos exactos (el hook te lo muestra; si no lo ves, léelo con read_notes). Esta ejecución SÍ puede hacer git merge, git push a main y consultar vercel, y solo para esto.',
+      'Si hay conflictos, pruebas rotas o algo raro: para, no fuerces nada y cuéntalo.',
+      `Al terminar avisa con report_progress(area="${areaName}", item_id="${item.id}", text="…", done=true solo si main quedó subido y el despliegue salió bien). Formato: RESUMEN / HECHO / VERIFICAR / DECISIONES / PENDIENTE / RAMA · COMMIT.`,
+      'Los servidores MCP pueden tardar unos segundos en conectar: si no ves report_progress o read_notes, búscalas con ToolSearch antes de decir que no las tienes.'
+    ].join('\n');
+  }
   if (more.length) {
     const all = [item, ...more];
     return [
@@ -168,8 +177,13 @@ export const notifyArgs = (title, text, sound = '') => ['-e', 'on run argv', '-e
 
 // Per-area exceptions ("areaAllow" in iris-areas.json): extra tools an area's unattended runs may use. A pattern that is allowed for an area
 // is taken out of the deny list for that area only; every other area keeps the full list.
-export function toolsFor(conf, areaName) {
+export const DEPLOY_ALLOW = ['Bash(git push*)', 'Bash(git merge*)', 'Bash(git checkout*)', 'Bash(git switch*)', 'Bash(git pull*)', 'Bash(git fetch*)', 'Bash(vercel *)'];
+export const DEPLOY_UNDENY = ['Bash(git push *)', 'Bash(git push)', 'Bash(vercel *)'];
+// deploy: the run the user asked to push to main. Only that run gets git push / merge; every other run keeps its prohibition.
+export function toolsFor(conf, areaName, { deploy = false } = {}) {
   const key = Object.keys(conf.areaAllow || {}).find((k) => k.trim().toLowerCase() === String(areaName || '').trim().toLowerCase());
   const extra = cleanDeny(key ? conf.areaAllow[key] : []);
-  return { allow: [...new Set([...(conf.allowedTools || []), ...extra])], deny: (conf.disallowedTools || []).filter((d) => !extra.includes(d)) };
+  const more = deploy ? DEPLOY_ALLOW : [];
+  const lift = deploy ? DEPLOY_UNDENY : [];
+  return { allow: [...new Set([...(conf.allowedTools || []), ...extra, ...more])], deny: (conf.disallowedTools || []).filter((d) => !extra.includes(d) && !lift.includes(d)) };
 }

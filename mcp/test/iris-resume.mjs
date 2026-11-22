@@ -117,3 +117,8 @@ const tf = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: ['Bash(vercel *
 ok(tf.allow.includes('Bash(vercel *)') && tf.allow.includes('Edit') && !tf.deny.includes('Bash(vercel *)') && tf.deny.includes('Bash(git push *)'), 'an area exception allows that tool and lifts only that prohibition for that area');
 const tg = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: ['Bash(vercel *)'], areaAllow: { MediLyft: ['Bash(vercel *)'] } }, 'Loginet');
 ok(!tg.allow.includes('Bash(vercel *)') && tg.deny.includes('Bash(vercel *)'), 'other areas keep the full deny list');
+const dz = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: ['Bash(git push *)', 'Bash(git push)', 'Bash(vercel *)', 'Bash(rm -rf*)'] }, 'Loginet', { deploy: true });
+ok(dz.allow.includes('Bash(git push*)') && !dz.deny.includes('Bash(git push *)') && dz.deny.includes('Bash(rm -rf*)'), 'a deploy run may push; the other prohibitions stay');
+const nz = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: ['Bash(git push *)'] }, 'Loginet');
+ok(!nz.allow.includes('Bash(git push*)') && nz.deny.includes('Bash(git push *)'), 'a normal run never gets push');
+ok(/SUBIR A MAIN/.test(R.resumeMessage({ id: 'd', text: 'Subir MC001 a main', deploy: { stack: 'f' } }, 'MediLyft')), 'a deploy block gets its own message');

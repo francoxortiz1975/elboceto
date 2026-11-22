@@ -43,14 +43,14 @@ export function findCompanions(plan, lead, { windowMin = 180, max = 3 } = {}) {
   // An explicit batch (chosen by the user in the Desarrollo tab): every pending block of that batch rides along, whatever the hour.
   if (lead.iris && lead.iris.batch) {
     return plan.items
-      .filter((it) => it.id !== lead.id && isAutoStart(it) && it.iris.batch === lead.iris.batch && !it.done && stateOf(it) === 'pending')
+      .filter((it) => it.id !== lead.id && isAutoStart(it) && !it.deploy && it.iris.batch === lead.iris.batch && !it.done && stateOf(it) === 'pending')
       .sort((a, b) => (a.day + String(a.at).padStart(5, '0')).localeCompare(b.day + String(b.at).padStart(5, '0')))
       .slice(0, 5);
   }
   if (!isoRe.test(lead.day || '') || typeof lead.at !== 'number' || max < 2) return [];
   const t0 = absMin(lead);
   return plan.items
-    .filter((it) => it.id !== lead.id && it.area === lead.area && isAutoStart(it) && !it.done && stateOf(it) === 'pending' && isoRe.test(it.day || '') && typeof it.at === 'number'
+    .filter((it) => it.id !== lead.id && it.area === lead.area && isAutoStart(it) && !it.deploy && !it.done && stateOf(it) === 'pending' && isoRe.test(it.day || '') && typeof it.at === 'number'
       && absMin(it) > t0 && absMin(it) <= t0 + windowMin)
     .sort((a, b) => absMin(a) - absMin(b))
     .slice(0, max - 1);

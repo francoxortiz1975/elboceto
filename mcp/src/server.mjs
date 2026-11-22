@@ -10,6 +10,7 @@ import { buildEngineInput, nowMinutes, getScheduler, kindDur, areaWindow, window
 import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
+import { ticketStatus } from '../../src/lib/devStacks';
 import { devStacks, isDev, DEV_ROLES, addDevSlot, addDevStack, editDevItem, moveDevStack, setDevTime, setDevLaunch, setDevBatch } from '../../src/lib/devStacks';
 import { findByRef, assignCode, addModification, codeOf, codeConfig, nextFeatureCode } from '../../src/lib/devCodes';
 import { loadAreas } from './irisAreas.mjs';
@@ -117,7 +118,7 @@ server.registerTool('list_dev_stacks', {
   const stacks = devStacks(plan, a.id);
   const loose = plan.items.filter((i) => i.area === a.id && !i.done && !isDev(i) && !i.stackId && !i.reel && !i.film && !i.gen);
   const piece = (label, it) => (it ? `   ${label}: ${it.done ? (it.dev && it.dev.v ? '[x validado]' : '[x por validar]') : '[ ]'} ${it.text} · id ${it.id}${it.iris && it.iris.launch ? ` [abre sola: ${it.iris.state || 'pendiente'}]` : ''}${it.note ? `\n      ${it.note.split('\n').join('\n      ').slice(0, 600)}` : ''}` : '');
-  const block = stacks.map((st) => [`• ${codeOf(st.main) ? `${codeOf(st.main)} · ` : ''}${st.main.text} · ${when(st.main)}`, ...DEV_ROLES.map((r) => piece(r.label, r.role === 'build' ? st.main : st[r.role]))].filter(Boolean).join('\n'));
+  const block = stacks.map((st) => [`• ${codeOf(st.main) ? `${codeOf(st.main)} · ` : ''}${st.main.text} · ${when(st.main)} · ESTADO: ${ticketStatus(plan, st).label}`, ...DEV_ROLES.map((r) => piece(r.label, r.role === 'build' ? st.main : st[r.role]))].filter(Boolean).join('\n'));
   return text(`DESARROLLO · ${a.name} (${stacks.length} stacks)\n${block.join('\n\n') || '(vacío)'}${loose.length ? `\n\nTAREAS ABIERTAS QUE AÚN NO SON STACKS (${loose.length}; se convierten al abrir la pestaña Desarrollo)\n${loose.map((it) => lineOf(plan, it)).join('\n')}` : ''}`);
 }));
 

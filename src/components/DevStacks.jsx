@@ -3,7 +3,7 @@ import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-re
 import { PlanTabs } from './PlanTabs';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -33,6 +33,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [reviewId, setReviewId] = useState(null); // piece whose final report is open in the reader
   const [showAll, setShowAll] = useState(false); // also the stacks that are done and validated
   const mutate = (fn) => onChange((p) => fn(p));
+  // A finished "subir a main" block marks its feature as deployed.
+  useEffect(() => { if (applyDeploys(plan) !== plan) onChange((p) => applyDeploys(p)); }, [plan, onChange]);
   // The tasks the area already has become stacks (once; running again changes nothing).
   useEffect(() => { if (areaId && migrateToDev(plan, areaId) !== plan) onChange((p) => migrateToDev(p, areaId)); }, [plan, areaId, onChange]);
   const area = plan.areas.find((a) => a.id === areaId);

@@ -67,3 +67,14 @@
 .ds-mod:disabled { opacity: 0.7; }
 .ds-modbtn { border: 0; background: none; color: var(--text-muted); font: 400 0.7rem var(--font-body); cursor: pointer; padding: 0; }
 .ds-modbtn:hover { color: var(--text-ink); }
+
+.ds-status { font: 500 0.62rem var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; background: rgba(var(--ink-rgb), 0.08); color: var(--text-muted); white-space: nowrap; }
+.ds-status.scheduled { background: color-mix(in srgb, #4F6FA8 28%, transparent); color: var(--text-ink); }
+.ds-status.running, .ds-status.deploying { background: color-mix(in srgb, #2F8A86 30%, transparent); color: var(--text-ink); }
+.ds-status.done { background: color-mix(in srgb, #D1892F 28%, transparent); color: var(--text-ink); }
+.ds-status.validated { background: color-mix(in srgb, #6E8B5B 30%, transparent); color: var(--text-ink); }
+.ds-status.deployed { background: #6E8B5B; color: #111; }
+.ds-status.deployfail { background: color-mix(in srgb, #A8546A 40%, transparent); color: var(--text-ink); }
+.ds-act { padding: 2px 9px; border: var(--border-strong); border-radius: 4px; background: var(--bg-note); color: var(--text-ink); font: 500 0.72rem var(--font-body); cursor: pointer; }
+.ds-act:hover { background: rgba(var(--ink-rgb), 0.08); }
+.ds-act.deploy { border-color: #6E8B5B; }

@@ -82,7 +82,9 @@ export const toggleDevDone = (plan, id) => ({ ...plan, items: plan.items.map((i)
 }) });
 export const setDevValid = (plan, id, on) => ({ ...plan, items: plan.items.map((i) => (i.id === id && isDev(i) ? { ...i, dev: { ...i.dev, v: !!on } } : i)) });
 // A stack leaves the default view once everything in it that is done has been validated and the feature itself is done.
-export const stackSettled = (st) => isValidated(st.main) && [st.plan, st.check].every((p) => !p || isValidated(p) || !p.done);
+// A feature that IRIS+ built has a local branch: it is not settled until that branch is in main (or the user says it needs no deploy).
+export const needsDeploy = (it) => !!(it && isDev(it) && it.iris && it.iris.launch === true && !it.dev.deployed && !it.dev.nodeploy);
+export const stackSettled = (st) => isValidated(st.main) && !needsDeploy(st.main) && [st.plan, st.check].every((p) => !p || isValidated(p) || !p.done);
 // What the area's conversation said when it finished (the latest report of the block, not the launcher's automatic notices).
 export function reportOf(plan, itemId) {
   const notes = ((plan.iris && plan.iris.notes) || []).filter((n) => n.item === itemId && n.dir === 'to_hub' && n.from !== 'launcher' && n.kind === 'report');
@@ -250,4 +252,61 @@ export function addToBatch(plan, batchId, stackIds, now = new Date().toISOString
     next = addNotes(next, [{ area: it.area, dir: 'to_area', kind: 'order', from: 'boceto', item: it.id, text: devBrief(next, it.id) }], now);
   });
   return { plan: next, error: '' };
+}
+
+// ---- lifecycle: pendiente -> agendado -> en marcha -> completado -> validado -> deployado en main ----
+const deployItems = (plan, stackId) => plan.items.filter((i) => i.deploy && i.deploy.stack === stackId && !i.deploy.failed);
+export function ticketStatus(plan, st) {
+  const m = st.main; const iris = m.iris || {};
+  const dep = deployItems(plan, st.id);
+  if (m.dev.deployed) return { key: 'deployed', label: 'deployado en main' };
+  const open = dep.find((i) => !i.done);
+  if (open) return open.iris && open.iris.ended ? { key: 'deployfail', label: 'el deploy no terminó', action: 'retry' } : { key: 'deploying', label: 'subiendo a main…' };
+  if (m.done && m.dev.v) return needsDeploy(m) ? { key: 'validated', label: 'validado · falta subir a main', action: 'deploy' } : { key: 'validated', label: 'validado' };
+  if (m.done) return { key: 'done', label: 'completado · por validar', action: 'validate' };
+  if (iris.launch && iris.state === 'launched') return { key: 'running', label: iris.ended ? 'ejecución terminada · abierto' : 'en marcha' };
+  if (iris.launch && iris.state === 'pending' && /^\d{4}-/.test(m.day || '') && typeof m.at === 'number') return { key: 'scheduled', label: 'agendado', action: 'now' };
+  return { key: 'pending', label: 'pendiente', action: 'schedule' };
+}
+
+// "Lanzar ahora": today, this minute; the launcher picks it up on its next pass.
+export function launchNow(plan, stackId, now = new Date()) {
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const moved = moveDevStack(plan, stackId, day);
+  return setDevLaunch(setDevTime(moved, stackId, now.getHours() * 60 + now.getMinutes()), stackId, true, now.toISOString());
+}
+
+export const setNoDeploy = (plan, stackId, on = true) => ({ ...plan, items: plan.items.map((i) => (i.id === stackId && isDev(i) ? { ...i, dev: { ...i.dev, nodeploy: !!on } } : i)) });
+
+// The order for the area's conversation: merge the feature branch into main, push, check the deploy. Only runs because the user clicked.
+export function requestDeploy(plan, stackId, now = new Date()) {
+  const main = plan.items.find((i) => i.id === stackId);
+  if (!main || !isDev(main) || !main.done || !main.dev.v) return { plan, error: 'Solo se sube a main lo que está hecho y validado.' };
+  if (main.dev.deployed) return { plan, error: 'Ya está en main.' };
+  if (deployItems(plan, stackId).some((i) => !i.done && !(i.iris && i.iris.ended))) return { plan, error: 'Ya se está subiendo a main.' };
+  const label = main.dev.code || main.text;
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const id = uid();
+  const item = { id, area: main.area, text: `Subir ${label} a main`, done: false, day, at: now.getHours() * 60 + now.getMinutes(), dur: 30, src: 'desarrollo', deploy: { stack: stackId }, iris: { launch: true, state: 'pending', deploy: true } };
+  const retired = plan.items.map((i) => (i.deploy && i.deploy.stack === stackId && !i.done ? { ...i, deploy: { ...i.deploy, failed: true } } : i));
+  const brief = [
+    `SUBIR A MAIN: ${label} · ${main.text}`,
+    main.dev.code ? `La rama de este ticket empieza por iris/${main.dev.code}-. Búscala con git branch --list "iris/${main.dev.code}*".` : 'Busca la rama iris/… de este ticket (git branch --list "iris/*").',
+    'Pasos: 1) git status limpio salvo los cambios ajenos del usuario (no los toques ni los incluyas). 2) git checkout main y git pull. 3) git merge --no-ff de la rama del ticket. 4) Corre las pruebas / build que tenga el proyecto; si fallan o hay conflictos, PARA y cuéntalo en PENDIENTE sin forzar nada. 5) git push origin main. 6) Comprueba que el despliegue de producción salió bien (vercel o el estado del commit) y da su URL.',
+    'Nunca uses --force ni borres ramas. Informa con report_progress (done=true solo si main quedó subido y el despliegue salió bien) con el formato RESUMEN / HECHO / VERIFICAR / DECISIONES / PENDIENTE / RAMA · COMMIT.'
+  ].join('\n');
+  const next = addNotes({ ...plan, items: [...retired, item] }, [{ area: main.area, dir: 'to_area', kind: 'order', from: 'boceto', item: id, text: brief }], now.toISOString());
+  return { plan: next, id, error: '' };
+}
+
+// When a deploy block is done, its feature is "deployado en main". Same plan object when nothing changes.
+export function applyDeploys(plan, now = new Date().toISOString()) {
+  const ready = plan.items.filter((i) => i.deploy && i.done && !i.deploy.failed && !i.deploy.applied);
+  if (!ready.length) return plan;
+  const stacks = new Set(ready.map((i) => i.deploy.stack));
+  return { ...plan, items: plan.items.map((i) => {
+    if (stacks.has(i.id) && isDev(i)) return { ...i, dev: { ...i.dev, deployed: now } };
+    if (ready.includes(i)) return { ...i, deploy: { ...i.deploy, applied: true } };
+    return i;
+  }) };
 }
