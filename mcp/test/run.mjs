@@ -184,5 +184,14 @@ if (nowMin >= 5 && nowMin < 23 * 60) {
   ok(db.plan.items.find((i) => i.id === 'fail1').iris.state === 'missed' && notes().some((n) => n.item === 'fail1' && /No pude abrir/.test(n.text)), 'if opening fails it is reported to the hub, not retried forever');
   t = await call('autostart_item', { id: 'nodir', on: false }); ok(!('iris' in db.plan.items.find((i) => i.id === 'nodir')), 'autostart_item off removes the mark');
   t = await call('autostart_item', { id: 'a2' }); ok(!t.startsWith('ERROR') && db.plan.items.find((i) => i.id === 'a2').iris.launch === true, 'autostart_item on marks an existing timed block');
+  // Desarrollo tab tools
+  t = await call('add_dev_stack', { name: 'Recordatorios', area: 'Life', day: 'tomorrow' }); ok(!t.startsWith('ERROR') && db.plan.items.some((i) => i.text === 'Recordatorios' && i.dev && i.dev.r === 'build'), 'add_dev_stack creates a feature with its Desarrollo piece');
+  const devId = db.plan.items.find((i) => i.text === 'Recordatorios').id;
+  t = await call('add_dev_piece', { stack_id: devId, role: 'plan', note: 'Qué y cómo' }); ok(!t.startsWith('ERROR') && db.plan.items.some((i) => i.dev && i.dev.s === devId && i.dev.r === 'plan' && i.note === 'Qué y cómo'), 'add_dev_piece adds the Plan with its comments');
+  t = await call('add_dev_piece', { stack_id: devId, role: 'plan' }); ok(t.startsWith('ERROR') && /ya tiene/.test(t), 'a second Plan for the same feature is refused');
+  await call('add_item', { area: 'Life', text: 'Tarea suelta de desarrollo', day: 'later' });
+  const looseId = db.plan.items.find((i) => i.text === 'Tarea suelta de desarrollo').id;
+  t = await call('add_dev_piece', { stack_id: looseId, role: 'check', text: 'Probar con paciente real' }); ok(!t.startsWith('ERROR') && db.plan.items.find((i) => i.id === looseId).dev.r === 'build', 'an open task that is not a stack yet becomes one when it gets a piece');
+  t = await call('list_dev_stacks', { area: 'Life' }); ok(/Recordatorios/.test(t) && /Plan:/.test(t) && /Probar con paciente real/.test(t), 'list_dev_stacks shows features with their pieces and comments');
 } else { console.log('skip  IRIS+ launcher checks (too close to midnight to test with the real clock)'); }
 await client.close(); srv.close();

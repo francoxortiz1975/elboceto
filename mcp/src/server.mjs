@@ -10,7 +10,7 @@ import { buildEngineInput, nowMinutes, getScheduler, kindDur, areaWindow, window
 import { runEngine, fmtMin as hhmm, WEIGHTS } from '../../src/lib/scheduler/engine';
 import { overdueItems, resolveItem, whyPlaced } from '../../src/lib/scheduler/overdue';
 import { daysBetween } from '../../src/lib/areaPlan';
-import { devStacks, isDev, DEV_ROLES } from '../../src/lib/devStacks';
+import { devStacks, isDev, DEV_ROLES, addDevSlot, addDevStack, editDevItem } from '../../src/lib/devStacks';
 import { loadAreas } from './irisAreas.mjs';
 import { addNotes, notesOf, unreadFor, markRead, noteLine, areaSummary, whenText, NOTE_KINDS } from '../../src/lib/iris';
 
@@ -118,6 +118,44 @@ server.registerTool('list_dev_stacks', {
   const piece = (label, it) => (it ? `   ${label}: ${it.done ? '[x]' : '[ ]'} ${it.text} · id ${it.id}${it.iris && it.iris.launch ? ` [abre sola: ${it.iris.state || 'pendiente'}]` : ''}${it.note ? `\n      ${it.note.split('\n').join('\n      ').slice(0, 600)}` : ''}` : '');
   const block = stacks.map((st) => [`• ${st.main.text} · ${when(st.main)}`, ...DEV_ROLES.map((r) => piece(r.label, r.role === 'build' ? st.main : st[r.role]))].filter(Boolean).join('\n'));
   return text(`DESARROLLO · ${a.name} (${stacks.length} stacks)\n${block.join('\n\n') || '(vacío)'}${loose.length ? `\n\nTAREAS ABIERTAS QUE AÚN NO SON STACKS (${loose.length}; se convierten al abrir la pestaña Desarrollo)\n${loose.map((it) => lineOf(plan, it)).join('\n')}` : ''}`);
+}));
+
+server.registerTool('add_dev_piece', {
+  description: 'Pestaña Desarrollo: añade el Plan o la Verificación a una feature (stack) que ya existe. stack_id es el id de la pieza de Desarrollo (el que muestra list_dev_stacks, o el de una tarea abierta que aún no es stack: entonces se convierte en stack). La pieza queda el mismo día que la feature. Si ya existe esa pieza, avisa y no la duplica.',
+  inputSchema: {
+    stack_id: z.string(),
+    role: z.enum(['plan', 'check']).describe('plan = qué se va a hacer y cómo; check = pruebas, revisión, despliegue'),
+    text: z.string().optional().describe('Título; por defecto "Plan: <feature>" o "Verificación: <feature>"'),
+    note: z.string().optional().describe('Comentarios: decisiones, enlaces, criterio de terminado')
+  }
+}, safe(async ({ stack_id, role, text: title, note }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    let it = plan.items.find((i) => i.id === stack_id);
+    if (!it) throw new Error(`No hay ninguna tarea con id ${stack_id}.`);
+    let p = plan;
+    if (isDev(it)) it = plan.items.find((i) => i.id === it.dev.s) || it; // a piece id points to its stack
+    if (!isDev(it)) p = editDevItem(p, it.id, { dev: { s: it.id, r: 'build' } }); // an open task becomes a stack first
+    const made = addDevSlot(p, it.id, role);
+    if (!made.id) throw new Error(`Esa feature ya tiene su pieza de ${role === 'plan' ? 'Plan' : 'Verificación'}.`);
+    const next = editDevItem(made.plan, made.id, { ...(title ? { text: title.trim() } : {}), ...(note ? { note } : {}) });
+    return { plan: next, result: lineOf(next, next.items.find((i) => i.id === made.id)) };
+  });
+  return text(`Añadido a la feature:\n${out}`);
+}));
+
+server.registerTool('add_dev_stack', {
+  description: 'Pestaña Desarrollo: crea una feature nueva (stack) con su pieza de Desarrollo, sin hora. Para que además empiece sola a una hora, usa assign_order. Luego puedes añadirle Plan y Verificación con add_dev_piece.',
+  inputSchema: { name: z.string(), area: z.string().optional().describe('Nombre del área; por defecto MediLyft'), day: z.string().optional().describe('AAAA-MM-DD, "today", "tomorrow" o "later"'), note: z.string().optional() }
+}, safe(async ({ name, area, day, note }) => {
+  const out = await mutatePlan(cfg, (plan) => {
+    const a = area ? areaOf(plan, area) : plan.areas.find((x) => /medilyft/i.test(x.name));
+    if (!a) throw new Error(noArea(plan, area || 'MediLyft'));
+    const d = day === 'today' ? isoOf(new Date()) : day === 'tomorrow' ? addDays(isoOf(new Date()), 1) : (day || 'later');
+    const made = addDevStack(plan, { area: a.id, name, day: d, note: note || '' });
+    if (!made.id) throw new Error('La feature necesita un nombre.');
+    return { plan: made.plan, result: lineOf(made.plan, made.plan.items.find((i) => i.id === made.id)) };
+  });
+  return text(`Feature creada:\n${out}`);
 }));
 
 server.registerTool('list_areas', {
