@@ -30,6 +30,13 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [pick2, setPick2] = useState([]); // stacks chosen for a batch, in the order they were ticked
   const [bDay, setBDay] = useState(() => addDays(isoOf(new Date()), 1));
   const [bTime, setBTime] = useState('22:00');
+  const [layout, setLayout] = useState(() => { try { return localStorage.getItem('el_boceto_dev_layout_v1') === 'detail' ? 'detail' : 'log'; } catch { return 'log'; } });
+  const setLay = (v) => { setLayout(v); try { localStorage.setItem('el_boceto_dev_layout_v1', v); } catch { /* storage unavailable */ } };
+  const [logFilter, setLogFilter] = useState('act');
+  const [q, setQ] = useState('');
+  const [modF, setModF] = useState('');
+  const [ord, setOrd] = useState('dia');
+  const [logOpen, setLogOpen] = useState(null);
   const [reviewId, setReviewId] = useState(null); // piece whose final report is open in the reader
   const [mode, setMode] = useState(() => { try { const m = localStorage.getItem('el_boceto_dev_mode_v1'); return m === 'deploy' || m === 'all' ? m : 'work'; } catch { return 'work'; } });
   const setView = (m) => { setMode(m); try { localStorage.setItem('el_boceto_dev_mode_v1', m); } catch { /* storage unavailable */ } };
@@ -112,11 +119,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     if (out.error) { setMsg(out.error); return false; }
     setMsg(''); mutate(() => out.plan); return true;
   };
-  const rowOf = (st) => (
-        <div className="rr-row" style={{ '--c': color }}>
-          {slot(st, 'plan')}
-          {slot(st, 'build')}
-          {slot(st, 'check')}
+  const footerOf = (st) => (
           <div className="ds-foot">
             {(() => {
               const ts = ticketStatus(plan, st);
@@ -178,6 +181,14 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
               <button aria-label="Bajar" onClick={() => mutate((p) => nudgeDevStack(p, st.id, 1))}><ArrowDown size={12} /></button>
             </span>
           </div>
+  );
+
+  const rowOf = (st) => (
+        <div className="rr-row" style={{ '--c': color }}>
+          {slot(st, 'plan')}
+          {slot(st, 'build')}
+          {slot(st, 'check')}
+          {footerOf(st)}
         </div>
   );
 
@@ -207,6 +218,127 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     );
   };
 
+  // ---------- Registro: one line per ticket (code, title, status, time, one action), details on click ----------
+  const LOG_FILTERS = [['act', 'Activos'], ['pend', 'Pendiente'], ['agen', 'Agendado'], ['marcha', 'En marcha'], ['valid', 'Por validar'], ['valid2', 'Por subir a main'], ['ok', 'Deployado'], ['bad', 'Con problema']];
+  const bucketOf = (st) => {
+    const k = ticketStatus(plan, st).key;
+    if (k === 'validated') return needsDeploy(st.main) ? 'valid2' : 'ok';
+    return ({ pending: 'pend', missed: 'bad', deployfail: 'bad', scheduled: 'agen', running: 'marcha', deploying: 'marcha', done: 'valid', deployed: 'ok' })[k] || 'pend';
+  };
+  const matchesFilter = (st, f) => (f === 'act' ? bucketOf(st) !== 'ok' : bucketOf(st) === f);
+  const STEP = { pending: 0, missed: 0, scheduled: 1, running: 2, done: 3, deploying: 4, deployfail: 4, validated: 4, deployed: 5 };
+  const ACTION_LABEL = { schedule: 'Agendar', now: 'Lanzar ahora', validate: 'Revisar', deploy: 'Subir a main', retry: 'Reintentar' };
+  const doAction = (st, a) => {
+    if (a === 'schedule') {
+      const t = window.prompt('¿A qué hora debe empezar? (HH:MM)', '22:00');
+      const mm = /^(\d{1,2}):(\d{2})$/.exec(t || '');
+      if (!mm) return;
+      const d = /^\d{4}-/.test(st.main.day || '') ? st.main.day : addDays(isoOf(new Date()), 1);
+      mutate((p) => setDevLaunch(setDevTime(moveDevStack(p, st.id, d), st.id, Number(mm[1]) * 60 + Number(mm[2])), st.id, true));
+    } else if (a === 'now') mutate((p) => launchNow(p, st.id));
+    else if (a === 'validate') setReviewId(st.id);
+    else if (a === 'deploy' || a === 'retry') {
+      if (!window.confirm(`Subir ${st.main.dev.code || st.main.text} a main?\n\nLa conversación del área hará merge de su rama a main, push y comprobará el despliegue en producción. Se lanza ahora, solo para esto.`)) return;
+      const out = requestDeploy(plan, st.id);
+      if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); }
+    }
+  };
+  const dayKey = (m) => (/^\d{4}/.test(m.day || '') ? m.day : '9999');
+  const logRows = () => {
+    const ql = q.trim().toLowerCase();
+    let list = all.filter((st) => matchesFilter(st, logFilter) && (!modF || st.main.dev.mod === modF) && (!ql || `${codeOf(st.main)} ${st.main.text}`.toLowerCase().includes(ql)));
+    const order = Object.keys(STEP);
+    if (ord === 'estado') list = list.slice().sort((a, b) => order.indexOf(ticketStatus(plan, a).key) - order.indexOf(ticketStatus(plan, b).key));
+    else if (ord === 'codigo') list = list.slice().sort((a, b) => (codeOf(a.main) || '~').localeCompare(codeOf(b.main) || '~'));
+    else list = list.slice().sort((a, b) => dayKey(a.main).localeCompare(dayKey(b.main)) || (typeof a.main.at === 'number' ? a.main.at : 9999) - (typeof b.main.at === 'number' ? b.main.at : 9999));
+    return list;
+  };
+  const batchLabel = (st) => {
+    const b = st.main.iris && st.main.iris.launch && st.main.iris.batch;
+    if (!b) return '';
+    const mates = all.filter((x) => x.main.iris && x.main.iris.batch === b && x.main.iris.launch).sort((x, y) => (x.main.at || 0) - (y.main.at || 0));
+    return `Lote ${mates.findIndex((x) => x.id === st.id) + 1}/${mates.length}`;
+  };
+  const pieceBox = (st, role) => {
+    const it = role === 'plan' ? st.plan : st.check;
+    const label = DEV_ROLES.find((r) => r.role === role).label;
+    if (!it) return <button className="ds-modbtn" onClick={() => { const out = addDevSlot(plan, st.id, role); mutate(() => out.plan); }}>+ {label}</button>;
+    return (
+      <div className="dl-piece">
+        <label className="ds-auto"><input type="checkbox" checked={!!it.done} onChange={() => mutate((p) => toggleDevDone(p, it.id))} /> {label}</label>
+        <input className="ds-title" value={it.text} aria-label={`Título de ${label}`} onChange={(e) => mutate((p) => editDevItem(p, it.id, { text: e.target.value }))} />
+        <textarea className="ds-note" rows={2} value={it.note || ''} placeholder="Comentarios…" aria-label={`Comentarios de ${label}`} onChange={(e) => mutate((p) => editDevItem(p, it.id, { note: e.target.value }))} />
+        <button className="ds-modbtn" onClick={() => mutate((p) => removeDevItem(p, it.id))}>Quitar {label.toLowerCase()}</button>
+      </div>
+    );
+  };
+  const logDetail = (st) => {
+    const rep = parseReport(reportOf(plan, st.id));
+    const b = st.main.iris && st.main.iris.launch && st.main.iris.batch;
+    return (
+      <div className="dl-det">
+        <input className="ds-title" value={st.main.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, st.id, { text: e.target.value }))} />
+        <textarea className="ds-note" rows={4} value={st.main.note || ''} placeholder="Comentarios, decisiones, enlaces, qué falta…" aria-label="Comentarios" onChange={(e) => mutate((p) => editDevItem(p, st.id, { note: e.target.value }))} />
+        {(rep.summary || rep.verify.length > 0 || rep.branch) && (
+          <div className="dl-rep">
+            <h4>Último informe del agente</h4>
+            {rep.summary && <p>{rep.summary}</p>}
+            {rep.verify.length > 0 && <><h4>Cómo verificarlo</h4><ol>{rep.verify.map((v, i) => <li key={i}>{v}</li>)}</ol></>}
+            {(rep.branch || rep.commit) && <p className="dr-meta">{rep.branch && <span>Rama <code>{rep.branch}</code></span>} {rep.commit && <span>Commit <code>{rep.commit}</code></span>}</p>}
+            {reportOf(plan, st.id) && <button className="ds-modbtn" onClick={() => setReviewId(st.id)}>Ver el informe completo</button>}
+          </div>
+        )}
+        <div className="dl-pieces">{pieceBox(st, 'plan')}{pieceBox(st, 'check')}</div>
+        {footerOf(st)}
+        {b && <button className="ds-modbtn" title="Cada feature vuelve a lanzarse sola a su propia hora" onClick={() => mutate((p) => unbatch(p, b))}>Deshacer el lote de este ticket</button>}
+        <button className="ds-modbtn" onClick={() => { if (window.confirm('¿Quitar el ticket completo?')) mutate((p) => removeDevItem(p, st.id)); }}>Quitar ticket</button>
+      </div>
+    );
+  };
+  const logView = () => {
+    const list = logRows();
+    let lastD = null;
+    return (
+      <div className="dl">
+        <div className="dl-bar">
+          <input type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por código o título" aria-label="Buscar" />
+          {cfg && <select value={modF} onChange={(e) => setModF(e.target.value)} aria-label="Módulo"><option value="">Todos los módulos</option>{Object.entries(cfg.modules).map(([k, l]) => <option key={k} value={k}>{k} · {l}</option>)}</select>}
+          <select value={ord} onChange={(e) => setOrd(e.target.value)} aria-label="Orden"><option value="dia">Por día y hora</option><option value="estado">Por estado</option><option value="codigo">Por código</option></select>
+        </div>
+        <div className="dl-chips">
+          {LOG_FILTERS.map(([k, l]) => <button key={k} className="dl-chip" aria-pressed={logFilter === k} onClick={() => setLogFilter(k)}>{l}<b>{all.filter((st) => matchesFilter(st, k)).length}</b></button>)}
+        </div>
+        {!list.length && <div className="rr-empty">Nada en esta vista.</div>}
+        {list.map((st) => {
+          const ts = ticketStatus(plan, st);
+          const m = st.main;
+          const head = ord === 'dia' && dayKey(m) !== lastD;
+          lastD = dayKey(m);
+          const lote = batchLabel(st);
+          const isOpen = logOpen === st.id;
+          return (
+            <React.Fragment key={st.id}>
+              {head && <div className="dl-day">{/^\d{4}/.test(m.day || '') ? dayLabel(m.day) : 'Sin día'}</div>}
+              <div className={`dl-row${isOpen ? ' open' : ''}`} onClick={(e) => { if (e.target.closest('button')) return; setLogOpen(isOpen ? null : st.id); }}>
+                <span className="dl-code">{codeOf(m) || '—'}</span>
+                <div className="dl-ttl">
+                  <div className="dl-t">{m.text}</div>
+                  <div className="dl-m">{m.dev.mod && <span>{m.dev.mod}</span>}
+                    <span className={`dl-steps${ts.key === 'missed' || ts.key === 'deployfail' ? ' bad' : ''}`} title="Agendado · En marcha · Hecho · Validado · En main">{[1, 2, 3, 4, 5].map((n) => <i key={n} className={STEP[ts.key] >= n ? 'on' : ''} />)}</span>
+                  </div>
+                </div>
+                <span><span className={`ds-status ${ts.key}`}>{ts.label}</span></span>
+                <div className="dl-when">{typeof m.at === 'number' ? fmtMin(m.at) : '—'}{lote && <em>{lote}</em>}</div>
+                <div className="dl-act">{ts.action && <button className={`ds-act${ts.action === 'deploy' ? ' deploy' : ''}`} onClick={() => doAction(st, ts.action)}>{ACTION_LABEL[ts.action]}</button>}</div>
+              </div>
+              {isOpen && logDetail(st)}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
   let lastDay = null;
   return (
     <div className={`ap-root sm-root${compact ? ' compact' : ''}`}>
@@ -219,11 +351,15 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
         {onTabChange && <PlanTabs value={tab} onChange={onTabChange} />}
         {uncoded > 0 && <button className="ap-btn" title="Asigna a cada stack el código del módulo que sugiero por su título. Los que no sé clasificar quedan para ti." onClick={() => { if (window.confirm(`Asignar código a ${uncoded} stacks según el módulo sugerido por su título?\nLos códigos no cambian después.`)) mutate((p) => bulkAssign(p, areaId).plan); }}>Asignar {uncoded} códigos sugeridos</button>}
         {toReview > 0 && <span className="ds-count">{toReview} por validar</span>}
-        <div className="ap-seg ds-modes" role="group" aria-label="Qué mostrar">
+        <div className="ap-seg ds-modes" role="group" aria-label="Cómo verlo">
+          <button aria-pressed={layout === 'log'} onClick={() => setLay('log')}>Registro</button>
+          <button aria-pressed={layout === 'detail'} onClick={() => setLay('detail')}>Detalle</button>
+        </div>
+        {layout === 'detail' && <div className="ap-seg ds-modes" role="group" aria-label="Qué mostrar">
           <button aria-pressed={mode === 'work'} onClick={() => setView('work')} title="Lo que aún no está validado">Pendientes</button>
           <button aria-pressed={mode === 'deploy'} onClick={() => setView('deploy')} title="Validado, falta subir su rama a main">Por subir a main{toDeploy.length ? ` · ${toDeploy.length}` : ''}</button>
           <button aria-pressed={mode === 'all'} onClick={() => setView('all')} title="Todo, también lo validado y lo ya deployado">Todo</button>
-        </div>
+        </div>}
         {mode === 'deploy' && toDeploy.some((st) => needsDeploy(st.main)) && <button className="ap-btn" title="Marca todos estos como que no necesitan subir a main (salen de esta lista)" onClick={() => { if (window.confirm(`Marcar ${toDeploy.filter((st) => needsDeploy(st.main)).length} tickets como "sin deploy"?\nSalen de esta lista; no se sube nada.`)) mutate((p) => toDeploy.reduce((acc, st) => (needsDeploy(st.main) ? setNoDeploy(acc, st.id) : acc), p)); }}>Todos «sin deploy»</button>}
         <select className="ds-area" value={areaId} onChange={(e) => pick(e.target.value)} aria-label="Área">
           {plan.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -231,9 +367,9 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       </div>
       <div className="sm-wrap">
         <div className="rr-rows ds-rows">
-          <div className="rr-head" aria-hidden="true">{DEV_ROLES.map((r) => <span key={r.role}>{r.label}</span>)}</div>
-          {!stacks.length && <div className="rr-empty">{mode === 'deploy' ? 'Nada espera para subir a main.' : mode === 'work' ? 'Nada pendiente en esta vista (lo validado está en «Todo»).' : `Aún no hay stacks de ${area ? area.name : 'esta área'}. Crea el primero abajo: una feature con su plan y su verificación.`}</div>}
-          {entries.map((e) => {
+          {layout === 'log' ? logView() : <div className="rr-head" aria-hidden="true">{DEV_ROLES.map((r) => <span key={r.role}>{r.label}</span>)}</div>}
+          {layout === 'detail' && !stacks.length && <div className="rr-empty">{mode === 'deploy' ? 'Nada espera para subir a main.' : mode === 'work' ? 'Nada pendiente en esta vista (lo validado está en «Todo»).' : `Aún no hay stacks de ${area ? area.name : 'esta área'}. Crea el primero abajo: una feature con su plan y su verificación.`}</div>}
+          {layout === 'detail' && entries.map((e) => {
             const head = e.day !== lastDay;
             lastDay = e.day;
             return (
@@ -286,6 +422,10 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
                 if (out.error) { setMsg(out.error); return; }
                 setMsg(''); mutate(() => out.plan); setPick2([]);
               }}>Lanzar lote</button>
+              {[...new Set(all.filter((x) => x.main.iris && x.main.iris.launch && x.main.iris.batch && x.main.iris.state === 'pending').map((x) => x.main.iris.batch))].map((b) => {
+                const lead = all.filter((x) => x.main.iris && x.main.iris.batch === b).sort((x, y) => (x.main.at || 0) - (y.main.at || 0))[0].main;
+                return <button key={b} className="ap-btn" title="Añade las marcadas a ese lote, después de las que ya lleva" onClick={() => { const out = addToBatch(plan, b, pick2); if (out.error) { setMsg(out.error); return; } setMsg(''); mutate(() => out.plan); setPick2([]); }}>Añadir al lote de las {typeof lead.at === 'number' ? fmtMin(lead.at) : '--:--'}</button>;
+              })}
               <button className="ap-btn" onClick={() => setPick2([])}>Cancelar</button>
             </div>
           )}

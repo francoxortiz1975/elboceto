@@ -217,3 +217,6 @@ const vd = validateAndDeploy(dn, 'f1', new Date(2026, 10, 22, 14, 5));
 ok(!vd.error && vd.plan.items[0].dev.v === true && vd.plan.items.some((i) => i.deploy && i.iris.deploy), 'one click validates and starts the push to main for work IRIS built');
 const mv2 = validateAndDeploy(manual, 'f1');
 ok(!mv2.error && !mv2.plan.items.some((i) => i.deploy), 'work with no branch is only validated, nothing is pushed');
+
+const ms = lp({ day: '2026-11-27', at: 660, iris: { launch: true, state: 'missed' } });
+ok(ticketStatus(ms, { id: 'f1', main: ms.items[0] }).key === 'missed' && ticketStatus(ms, { id: 'f1', main: ms.items[0] }).action === 'schedule', 'a block that was never opened shows as lost, with "agendar" to try again');

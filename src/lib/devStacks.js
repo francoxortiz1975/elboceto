@@ -264,6 +264,7 @@ export function ticketStatus(plan, st) {
   if (open) return open.iris && open.iris.ended ? { key: 'deployfail', label: 'el deploy no terminó', action: 'retry' } : { key: 'deploying', label: 'subiendo a main…' };
   if (m.done && m.dev.v) return needsDeploy(m) ? { key: 'validated', label: 'validado · falta subir a main', action: 'deploy' } : { key: 'validated', label: 'validado' };
   if (m.done) return { key: 'done', label: 'completado · por validar', action: 'validate' };
+  if (iris.launch && iris.state === 'missed' && !m.done) return { key: 'missed', label: 'se perdió', action: 'schedule' };
   if (iris.launch && iris.state === 'launched') return { key: 'running', label: iris.ended ? 'ejecución terminada · abierto' : 'en marcha' };
   if (iris.launch && iris.state === 'pending' && /^\d{4}-/.test(m.day || '') && typeof m.at === 'number') return { key: 'scheduled', label: 'agendado', action: 'now' };
   return { key: 'pending', label: 'pendiente', action: 'schedule' };
