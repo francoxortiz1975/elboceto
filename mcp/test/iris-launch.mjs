@@ -200,3 +200,14 @@ const failed = { ...rd.plan, items: rd.plan.items.map((i) => (i.deploy ? { ...i,
 ok(ticketStatus(failed, { id: 'f1', main: failed.items[0] }).action === 'retry' && !requestDeploy(failed, 'f1').error, 'a deploy run that ended without finishing offers a retry');
 const ln = launchNow(lp({}), 'f1', new Date(2026, 10, 22, 9, 30));
 ok(ln.items[0].at === 570 && ln.items[0].day === '2026-11-22' && ln.items[0].iris.launch === true, 'launch now = today at this minute');
+
+import { stackVisible } from '../../src/lib/devStacks.js';
+const vv1 = lp({ done: true, iris: { launch: true, state: 'launched' }, dev: { s: 'f1', r: 'build', code: 'MC001', v: true } });
+const sv = { id: 'f1', main: vv1.items[0] };
+ok(!stackVisible(vv1, sv, 'work') && stackVisible(vv1, sv, 'deploy') && stackVisible(vv1, sv, 'all'), 'validated work: hidden in the default view, listed under "por subir a main", shown in "todo"');
+const dpl = { ...vv1, items: [{ ...vv1.items[0], dev: { ...vv1.items[0].dev, deployed: 'x' } }] };
+ok(!stackVisible(dpl, { id: 'f1', main: dpl.items[0] }, 'work') && !stackVisible(dpl, { id: 'f1', main: dpl.items[0] }, 'deploy') && stackVisible(dpl, { id: 'f1', main: dpl.items[0] }, 'all'), 'deployed work is only in "todo"');
+const pend = lp({});
+ok(stackVisible(pend, { id: 'f1', main: pend.items[0] }, 'work') && !stackVisible(pend, { id: 'f1', main: pend.items[0] }, 'deploy'), 'open work is in the default view only');
+const pushing = requestDeploy(vv1, 'f1', new Date(2026, 10, 22, 14, 5)).plan;
+ok(stackVisible(pushing, { id: 'f1', main: pushing.items[0] }, 'work') && stackVisible(pushing, { id: 'f1', main: pushing.items[0] }, 'deploy'), 'a push in progress shows in both working views');

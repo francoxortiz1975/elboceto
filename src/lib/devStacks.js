@@ -310,3 +310,16 @@ export function applyDeploys(plan, now = new Date().toISOString()) {
     return i;
   }) };
 }
+
+// What each view of the Desarrollo tab shows:
+//  'work'   (default) everything not validated yet, plus what is being pushed to main; validated work is hidden
+//  'deploy' validated work whose branch still has to reach main (and pushes in progress)
+//  'all'    everything, validated and deployed included
+export function stackVisible(plan, st, mode = 'work') {
+  if (mode === 'all') return true;
+  const key = ticketStatus(plan, st).key;
+  const pushing = key === 'deploying' || key === 'deployfail';
+  if (mode === 'deploy') return pushing || (key === 'validated' && needsDeploy(st.main));
+  const pieces = [st.plan, st.check].every((p) => !p || isValidated(p) || !p.done);
+  return pushing || !(isValidated(st.main) && pieces);
+}

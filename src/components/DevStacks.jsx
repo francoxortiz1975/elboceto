@@ -3,7 +3,7 @@ import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-re
 import { PlanTabs } from './PlanTabs';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, needsDeploy, isValidated, toggleDevDone, setDevValid, stackVisible, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -31,7 +31,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [bDay, setBDay] = useState(() => addDays(isoOf(new Date()), 1));
   const [bTime, setBTime] = useState('22:00');
   const [reviewId, setReviewId] = useState(null); // piece whose final report is open in the reader
-  const [showAll, setShowAll] = useState(false); // also the stacks that are done and validated
+  const [mode, setMode] = useState(() => { try { const m = localStorage.getItem('el_boceto_dev_mode_v1'); return m === 'deploy' || m === 'all' ? m : 'work'; } catch { return 'work'; } });
+  const setView = (m) => { setMode(m); try { localStorage.setItem('el_boceto_dev_mode_v1', m); } catch { /* storage unavailable */ } };
   const mutate = (fn) => onChange((p) => fn(p));
   // A finished "subir a main" block marks its feature as deployed.
   useEffect(() => { if (applyDeploys(plan) !== plan) onChange((p) => applyDeploys(p)); }, [plan, onChange]);
@@ -40,7 +41,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const area = plan.areas.find((a) => a.id === areaId);
   const color = area ? AREA_COLORS[area.c % AREA_COLORS.length] : AREA_COLORS[0];
   const all = devStacks(plan, areaId);
-  const stacks = showAll ? all : all.filter((st) => !stackSettled(st));
+  const stacks = all.filter((st) => stackVisible(plan, st, mode));
+  const toDeploy = all.filter((st) => stackVisible(plan, st, 'deploy'));
   const cfg = codeConfig(plan, areaId);
   const uncoded = cfg ? all.filter((st) => !codeOf(st.main) && suggestModule(st.main.text, areaId, plan)).length : 0;
   const toReview = plan.items.filter((i) => i.area === areaId && needsReview(i)).length;
@@ -166,7 +168,12 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
         {onTabChange && <PlanTabs value={tab} onChange={onTabChange} />}
         {uncoded > 0 && <button className="ap-btn" title="Asigna a cada stack el código del módulo que sugiero por su título. Los que no sé clasificar quedan para ti." onClick={() => { if (window.confirm(`Asignar código a ${uncoded} stacks según el módulo sugerido por su título?\nLos códigos no cambian después.`)) mutate((p) => bulkAssign(p, areaId).plan); }}>Asignar {uncoded} códigos sugeridos</button>}
         {toReview > 0 && <span className="ds-count">{toReview} por validar</span>}
-        <label className="ds-auto"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Mostrar validados</label>
+        <div className="ap-seg ds-modes" role="group" aria-label="Qué mostrar">
+          <button aria-pressed={mode === 'work'} onClick={() => setView('work')} title="Lo que aún no está validado">Pendientes</button>
+          <button aria-pressed={mode === 'deploy'} onClick={() => setView('deploy')} title="Validado, falta subir su rama a main">Por subir a main{toDeploy.length ? ` · ${toDeploy.length}` : ''}</button>
+          <button aria-pressed={mode === 'all'} onClick={() => setView('all')} title="Todo, también lo validado y lo ya deployado">Todo</button>
+        </div>
+        {mode === 'deploy' && toDeploy.some((st) => needsDeploy(st.main)) && <button className="ap-btn" title="Marca todos estos como que no necesitan subir a main (salen de esta lista)" onClick={() => { if (window.confirm(`Marcar ${toDeploy.filter((st) => needsDeploy(st.main)).length} tickets como "sin deploy"?\nSalen de esta lista; no se sube nada.`)) mutate((p) => toDeploy.reduce((acc, st) => (needsDeploy(st.main) ? setNoDeploy(acc, st.id) : acc), p)); }}>Todos «sin deploy»</button>}
         <select className="ds-area" value={areaId} onChange={(e) => pick(e.target.value)} aria-label="Área">
           {plan.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
@@ -174,7 +181,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       <div className="sm-wrap">
         <div className="rr-rows ds-rows">
           <div className="rr-head" aria-hidden="true">{DEV_ROLES.map((r) => <span key={r.role}>{r.label}</span>)}</div>
-          {!stacks.length && <div className="rr-empty">Aún no hay stacks de {area ? area.name : 'esta área'}. Crea el primero abajo: una feature con su plan y su verificación.</div>}
+          {!stacks.length && <div className="rr-empty">{mode === 'deploy' ? 'Nada espera para subir a main.' : mode === 'work' ? 'Nada pendiente en esta vista (lo validado está en «Todo»).' : `Aún no hay stacks de ${area ? area.name : 'esta área'}. Crea el primero abajo: una feature con su plan y su verificación.`}</div>}
           {entries.map((e) => {
             const head = e.day !== lastDay;
             lastDay = e.day;
