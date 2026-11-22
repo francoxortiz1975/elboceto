@@ -76,3 +76,24 @@ ok(devStacks(s1.plan, 'm').find((s) => s.id === a1.id).check.day === '2026-11-23
 const mv = moveDevStack(s1.plan, a1.id, '2026-11-25');
 ok(mv.items.filter((i) => i.dev && i.dev.s === a1.id).every((i) => i.day === '2026-11-25'), 'moving a stack moves all its pieces');
 ok(removeDevItem(mv, a1.id).items.every((i) => !(i.dev && i.dev.s === a1.id)) && removeDevItem(mv, s1.id).items.length === mv.items.length - 1, 'removing the feature removes the stack; removing a piece removes only that piece');
+
+import { migrateToDev, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, devBrief } from '../../src/lib/devStacks.js';
+const mp = { items: [
+  { id: 'm1', area: 'm', text: 'A', done: false, day: '2026-11-23', at: 'any' },
+  { id: 'm2', area: 'm', text: 'B', done: false, day: '2026-11-23', at: 'any', note: 'detalle' },
+  { id: 'm3', area: 'm', text: 'ya hecha', done: true, day: '2026-11-23', at: 'any' },
+  { id: 'r1', area: 'm', text: 'reel', done: false, day: '2026-11-23', at: 'any', reel: 'x' },
+  { id: 'o1', area: 'other', text: 'otra área', done: false, day: '2026-11-23', at: 'any' }
+] };
+const mg = migrateToDev(mp, 'm');
+ok(devStacks(mg, 'm').map((s) => s.id).join() === 'm1,m2' && migrateToDev(mg, 'm') === mg, 'import: open tasks of the area become stacks; done, generated and other-area ones do not; running it again changes nothing');
+const dd = dropDev(mg, 'm2', 'm1', 'check');
+ok(devStacks(dd.plan, 'm').length === 1 && devStacks(dd.plan, 'm')[0].check.id === 'm2', 'dropping a stack on an empty slot folds it into the other stack with that role');
+ok(dropDev(dd.plan, 'm1', 'm1', 'plan').plan === dd.plan, 'a stack cannot be dropped on itself');
+ok(detachDev(dd.plan, 'm2').items.find((i) => i.id === 'm2').dev.r === 'build', 'a piece can become its own stack again');
+const nn = nudgeDevStack(mg, 'm2', -1);
+ok(devStacks(nn, 'm').map((s) => s.id).join() === 'm2,m1' && nudgeDevStack(mg, 'm1', -1) === mg, 'stacks move up and down within their day; the first one cannot go higher');
+ok(setDevLaunch(mg, 'm1', true) === mg, 'launching by itself needs a time');
+const lt = setDevLaunch(setDevTime(mg, 'm2', 1290), 'm2', true);
+ok(lt.items.find((i) => i.id === 'm2').iris.launch === true && lt.iris.notes.length === 1 && /detalle/.test(lt.iris.notes[0].text) && lt.iris.notes[0].kind === 'order' && lt.iris.notes[0].item === 'm2', 'turning the launch on marks the block and leaves the order (with the comments) in the area inbox');
+ok(setDevLaunch(lt, 'm2', false).items.find((i) => i.id === 'm2').iris.launch === false, 'and it can be turned off');

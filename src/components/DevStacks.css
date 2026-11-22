@@ -5,8 +5,18 @@
 .ds-edit { flex: 1; display: grid; gap: 6px; min-width: 0; }
 .ds-title, .ds-note, .ds-area, .ds-date { font: 500 0.84rem var(--font-body); color: var(--text-ink); background: var(--bg-note); border: var(--border-hairline); border-radius: 4px; padding: 5px 7px; min-width: 0; }
 .ds-note { font-weight: 400; font-size: 0.8rem; resize: vertical; line-height: 1.4; }
-.ds-date { position: absolute; top: 4px; right: 8px; font-size: 0.62rem; padding: 1px 4px; opacity: 0; }
-.rr-row:hover .ds-date, .ds-date:focus { opacity: 1; }
+.ds-date { font-size: 0.7rem; padding: 1px 4px; }
 .rr-newreel { display: flex; gap: 6px; flex-wrap: wrap; max-width: 640px; }
 .rr-newreel input[type="text"] { flex: 1; min-width: 200px; }
 .rr-newreel input[type="date"] { font: 400 0.78rem var(--font-body); }
+
+.ds-foot { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 2px; }
+.ds-foot .ds-date { position: static; opacity: 0.8; font-size: 0.7rem; }
+.ds-auto { display: inline-flex; align-items: center; gap: 4px; font: 400 0.7rem var(--font-body); color: var(--text-muted); cursor: pointer; }
+.ds-auto input:disabled { opacity: 0.35; }
+.ds-move { margin-left: auto; display: inline-flex; gap: 2px; }
+.ds-move button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: pointer; }
+.ds-move button:hover { background: rgba(var(--ink-rgb), 0.08); color: var(--text-ink); }
+.ds-msg { padding: 8px 10px; border-radius: 6px; background: color-mix(in srgb, #D1892F 18%, transparent); font-size: 0.78rem; }
+.ds-own { padding: 14px; border: 1.5px dashed var(--text-subtle); border-radius: 6px; text-align: center; font-size: 0.76rem; color: var(--text-muted); }
+.ds-own.over { border-color: var(--text-ink); color: var(--text-ink); }

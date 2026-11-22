@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Check, X, Plus, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
 import { PlanTabs } from './PlanTabs';
-import { AREA_COLORS, dayLabel, isoOf } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem } from '../lib/devStacks';
+import { AREA_COLORS, dayLabel, isoOf, fmtMin } from '../lib/areaPlan';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -20,7 +20,14 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [open, setOpen] = useState(null); // id of the piece being edited
   const [name, setName] = useState('');
   const [day, setDay] = useState(() => isoOf(new Date()));
+  const [time, setTime] = useState('');
+  const [auto, setAuto] = useState(true); // default tick: start by itself when it has a day and a time
+  const [drag, setDrag] = useState(null); // id of the piece being dragged
+  const [over, setOver] = useState(null);
+  const [msg, setMsg] = useState('');
   const mutate = (fn) => onChange((p) => fn(p));
+  // The tasks the area already has become stacks (once; running again changes nothing).
+  useEffect(() => { if (areaId && migrateToDev(plan, areaId) !== plan) onChange((p) => migrateToDev(p, areaId)); }, [plan, areaId, onChange]);
   const area = plan.areas.find((a) => a.id === areaId);
   const color = area ? AREA_COLORS[area.c % AREA_COLORS.length] : AREA_COLORS[0];
   const stacks = devStacks(plan, areaId);
@@ -28,7 +35,10 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
 
   // Plain render helper (not a component) so typing in a note never remounts the field.
   const card = (it, role) => (
-    <div key={it.id} className={`rr-reel ds-card${it.done ? ' done' : ''}${open === it.id ? ' open' : ''}`} style={{ '--c': color }}>
+    <div key={it.id} className={`rr-reel ds-card${it.done ? ' done' : ''}${open === it.id ? ' open' : ''}`} style={{ '--c': color }}
+      draggable={open !== it.id && !it.done}
+      onDragStart={(e) => { setDrag(it.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); }}
+      onDragEnd={() => { setDrag(null); setOver(null); }}>
       <button className={`rs-check${it.done ? ' on' : ''}`} aria-pressed={it.done} aria-label={it.done ? 'Marcar como pendiente' : 'Marcar como hecho'}
         onClick={() => mutate((p) => editDevItem(p, it.id, { done: !it.done }))}>{it.done && <Check size={11} />}</button>
       {open === it.id ? (
@@ -53,7 +63,10 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     const it = role === 'build' ? st.main : st[role];
     const label = DEV_ROLES.find((r) => r.role === role).label;
     return (
-      <div key={role} className="rr-slot">
+      <div key={role} className={`rr-slot${over === `${st.id}:${role}` && drag ? ' over' : ''}`}
+        onDragOver={(e) => { if (drag && !it && role !== 'build') { e.preventDefault(); setOver(`${st.id}:${role}`); } }}
+        onDragLeave={() => setOver((o) => (o === `${st.id}:${role}` ? null : o))}
+        onDrop={(e) => { e.preventDefault(); if (drag && !it && role !== 'build') { const out = dropDev(plan, drag, st.id, role); if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); } } setDrag(null); setOver(null); }}>
         <span className="rr-label">{label}</span>
         {it ? card(it, role) : (
           <button className="rr-add" style={{ '--c': color }} onClick={() => {
@@ -94,20 +107,46 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
                   {slot(st, 'plan')}
                   {slot(st, 'build')}
                   {slot(st, 'check')}
-                  <input className="ds-date" type="date" value={/^\d{4}/.test(st.main.day || '') ? st.main.day : ''} aria-label="Día del stack"
-                    onChange={(e) => e.target.value && mutate((p) => moveDevStack(p, st.id, e.target.value))} />
+                  <div className="ds-foot">
+                    <input className="ds-date" type="date" value={/^\d{4}/.test(st.main.day || '') ? st.main.day : ''} aria-label="Día del stack"
+                      onChange={(e) => e.target.value && mutate((p) => moveDevStack(p, st.id, e.target.value))} />
+                    <input className="ds-date" type="time" value={typeof st.main.at === 'number' ? fmtMin(st.main.at) : ''} aria-label="Hora de inicio"
+                      onChange={(e) => { const [h, m] = (e.target.value || '').split(':').map(Number); mutate((p) => { const t = setDevTime(p, st.id, Number.isFinite(h) ? h * 60 + m : null); return st.main.iris && st.main.iris.launch && !Number.isFinite(h) ? setDevLaunch(t, st.id, false) : t; }); }} />
+                    <label className="ds-auto" title="La conversación del área empieza sola a esa hora con este encargo (varios seguidos de noche van en un lote)">
+                      <input type="checkbox" checked={!!(st.main.iris && st.main.iris.launch)} disabled={typeof st.main.at !== 'number' || !/^\d{4}/.test(st.main.day || '')}
+                        onChange={(e) => mutate((p) => setDevLaunch(p, st.id, e.target.checked))} />
+                      <Rocket size={11} /> Lanzar solo{st.main.iris && st.main.iris.launch ? ` · ${({ pending: 'pendiente', launched: 'lanzado', missed: 'perdido', skipped: 'omitido' })[st.main.iris.state] || ''}` : ''}
+                    </label>
+                    <span className="ds-move">
+                      <button aria-label="Subir" onClick={() => mutate((p) => nudgeDevStack(p, st.id, -1))}><ArrowUp size={12} /></button>
+                      <button aria-label="Bajar" onClick={() => mutate((p) => nudgeDevStack(p, st.id, 1))}><ArrowDown size={12} /></button>
+                    </span>
+                  </div>
                 </div>
               </React.Fragment>
             );
           })}
+          {msg && <div className="ds-msg" role="status">{msg}</div>}
+          {drag && (
+            <div className={`ds-own${over === 'own' ? ' over' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setOver('own'); }} onDragLeave={() => setOver(null)}
+              onDrop={(e) => { e.preventDefault(); mutate((p) => detachDev(p, drag)); setDrag(null); setOver(null); }}>
+              Suelta aquí para dejarlo como stack propio
+            </div>
+          )}
           <form className="rs-add rr-newreel" style={{ '--c': color }} onSubmit={(e) => {
             e.preventDefault();
             const out = addDevStack(plan, { area: areaId, name, day });
             if (!out.id) return;
-            mutate(() => out.plan); setName(''); setOpen(out.id);
+            const [h, m] = (time || '').split(':').map(Number);
+            let next = Number.isFinite(h) ? setDevTime(out.plan, out.id, h * 60 + m) : out.plan;
+            if (auto) next = setDevLaunch(next, out.id, true);
+            mutate(() => next); setName(''); setOpen(out.id);
           }}>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ Nueva feature: ponle un nombre" aria-label="Nombre de la nueva feature" />
             <input type="date" value={day} onChange={(e) => setDay(e.target.value)} aria-label="Día" />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Hora de inicio (opcional)" />
+            <label className="ds-auto"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> <Rocket size={11} /> Lanzar solo</label>
             <button type="submit">Añadir stack</button>
           </form>
         </div>
