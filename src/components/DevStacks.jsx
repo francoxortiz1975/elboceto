@@ -130,8 +130,9 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     if (!b) { entries.push({ id: st.id, day: st.main.day, st }); return; }
     if (seenBatch.has(b)) return;
     seenBatch.add(b);
-    const sts = stacks.filter((x) => x.main.iris && x.main.iris.batch === b && x.main.iris.launch).sort((x, y) => (x.main.at || 0) - (y.main.at || 0));
-    entries.push({ id: `batch:${b}`, day: sts[0].main.day, batch: b, sts });
+    // the batch is counted with ALL its features (a validated one leaves the view but is still part of it)
+    const sts = all.filter((x) => x.main.iris && x.main.iris.batch === b && x.main.iris.launch).sort((x, y) => (x.main.at || 0) - (y.main.at || 0));
+    entries.push({ id: `batch:${b}`, day: sts[0].main.day, batch: b, sts, shown: sts.filter((x) => stacks.includes(x)) });
   });
   const batchHead = (e) => {
     const lead = e.sts[0].main;
@@ -140,7 +141,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     return (
       <div className="ds-bhead">
         <strong>Lote</strong>
-        <span className={`ds-bstate ${status.key}`}>{e.sts.length} features · una sola conversación · empieza a las {typeof lead.at === 'number' ? fmtMin(lead.at) : '--:--'} · {status.label}</span>
+        <span className={`ds-bstate ${status.key}`}>{e.sts.length} features{e.shown.length < e.sts.length ? ` (${e.sts.length - e.shown.length} validada${e.sts.length - e.shown.length === 1 ? '' : 's'}, oculta${e.sts.length - e.shown.length === 1 ? '' : 's'})` : ''} · una sola conversación · empieza a las {typeof lead.at === 'number' ? fmtMin(lead.at) : '--:--'} · {status.label}</span>
         {canAdd && <button className="ap-btn" onClick={() => { const out = addToBatch(plan, e.batch, pick2); if (out.error) { setMsg(out.error); return; } setMsg(''); mutate(() => out.plan); setPick2([]); }}>Añadir las {pick2.filter((id) => !e.sts.some((x) => x.id === id)).length} marcadas</button>}
         <button className="ap-btn" title="Cada feature vuelve a lanzarse sola a su propia hora" onClick={() => mutate((p) => unbatch(p, e.batch))}>Deshacer lote</button>
       </div>
@@ -176,7 +177,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
                 {e.batch ? (
                   <div className="ds-batchbox" style={{ '--c': color }}>
                     {batchHead(e)}
-                    {e.sts.map((st, i) => <div key={st.id} className="ds-step"><span className="ds-n">{i + 1}</span>{rowOf(st)}</div>)}
+                    {e.shown.map((st) => <div key={st.id} className="ds-step"><span className="ds-n">{e.sts.indexOf(st) + 1}</span>{rowOf(st)}</div>)}
                   </div>
                 ) : rowOf(e.st)}
               </React.Fragment>
