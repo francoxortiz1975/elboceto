@@ -20,3 +20,15 @@
 .ds-msg { padding: 8px 10px; border-radius: 6px; background: color-mix(in srgb, #D1892F 18%, transparent); font-size: 0.78rem; }
 .ds-own { padding: 14px; border: 1.5px dashed var(--text-subtle); border-radius: 6px; text-align: center; font-size: 0.76rem; color: var(--text-muted); }
 .ds-own.over { border-color: var(--text-ink); color: var(--text-ink); }
+
+.ds-card.review { --c: #D1892F; background: color-mix(in srgb, #D1892F 22%, var(--bg-note)); opacity: 1; flex-wrap: wrap; }
+.ds-card.review .rs-name { text-decoration: none; }
+.ds-card.valid { opacity: 0.45; }
+.ds-badge { font: 500 0.62rem var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: #D1892F; }
+.ds-review { flex-basis: 100%; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; font-size: 0.76rem; }
+.ds-review details { flex: 1; min-width: 0; color: var(--text-muted); }
+.ds-review summary { cursor: pointer; }
+.ds-review p { margin: 4px 0 0; white-space: pre-wrap; line-height: 1.4; color: var(--text-ink); }
+.ds-ok { white-space: nowrap; }
+.ds-undo { border: 0; background: none; color: var(--text-muted); cursor: pointer; }
+.ds-count { font: 500 0.72rem var(--font-mono); color: #D1892F; }

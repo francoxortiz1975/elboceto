@@ -81,12 +81,12 @@ import { migrateToDev, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaun
 const mp = { items: [
   { id: 'm1', area: 'm', text: 'A', done: false, day: '2026-11-23', at: 'any' },
   { id: 'm2', area: 'm', text: 'B', done: false, day: '2026-11-23', at: 'any', note: 'detalle' },
-  { id: 'm3', area: 'm', text: 'ya hecha', done: true, day: '2026-11-23', at: 'any' },
+  { id: 'm3', area: 'm', text: 'ya hecha', done: true, day: '2025-01-01', at: 'any' },
   { id: 'r1', area: 'm', text: 'reel', done: false, day: '2026-11-23', at: 'any', reel: 'x' },
   { id: 'o1', area: 'other', text: 'otra área', done: false, day: '2026-11-23', at: 'any' }
 ] };
 const mg = migrateToDev(mp, 'm');
-ok(devStacks(mg, 'm').map((s) => s.id).join() === 'm1,m2' && migrateToDev(mg, 'm') === mg, 'import: open tasks of the area become stacks; done, generated and other-area ones do not; running it again changes nothing');
+ok(devStacks(mg, 'm').map((s) => s.id).join() === 'm1,m2' && migrateToDev(mg, 'm') === mg, 'import: open tasks of the area become stacks; very old done, generated and other-area ones do not; running it again changes nothing');
 const dd = dropDev(mg, 'm2', 'm1', 'check');
 ok(devStacks(dd.plan, 'm').length === 1 && devStacks(dd.plan, 'm')[0].check.id === 'm2', 'dropping a stack on an empty slot folds it into the other stack with that role');
 ok(dropDev(dd.plan, 'm1', 'm1', 'plan').plan === dd.plan, 'a stack cannot be dropped on itself');
@@ -97,3 +97,17 @@ ok(setDevLaunch(mg, 'm1', true) === mg, 'launching by itself needs a time');
 const lt = setDevLaunch(setDevTime(mg, 'm2', 1290), 'm2', true);
 ok(lt.items.find((i) => i.id === 'm2').iris.launch === true && lt.iris.notes.length === 1 && /detalle/.test(lt.iris.notes[0].text) && lt.iris.notes[0].kind === 'order' && lt.iris.notes[0].item === 'm2', 'turning the launch on marks the block and leaves the order (with the comments) in the area inbox');
 ok(setDevLaunch(lt, 'm2', false).items.find((i) => i.id === 'm2').iris.launch === false, 'and it can be turned off');
+
+import { needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf } from '../../src/lib/devStacks.js';
+const rp = { items: [
+  { id: 'd1', area: 'm', text: 'hecha hoy', done: true, day: '2026-11-22', at: 'any' },
+  { id: 'd2', area: 'm', text: 'hecha hace un mes y medio', done: true, day: '2026-10-01', at: 'any' },
+  { id: 'd3', area: 'm', text: 'hecha hace 10 días', done: true, day: '2026-11-12', at: 'any' }
+], iris: { notes: [{ id: 'n', item: 'd1', dir: 'to_hub', from: 'area', kind: 'report', text: 'LISTO: 2 usuarios demo' }, { id: 'l', item: 'd1', dir: 'to_hub', from: 'launcher', kind: 'report', text: 'aviso' }] } };
+const rm = migrateToDev(rp, 'm', '2026-11-22');
+ok(rm.items.find((i) => i.id === 'd1').dev.v === undefined && rm.items.find((i) => i.id === 'd3').dev.v === true && !rm.items.find((i) => i.id === 'd2').dev, 'import: done work from the last days waits for validation, older done work is already validated, very old is left out');
+ok(needsReview(rm.items[0]) && !isValidated(rm.items[0]), 'a finished piece needs review');
+const vv = setDevValid(rm, 'd1', true);
+ok(isValidated(vv.items[0]) && stackSettled({ main: vv.items[0], plan: null, check: null }), 'once validated the stack settles (it leaves the default view)');
+ok(needsReview(toggleDevDone(toggleDevDone(vv, 'd1'), 'd1').items[0]), 'finishing it again starts a new review');
+ok(reportOf(rm, 'd1') === 'LISTO: 2 usuarios demo', 'the report shown is the area’s own, not the launcher’s notice');

@@ -1,7 +1,7 @@
 // Dev stacks: one row per feature, with up to three pieces: Plan -> Desarrollo -> Verificación.
 // Every piece is an ordinary plan block (so it also shows in Día / Tablero / Semana / Mes and the MCP can read it);
 // `dev: { s: stackId, r: 'plan' | 'build' | 'check' }` ties it to its stack. The stack id is the id of its Desarrollo block.
-import { uid } from './areaPlan';
+import { uid, isoOf, addDays } from './areaPlan';
 import { addNotes } from './iris';
 
 export const DEV_ROLES = [
@@ -62,10 +62,31 @@ export function removeDevItem(plan, id) {
 // ---- importing what already exists ----
 // Open blocks of the area that are not dev pieces yet (and are not generated content: reels, films, habits) become one-block stacks,
 // so the tasks that were already in the backlog show up here. Returns the same plan when there is nothing to import.
-const importable = (i, areaId) => i.area === areaId && !i.done && !isDev(i) && !i.stackId && !i.reel && !i.film && !i.gen;
-export function migrateToDev(plan, areaId) {
-  if (!plan.items.some((i) => importable(i, areaId))) return plan;
-  return { ...plan, items: plan.items.map((i) => (importable(i, areaId) ? { ...i, dev: { s: i.id, r: 'build' } } : i)) };
+// Done blocks of the last 30 days are imported too, so what was finished shows up. Those from before yesterday count as already validated;
+// the recent ones wait for the user to look at them and validate.
+const importable = (i, areaId, since) => i.area === areaId && !isDev(i) && !i.stackId && !i.reel && !i.film && !i.gen && (!i.done || (/^\d{4}/.test(i.day || '') && i.day >= since));
+export function migrateToDev(plan, areaId, today = isoOf(new Date())) {
+  const since = addDays(today, -30);
+  if (!plan.items.some((i) => importable(i, areaId, since))) return plan;
+  const fresh = addDays(today, -1);
+  return { ...plan, items: plan.items.map((i) => (importable(i, areaId, since) ? { ...i, dev: { s: i.id, r: 'build', ...(i.done && i.day < fresh ? { v: true } : {}) } } : i)) };
+}
+
+// ---- finished work waits for the user to validate it ----
+export const needsReview = (it) => !!(it && isDev(it) && it.done && !it.dev.v);
+export const isValidated = (it) => !!(it && isDev(it) && it.done && it.dev.v);
+export const toggleDevDone = (plan, id) => ({ ...plan, items: plan.items.map((i) => {
+  if (i.id !== id || !isDev(i)) return i;
+  const { v, ...dev } = i.dev; // finishing (or reopening) it starts a new review
+  return { ...i, done: !i.done, dev };
+}) });
+export const setDevValid = (plan, id, on) => ({ ...plan, items: plan.items.map((i) => (i.id === id && isDev(i) ? { ...i, dev: { ...i.dev, v: !!on } } : i)) });
+// A stack leaves the default view once everything in it that is done has been validated and the feature itself is done.
+export const stackSettled = (st) => isValidated(st.main) && [st.plan, st.check].every((p) => !p || isValidated(p) || !p.done);
+// What the area's conversation said when it finished (the latest report of the block, not the launcher's automatic notices).
+export function reportOf(plan, itemId) {
+  const notes = ((plan.iris && plan.iris.notes) || []).filter((n) => n.item === itemId && n.dir === 'to_hub' && n.from !== 'launcher' && n.kind === 'report');
+  return notes.length ? notes[notes.length - 1].text : '';
 }
 
 // ---- dragging ----

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
 import { PlanTabs } from './PlanTabs';
 import { AREA_COLORS, dayLabel, isoOf, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, isValidated, toggleDevDone, setDevValid, stackSettled, reportOf, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -25,22 +25,25 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [drag, setDrag] = useState(null); // id of the piece being dragged
   const [over, setOver] = useState(null);
   const [msg, setMsg] = useState('');
+  const [showAll, setShowAll] = useState(false); // also the stacks that are done and validated
   const mutate = (fn) => onChange((p) => fn(p));
   // The tasks the area already has become stacks (once; running again changes nothing).
   useEffect(() => { if (areaId && migrateToDev(plan, areaId) !== plan) onChange((p) => migrateToDev(p, areaId)); }, [plan, areaId, onChange]);
   const area = plan.areas.find((a) => a.id === areaId);
   const color = area ? AREA_COLORS[area.c % AREA_COLORS.length] : AREA_COLORS[0];
-  const stacks = devStacks(plan, areaId);
+  const all = devStacks(plan, areaId);
+  const stacks = showAll ? all : all.filter((st) => !stackSettled(st));
+  const toReview = plan.items.filter((i) => i.area === areaId && needsReview(i)).length;
   const pick = (v) => { setAreaId(v); try { localStorage.setItem(KEY, v); } catch { /* storage unavailable */ } };
 
   // Plain render helper (not a component) so typing in a note never remounts the field.
   const card = (it, role) => (
-    <div key={it.id} className={`rr-reel ds-card${it.done ? ' done' : ''}${open === it.id ? ' open' : ''}`} style={{ '--c': color }}
+    <div key={it.id} className={`rr-reel ds-card${it.done ? ' done' : ''}${needsReview(it) ? ' review' : ''}${isValidated(it) ? ' valid' : ''}${open === it.id ? ' open' : ''}`} style={{ '--c': color }}
       draggable={open !== it.id && !it.done}
       onDragStart={(e) => { setDrag(it.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); }}
       onDragEnd={() => { setDrag(null); setOver(null); }}>
       <button className={`rs-check${it.done ? ' on' : ''}`} aria-pressed={it.done} aria-label={it.done ? 'Marcar como pendiente' : 'Marcar como hecho'}
-        onClick={() => mutate((p) => editDevItem(p, it.id, { done: !it.done }))}>{it.done && <Check size={11} />}</button>
+        onClick={() => mutate((p) => toggleDevDone(p, it.id))}>{it.done && <Check size={11} />}</button>
       {open === it.id ? (
         <div className="ds-edit">
           <input className="ds-title" value={it.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, it.id, { text: e.target.value }))} />
@@ -51,9 +54,17 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       ) : (
         <button className="rr-open" onClick={() => setOpen(it.id)} title="Editar texto y comentarios">
           <span className="rs-name">{it.text}</span>
-          {firstLine(it.note) && <span className="rs-snip">{firstLine(it.note)}</span>}
+          {needsReview(it) && <span className="ds-badge">Terminado · por validar</span>}
+          {!needsReview(it) && firstLine(it.note) && <span className="rs-snip">{firstLine(it.note)}</span>}
         </button>
       )}
+      {needsReview(it) && open !== it.id && (
+        <div className="ds-review">
+          {reportOf(plan, it.id) && <details><summary>Qué dijo al terminar</summary><p>{reportOf(plan, it.id)}</p></details>}
+          <button className="ap-btn ds-ok" onClick={() => mutate((p) => setDevValid(p, it.id, true))}>Validar ✓</button>
+        </div>
+      )}
+      {isValidated(it) && open !== it.id && <button className="ds-undo" title="Volver a revisar" onClick={() => mutate((p) => setDevValid(p, it.id, false))}>↺</button>}
       <button className="rr-x" aria-label={role === 'build' ? 'Quitar el stack' : 'Quitar'} title={role === 'build' ? 'Quitar el stack entero' : 'Quitar'}
         onClick={() => { if (role !== 'build' || window.confirm('¿Quitar el stack completo?')) mutate((p) => removeDevItem(p, it.id)); }}><X size={12} /></button>
     </div>
@@ -89,6 +100,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       </div>
       <div className="ap-filters">
         {onTabChange && <PlanTabs value={tab} onChange={onTabChange} />}
+        {toReview > 0 && <span className="ds-count">{toReview} por validar</span>}
+        <label className="ds-auto"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Mostrar validados</label>
         <select className="ds-area" value={areaId} onChange={(e) => pick(e.target.value)} aria-label="Área">
           {plan.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
