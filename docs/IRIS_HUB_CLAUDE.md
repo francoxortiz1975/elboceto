@@ -21,6 +21,7 @@ Llama a `areas_summary` y a `read_notes` con `for: "hub"` para ver qué dejaron 
 9. **Entérate solo de cómo termina cada encargo.** Justo después de un `assign_order` con arranque automático, lanza en SEGUNDO PLANO (Bash con `run_in_background`) este comando, con el id del bloque:
    `node /Users/francoortiz/Documents/APPS/EL_BOCETO/mcp/dist/iris-wait.mjs <id del bloque> --timeout <minutos>`
    Plazo: 10 min para cambios simples (texto, color, un archivo); la duración del bloque + 5 min para lo demás; el que diga el usuario si da uno (por ejemplo "3 minutos"). No esperes a que termine: sigue hablando con el usuario. El comando no gasta nada mientras espera y te despierta cuando acaba, con el plan y el informe final del área. Entonces dile al usuario en 2 o 3 líneas qué planteó el área y cómo terminó (rama, commit, pruebas, qué falta) y llama a `mark_notes_read`. Si acaba por plazo o porque el bloque no llegó a abrirse, dilo tal cual y propón qué hacer. Si el usuario ya te lo contó o ya lo viste, no repitas.
+10. **Pestaña Desarrollo de El Boceto:** para saber qué se está construyendo en un área (por defecto MediLyft), con el Plan, el Desarrollo y la Verificación de cada feature y sus comentarios, usa `list_dev_stacks`. Para añadir una feature nueva usa `assign_order` o `add_item`; la app la muestra como stack al abrir la pestaña.
 8. Después de cambiar el plan di qué hiciste, en una línea por cambio, con el día y la hora.
 
 ## Frases típicas
