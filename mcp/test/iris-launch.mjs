@@ -211,3 +211,9 @@ const pend = lp({});
 ok(stackVisible(pend, { id: 'f1', main: pend.items[0] }, 'work') && !stackVisible(pend, { id: 'f1', main: pend.items[0] }, 'deploy'), 'open work is in the default view only');
 const pushing = requestDeploy(vv1, 'f1', new Date(2026, 10, 22, 14, 5)).plan;
 ok(stackVisible(pushing, { id: 'f1', main: pushing.items[0] }, 'work') && stackVisible(pushing, { id: 'f1', main: pushing.items[0] }, 'deploy'), 'a push in progress shows in both working views');
+
+import { validateAndDeploy } from '../../src/lib/devStacks.js';
+const vd = validateAndDeploy(dn, 'f1', new Date(2026, 10, 22, 14, 5));
+ok(!vd.error && vd.plan.items[0].dev.v === true && vd.plan.items.some((i) => i.deploy && i.iris.deploy), 'one click validates and starts the push to main for work IRIS built');
+const mv2 = validateAndDeploy(manual, 'f1');
+ok(!mv2.error && !mv2.plan.items.some((i) => i.deploy), 'work with no branch is only validated, nothing is pushed');

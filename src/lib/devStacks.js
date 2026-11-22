@@ -323,3 +323,11 @@ export function stackVisible(plan, st, mode = 'work') {
   const pieces = [st.plan, st.check].every((p) => !p || isValidated(p) || !p.done);
   return pushing || !(isValidated(st.main) && pieces);
 }
+
+// One click: validate the feature and ask for it to be pushed to main (only when IRIS built a branch for it).
+export function validateAndDeploy(plan, stackId, now = new Date()) {
+  const validated = setDevValid(plan, stackId, true);
+  const main = validated.items.find((i) => i.id === stackId);
+  if (!needsDeploy(main)) return { plan: validated, error: '' };
+  return requestDeploy(validated, stackId, now);
+}

@@ -3,7 +3,7 @@ import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-re
 import { PlanTabs } from './PlanTabs';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, needsDeploy, isValidated, toggleDevDone, setDevValid, stackVisible, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, needsDeploy, isValidated, toggleDevDone, setDevValid, stackVisible, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -73,7 +73,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       {needsReview(it) && open !== it.id && (
         <div className="ds-review">
           {reportOf(plan, it.id) ? <button className="ds-read" onClick={() => setReviewId(it.id)}><span>{parseReport(reportOf(plan, it.id)).summary || 'Ver el informe'}</span> <b>Revisar ›</b></button> : <span className="ds-hint">Sin informe del agente</span>}
-          <button className="ap-btn ds-ok" onClick={() => mutate((p) => setDevValid(p, it.id, true))}>Validar ✓</button>
+          <button className="ap-btn ds-ok" onClick={() => validateOnly(it.id)}>Validar ✓</button>
+          {needsDeploy(it) && <button className="ap-btn ds-ok deploy" onClick={() => validatePush(it.id)}>Validar y subir a main</button>}
         </div>
       )}
       {isValidated(it) && open !== it.id && <button className="ds-undo" title="Volver a revisar" onClick={() => mutate((p) => setDevValid(p, it.id, false))}>↺</button>}
@@ -102,6 +103,15 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     );
   };
 
+  // Validate, and for work IRIS built, push it to main in the same click (with an explicit confirmation).
+  const validateOnly = (id) => mutate((p) => setDevValid(p, id, true));
+  const validatePush = (id) => {
+    const it = plan.items.find((i) => i.id === id);
+    if (!window.confirm(`Validar y subir ${(it.dev && it.dev.code) || it.text} a main?\n\nLa conversación del área hará merge de su rama a main, push y comprobará el despliegue en producción. Se lanza ahora, solo para esto.`)) return false;
+    const out = validateAndDeploy(plan, id);
+    if (out.error) { setMsg(out.error); return false; }
+    setMsg(''); mutate(() => out.plan); return true;
+  };
   const rowOf = (st) => (
         <div className="rr-row" style={{ '--c': color }}>
           {slot(st, 'plan')}
@@ -257,7 +267,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
                   {!rep.structured && <p className="ds-hint">Este informe no venía con el formato por secciones: se ordenó por frases. Los siguientes vendrán con «cómo verificarlo» paso a paso.</p>}
                   <div className="dr-actions">
                     <button className="ap-btn" onClick={() => setReviewId(null)}>Cerrar</button>
-                    <button className="ap-btn ds-ok" onClick={() => { mutate((p) => setDevValid(p, it.id, true)); setReviewId(null); }}>Validar ✓</button>
+                    <button className="ap-btn ds-ok" onClick={() => { validateOnly(it.id); setReviewId(null); }}>Validar ✓</button>
+                    {needsDeploy(it) && <button className="ap-btn ds-ok deploy" onClick={() => { if (validatePush(it.id)) setReviewId(null); }}>Validar y subir a main</button>}
                   </div>
                 </div>
               </div>

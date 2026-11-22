@@ -16,6 +16,7 @@ import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, session
 import { findCompanions, isNight, staleLaunched, markEnded, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { completePastClasses } from '../../src/lib/areaPlan';
 import { applyDeploys } from '../../src/lib/devStacks';
+import { analyzeStacks } from './gitMerged.mjs';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -108,6 +109,18 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   if (!dry && applyDeploys(plan) !== plan) {
     await mutatePlan(cfg, (p) => ({ plan: applyDeploys(p, now.toISOString()), result: null }));
     log('subido a main: tickets marcados como deployados');
+  }
+  // Every 5 minutes: features whose branch is already in main (merged by hand) are marked "deployado en main"
+  if (!dry && now.getMinutes() % 5 === 0) {
+    try {
+      const nameOf = (id) => (plan.areas.find((a) => a.id === id) || {}).name || '';
+      const dirOf = (areaId) => { const n = nameOf(areaId); const k = Object.keys(conf.areas).find((x) => x.toLowerCase() === n.toLowerCase()); return pinnedDir(conf, n) || (k ? conf.areas[k] : ''); };
+      const merged = analyzeStacks(plan, { dirOf }).filter((r) => r.state === 'merged').map((r) => r.id);
+      if (merged.length) {
+        await mutatePlan(cfg, (p) => ({ plan: { ...p, items: p.items.map((i) => (merged.includes(i.id) ? { ...i, dev: { ...i.dev, deployed: now.toISOString(), deployedBy: 'git' } } : i)) }, result: null }));
+        log(`ya estaban en main: ${merged.length} tickets marcados como deployados`);
+      }
+    } catch (e) { log(`comprobación de main: ${e.message}`); }
   }
   const peek = findDue(plan, now, conf.areas);
   if (!peek.due.length && !peek.missed.length && !peek.noDir.length) return { opened: [], missed: [], noDir: [], reported: finished.map((i) => i.id) };

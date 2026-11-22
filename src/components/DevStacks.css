@@ -78,3 +78,5 @@
 .ds-act { padding: 2px 9px; border: var(--border-strong); border-radius: 4px; background: var(--bg-note); color: var(--text-ink); font: 500 0.72rem var(--font-body); cursor: pointer; }
 .ds-act:hover { background: rgba(var(--ink-rgb), 0.08); }
 .ds-act.deploy { border-color: #6E8B5B; }
+
+.ds-ok.deploy { border-color: #6E8B5B; }
