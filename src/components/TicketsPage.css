@@ -198,3 +198,5 @@
 .tk-qchip b { padding: 1px 8px; border-radius: 999px; background: var(--tk-ink); color: #111; font: 700 12px 'Geist', sans-serif; }
 .tk-qchip.run b { background: var(--tk-green); color: #04210f; }
 .tk-qempty { color: var(--tk-muted); font-size: 14px; }
+
+.tk-closeall { margin: -4px 0 0; font-size: 14px; }

@@ -189,7 +189,6 @@ export function TicketsPage({ plan, onChange, user }) {
           {decBtn}
           <div className="tk-two"><button className="tk-btn go" onClick={() => validate(st)}>✓ Validar</button><button className="tk-btn" onClick={() => setMode('correct')}>✎ Corrección</button></div>
           <div className="tk-hint">{needsDeploy(m) ? 'Validar lo sube a main y lo cierra.' : 'Validar lo da por cerrado.'}</div>
-          {needsDeploy(m) && closeLink(st)}
         </div>
       );
     }
@@ -202,12 +201,12 @@ export function TicketsPage({ plan, onChange, user }) {
         </div>
       );
     }
-    if (ts.key === 'validated' && ts.action === 'deploy') return <div className="tk-act"><button className="tk-btn go" onClick={() => pushMain(st, false)}>Subir a main</button>{closeLink(st)}</div>;
+    if (ts.key === 'validated' && ts.action === 'deploy') return <div className="tk-act"><button className="tk-btn go" onClick={() => pushMain(st, false)}>Subir a main</button></div>;
     if (ts.key === 'pending' || ts.key === 'missed') return <div className="tk-act">{ts.key === 'missed' && <div className="tk-hint">No llegó a abrirse. Agéndalo de nuevo.</div>}{picker('Agendar', (w) => { mutate((p) => scheduleStack(p, st.id, w)); say('Agendado'); })}</div>;
     if (ts.key === 'scheduled') return <div className="tk-act"><div className="tk-two"><button className="tk-btn dark" onClick={() => { mutate((p) => launchNow(p, st.id)); say('Lanzado'); }}>Lanzar ahora</button><button className="tk-btn" onClick={() => setMode('schedule')}>Cambiar horario</button></div></div>;
-    if (ts.key === 'deployfail') return <div className="tk-act"><div className="tk-hint">La subida a main no terminó. Puedes reintentarla o cerrar el ticket sin subir nada.</div><button className="tk-btn dark" onClick={() => pushMain(st, true)}>Reintentar subida a main</button>{closeLink(st)}</div>;
+    if (ts.key === 'deployfail') return <div className="tk-act"><div className="tk-hint">La subida a main no terminó. Puedes reintentarla o cerrar el ticket sin subir nada.</div><button className="tk-btn dark" onClick={() => pushMain(st, true)}>Reintentar subida a main</button></div>;
     if (ts.key === 'running') return <div className="tk-act"><div className="tk-hint">El agente está trabajando en esto.</div></div>;
-    if (ts.key === 'deploying') return <div className="tk-act"><div className="tk-hint">{ts.label === 'En cola para subir a main' ? 'La subida espera su turno.' : 'Subiendo a main…'}</div>{closeLink(st, 'Cancelar la subida y cerrar')}</div>;
+    if (ts.key === 'deploying') return <div className="tk-act"><div className="tk-hint">{ts.label === 'En cola para subir a main' ? 'La subida espera su turno.' : 'Subiendo a main…'}</div></div>;
     return <div className="tk-act"><div className="tk-hint">Cerrado y en main.</div></div>;
   };
 
@@ -231,6 +230,9 @@ export function TicketsPage({ plan, onChange, user }) {
         <input className="tk-title" value={m.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, st.id, { text: e.target.value }))} />
         {msg && <div className="tk-msg" role="status">{msg}</div>}
         {actions(st, ts)}
+        {ts.tone !== 'green' && !mode && (
+          <button className="tk-link tk-closeall" title="Pasa el ticket a Cerrado ahora mismo. No sube nada y cancela cualquier subida en cola." onClick={() => { if (ts.key === 'running' && !(m.iris && m.iris.ended) && !window.confirm('El agente todavía está trabajando en esto. Cerrarlo no lo detiene. ¿Cerrar de todos modos?')) return; justClose(st); }}>Cerrar directamente, sin subir nada</button>
+        )}
         <div>
           <h3>Historial</h3>
           <ul className="tk-tl">
