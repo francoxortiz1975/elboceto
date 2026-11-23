@@ -308,3 +308,24 @@ const run2 = { ...qd2, items: qd2.items.map((i) => (i.deploy ? { ...i, iris: { .
 ok(ticketStatus(run2, { id: 'k', main: run2.items[0] }).label === 'Subiendo a main', 'once it starts it says it is going up');
 const qs3 = lp({ day: '2026-11-25', at: 600, iris: { launch: true, state: 'pending', notified: true } });
 ok(ticketStatus(qs3, { id: 'f1', main: qs3.items[0] }).label === 'En cola', 'a scheduled block waiting for a busy conversation shows as queued');
+
+import { queueOrder } from '../../src/lib/devStacks.js';
+const qplan = { areas: [{ id: 'm', name: 'MediLyft' }], items: [
+  { id: 'a', area: 'm', text: 'A', done: false, day: '2026-11-23', at: 1380, dur: 30, iris: { launch: true, state: 'pending', notified: true } },
+  { id: 'b', area: 'm', text: 'B', done: false, day: '2026-11-23', at: 1300, dur: 30, iris: { launch: true, state: 'pending', notified: true } },
+  { id: 'd', area: 'm', text: 'Subir', done: false, day: '2026-11-23', at: 1390, dur: 30, deploy: { stack: 'a' }, iris: { launch: true, state: 'pending', notified: true, deploy: true } },
+  { id: 'r', area: 'm', text: 'R', done: false, day: '2026-11-23', at: 1200, dur: 30, iris: { launch: true, state: 'launched' } },
+  { id: 'f', area: 'm', text: 'F', done: false, day: '2026-11-25', at: 600, dur: 30, iris: { launch: true, state: 'pending' } }
+] };
+const qo = queueOrder(qplan, new Date(2026, 10, 24, 0, 5));
+ok(qo.queue.join() === 'd,b,a' && qo.running.join() === 'r', 'the queue is: pushes to main first, then the earliest request; a block that is running is listed apart; future blocks are not in it');
+
+import { overdueItems } from '../../src/lib/scheduler/overdue.js';
+const odp = { items: [
+  { id: 'o1', area: 'm', text: 'normal', done: false, day: '2026-11-23', at: 600 },
+  { id: 'o2', area: 'm', text: 'running', done: false, day: '2026-11-23', at: 600, iris: { launch: true, state: 'launched' } },
+  { id: 'o3', area: 'm', text: 'queued', done: false, day: '2026-11-23', at: 600, iris: { launch: true, state: 'pending', notified: true } },
+  { id: 'o4', area: 'm', text: 'deploy', done: false, day: '2026-11-23', at: 600, deploy: { stack: 'x' }, iris: { launch: true, state: 'pending' } },
+  { id: 'o5', area: 'm', text: 'never ran', done: false, day: '2026-11-23', at: 600, iris: { launch: true, state: 'pending' } }
+] };
+ok(overdueItems(odp, '2026-11-24').map((i) => i.id).join() === 'o1,o5', 'the nightly rollover leaves alone what IRIS+ is running or has queued, and push-to-main blocks');

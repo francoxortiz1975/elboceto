@@ -3,6 +3,7 @@
 // `dev: { s: stackId, r: 'plan' | 'build' | 'check' }` ties it to its stack. The stack id is the id of its Desarrollo block.
 import { uid, isoOf, addDays } from './areaPlan';
 import { addNotes } from './iris';
+import { findDue } from './irisLaunch';
 
 export const DEV_ROLES = [
   { role: 'plan', label: 'Plan', hint: 'Qué se va a hacer y cómo' },
@@ -511,3 +512,15 @@ export const markAlerted = (plan, list) => {
   const by = new Map(list.map((x) => [x.id, x.news]));
   return by.size ? { ...plan, items: plan.items.map((i) => (by.has(i.id) && isDev(i) ? { ...i, dev: { ...i.dev, alertedAt: by.get(i.id) } } : i)) } : plan;
 };
+
+// The order in which the launcher will open what is due: pushes to main first, then the earliest request. Same rule as the launcher.
+// Returns { running: [item ids being worked on now], queue: [item ids in the order they will start] } (items can be tickets or deploy blocks).
+export function queueOrder(plan, now = new Date()) {
+  const names = {};
+  plan.areas.forEach((a) => { names[a.name] = 'x'; });
+  const { due } = findDue(plan, now, names);
+  const key = (i) => `${i.day}${String(typeof i.at === 'number' ? i.at : 0).padStart(5, '0')}`;
+  const queue = due.map((d) => d.item).sort((a, b) => (a.deploy ? 0 : 1) - (b.deploy ? 0 : 1) || key(a).localeCompare(key(b))).map((i) => i.id);
+  const running = plan.items.filter((i) => i.iris && i.iris.launch && i.iris.state === 'launched' && !i.done && !i.iris.ended && !(i.dev && i.dev.r === 'build' && i.dev.deployed)).map((i) => i.id);
+  return { running, queue };
+}

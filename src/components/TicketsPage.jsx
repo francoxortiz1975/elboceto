@@ -3,7 +3,7 @@ import { isoOf } from '../lib/areaPlan';
 import {
   devStacks, addDevStack, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsDeploy, toggleDevDone, setDevValid, reportOf, parseReport,
   setDevTime, setDevLaunch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, fmtWhen, whenOptions, scheduleStack, requestCorrection,
-  validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys, isUnread, needsMe, markSeen
+  validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys, isUnread, needsMe, markSeen, queueOrder
 } from '../lib/devStacks';
 import { filesOf, fileName, mdPathsIn } from '../lib/devFiles';
 import { DecisionsModal, FileModal } from './TicketsExtras';
@@ -80,6 +80,17 @@ export function TicketsPage({ plan, onChange, user }) {
     return { ...n, all: all.length - n.ok };
   }, [all, plan]);
   const waiting = counts.wait;
+  // Execution order: what is running and what will start next (the same rule the launcher uses)
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNowMs(Date.now()), 30000); return () => clearInterval(t); }, []);
+  const qinfo = useMemo(() => {
+    const qo = queueOrder(plan, new Date(nowMs));
+    const stackOf = (id) => { const it = plan.items.find((i) => i.id === id); if (!it) return null; const sid = it.deploy ? it.deploy.stack : it.id; const st = all.find((x) => x.id === sid); return st ? { st, deploy: !!it.deploy } : null; };
+    const queue = qo.queue.map(stackOf).filter(Boolean);
+    const running = qo.running.map(stackOf).filter(Boolean);
+    const pos = new Map(queue.map((q, i) => [q.st.id, i + 1]));
+    return { queue, running, pos };
+  }, [plan, all, nowMs]);
   // News not opened yet: bold in the list. Of those, the ones that need an answer also raise the tab count and a browser notification.
   const unread = useMemo(() => new Set(all.filter((st) => isUnread(plan, st)).map((st) => st.id)), [all, plan]);
   const needing = useMemo(() => all.filter((st) => unread.has(st.id) && needsMe(plan, st)), [all, plan, unread]);
@@ -101,6 +112,7 @@ export function TicketsPage({ plan, onChange, user }) {
       return (filter === 'all' ? b !== 'ok' : b === filter) && (!ql || `${codeOf(st.main)} ${st.main.text}`.toLowerCase().includes(ql));
     });
     const val = (st) => {
+      if (sort === 'cola') return qinfo.pos.has(st.id) ? String(qinfo.pos.get(st.id)).padStart(3, '0') : (scheduledISO(st.main) ? `~${scheduledISO(st.main)}` : '~~');
       if (sort === 'prog') return scheduledISO(st.main) || '~';
       if (sort === 'estado') return String(STATUS_ORDER.indexOf(ticketStatus(plan, st).key)).padStart(2, '0');
       return arrivedAt(plan, st) || '';
@@ -112,7 +124,7 @@ export function TicketsPage({ plan, onChange, user }) {
       if (ex !== ey) return ex ? 1 : -1;
       return x.localeCompare(y) * dir;
     });
-  }, [all, plan, filter, q, sort]);
+  }, [all, plan, filter, q, sort, qinfo]);
 
   const resolveWhen = () => {
     if (whenKey === 'custom') {
@@ -209,7 +221,7 @@ export function TicketsPage({ plan, onChange, user }) {
       <aside className="tk-glass tk-panel" aria-label={`Ticket ${codeOf(m) || ''}`}>
         <div className="tk-hd">
           <span className="tk-code">{codeOf(m) || 'Sin código'}{(m.dev.rev || 1) > 1 && <span className="tk-rev">v{m.dev.rev}</span>}</span>
-          <span className={`tk-pill p-${ts.tone}`}>{ts.label}</span>
+          <span className={`tk-pill p-${ts.tone}`}>{qinfo.pos.has(st.id) ? `En cola · ${qinfo.pos.get(st.id)}º` : ts.label}</span>
           <button className="tk-x" aria-label="Cerrar el panel" onClick={() => open(null)}>×</button>
         </div>
         <input className="tk-title" value={m.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, st.id, { text: e.target.value }))} />
@@ -316,6 +328,14 @@ export function TicketsPage({ plan, onChange, user }) {
           <section className="tk-kpis" aria-label="Filtrar por estado">
             {FILTERS.map(([k, l, d]) => <button key={k} className="tk-glass tk-kpi" aria-pressed={filter === k} onClick={() => setFilter(k)}><b>{counts[k]}</b><span><i className={`tk-dot ${d}`} />{l}</span></button>)}
           </section>
+          {(qinfo.running.length > 0 || qinfo.queue.length > 0) && (
+            <section className="tk-glass tk-queue" aria-label="Orden de ejecución">
+              <span className="tk-qlab">Cola de ejecución</span>
+              {qinfo.running.map((r) => <button key={`r${r.st.id}`} className="tk-qchip run" onClick={() => open(r.st)}><b>Ahora</b>{codeOf(r.st.main) || r.st.main.text.slice(0, 18)}{r.deploy ? ' · subiendo a main' : ''}</button>)}
+              {qinfo.queue.map((q, i) => <button key={`q${q.st.id}`} className="tk-qchip" onClick={() => open(q.st)}><b>{i + 1}º</b>{codeOf(q.st.main) || q.st.main.text.slice(0, 18)}{q.deploy ? ' · subir a main' : ''}</button>)}
+              {qinfo.queue.length === 0 && <span className="tk-qempty">Nada esperando</span>}
+            </section>
+          )}
           {newOpen && (
             <form className="tk-glass tk-new" onSubmit={(e) => {
               e.preventDefault();
@@ -336,7 +356,7 @@ export function TicketsPage({ plan, onChange, user }) {
             <section className="tk-glass tk-list" aria-label="Tickets">
               <div className="tk-listbar">
                 <span>{rows.length} {rows.length === 1 ? 'ticket' : 'tickets'}</span>
-                <label>Orden <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Orden"><option value="llego">Más recientes</option><option value="prog">Próximos a lanzarse</option><option value="estado">Por estado</option></select></label>
+                <label>Orden <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Orden"><option value="cola">Orden de ejecución</option><option value="llego">Más recientes</option><option value="prog">Próximos a lanzarse</option><option value="estado">Por estado</option></select></label>
                 {uncoded > 0 && <button className="tk-link" title="Da a cada ticket el código del módulo sugerido por su título" onClick={() => { if (window.confirm(`Asignar código a ${uncoded} tickets según el módulo sugerido por su título?\nLos códigos no cambian después.`)) { mutate((p) => bulkAssign(p, areaId).plan); say('Códigos asignados'); } }}>Asignar {uncoded} códigos</button>}
               </div>
               {!rows.length && <div className="tk-empty">Nada en esta vista.</div>}
@@ -348,7 +368,7 @@ export function TicketsPage({ plan, onChange, user }) {
                   <button key={st.id} className={`tk-row${unread.has(st.id) ? ' unread' : ''}`} aria-selected={sel && sel.id === st.id} onClick={() => open(sel && sel.id === st.id ? null : st)}>
                     <span className="tk-code">{codeOf(st.main) || '—'}{(st.main.dev.rev || 1) > 1 && <span className="tk-rev">v{st.main.dev.rev}</span>}</span>
                     <div><div className="tk-ttl">{unread.has(st.id) && <i className="tk-newdot" aria-label="Novedad sin leer" />}{st.main.text}</div><div className="tk-sub">{st.main.dev.mod && cfg ? cfg.modules[st.main.dev.mod] : 'Sin módulo'}{lote ? ' · en lote' : ''}</div></div>
-                    <div className="tk-when"><span className={`tk-pill p-${ts.tone}`}>{ts.label}</span><small className={late ? 'late' : ''}>{sch ? `${fmtWhen(sch)}${late ? ' · atrasado' : ''}` : 'Sin agendar'}</small></div>
+                    <div className="tk-when"><span className={`tk-pill p-${ts.tone}`}>{qinfo.pos.has(st.id) ? `En cola · ${qinfo.pos.get(st.id)}º` : ts.label}</span><small className={late ? 'late' : ''}>{sch ? `${fmtWhen(sch)}${late ? ' · atrasado' : ''}` : 'Sin agendar'}</small></div>
                   </button>
                 );
               })}

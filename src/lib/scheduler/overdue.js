@@ -13,7 +13,8 @@ export const whyPlaced = (parts) => parts.filter((p) => p.contrib > 0.5).sort((a
 // Open items dated before today. Reels / Stories bound to a stack are not pending work, they keep their date.
 export function overdueItems(plan, today) {
   return plan.items
-    .filter((it) => !it.done && /^\d{4}-\d{2}-\d{2}$/.test(it.day || '') && it.day < today && !(it.reel && it.stackId) && !(it.gen && it.gen.startsWith('fx:')))
+    // IRIS+ blocks that are running or waiting in the queue keep their place (the launcher runs them; moving them to another day would lose them)
+    .filter((it) => !it.done && /^\d{4}-\d{2}-\d{2}$/.test(it.day || '') && it.day < today && !(it.reel && it.stackId) && !(it.gen && it.gen.startsWith('fx:')) && !it.deploy && !(it.iris && it.iris.launch && (it.iris.state === 'launched' || it.iris.notified === true)))
     .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
 }
 

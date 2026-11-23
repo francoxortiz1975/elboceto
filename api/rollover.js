@@ -486,7 +486,7 @@ function runGenerators(plan, today = isoOf(/* @__PURE__ */ new Date()), opts = {
 // src/lib/scheduler/overdue.js
 var MAX_HISTORY2 = 500;
 function overdueItems(plan, today) {
-  return plan.items.filter((it) => !it.done && /^\d{4}-\d{2}-\d{2}$/.test(it.day || "") && it.day < today && !(it.reel && it.stackId) && !(it.gen && it.gen.startsWith("fx:"))).sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+  return plan.items.filter((it) => !it.done && /^\d{4}-\d{2}-\d{2}$/.test(it.day || "") && it.day < today && !(it.reel && it.stackId) && !(it.gen && it.gen.startsWith("fx:")) && !it.deploy && !(it.iris && it.iris.launch && (it.iris.state === "launched" || it.iris.notified === true))).sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
 }
 var withHistory = (plan, cfg, entries) => ({ ...plan, scheduler: { ...cfg, history: [...cfg.history, ...entries].slice(-MAX_HISTORY2) } });
 function resolveItem(plan, id, { action, target, via, today, by, now = (/* @__PURE__ */ new Date()).toISOString() }) {
@@ -545,7 +545,7 @@ function addNotes(plan, list, now = (/* @__PURE__ */ new Date()).toISOString()) 
     area: n.area,
     dir: n.dir === "to_hub" ? "to_hub" : "to_area",
     kind: NOTE_KINDS.includes(n.kind) ? n.kind : "note",
-    text: String(n.text).slice(0, 2e3),
+    text: String(n.text).slice(0, n.kind === "report" ? 6e3 : 2e3),
     from: n.from || "hub",
     ...n.item ? { item: n.item } : {},
     read: !!n.read
