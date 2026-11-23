@@ -10,10 +10,15 @@ const tag = (item) => `${code(item) ? `[${code(item)}] ` : ''}"${item.text}"`;
 // (title, comments, plan and verification pieces), so changing a comment after scheduling is not lost.
 export function briefFor(plan, item) {
   const orders = notesOf(plan).filter((n) => n.item === item.id && n.kind === 'order' && n.dir === 'to_area');
-  const last = orders[orders.length - 1];
-  if (item.deploy) return last ? last.text : `Subir "${item.text}" a main.`;
-  if (last && /^CORRECCIÓN v\d+/.test(last.text)) return last.text;
+  if (item.deploy) { const last = orders[orders.length - 1]; return last ? last.text : `Subir "${item.text}" a main.`; }
+  // A correction is the order of the CURRENT version (v2, v3…): later generic orders (made when the block is scheduled again) must not bury it.
+  const rev = item.dev && item.dev.rev;
+  if (rev > 1) {
+    const corr = orders.filter((n) => new RegExp(`^CORRECCIÓN v${rev}\\b`).test(n.text)).pop();
+    if (corr) return corr.text;
+  }
   if (isDev(item) && item.dev.r === 'build') return devBrief(plan, item.id) || item.text;
+  const last = orders[orders.length - 1];
   return last ? last.text : item.text;
 }
 

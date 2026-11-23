@@ -357,7 +357,7 @@ const d3 = defaultPrompt(ip, [ip.items[1], ip.items[2]], 'MediLyft');
 ok(/Son 2 encargos/.test(d3) && d3.indexOf('MC002') < d3.indexOf('MC003') && /item_id="p2"/.test(d3) && /item_id="p3"/.test(d3), 'a batch lists every task in order, each with its item id');
 const edited = setLaunchPrompt(ip, 'p1', 'Haz solo X.', d1);
 ok(isEdited(edited.items[0]) && promptFor(edited, [edited.items[0]], 'MediLyft') === 'Haz solo X.' && !isEdited(setLaunchPrompt(edited, 'p1', '', d1).items[0]) && !isEdited(setLaunchPrompt(ip, 'p1', d1, d1).items[0]), 'an edited message is what gets sent; empty or equal to the default restores it');
-const cp3 = { ...ip, iris: { notes: [{ id: 'c', item: 'p1', kind: 'order', dir: 'to_area', t: '2026-11-24T10:00:00Z', text: 'CORRECCIÓN v2 de MC001: Flujo\n\nHaz el botón azul' }] } };
+const cp3 = { ...ip, items: [{ ...ip.items[0], dev: { ...ip.items[0].dev, rev: 2 } }, ...ip.items.slice(1)], iris: { notes: [{ id: 'c', item: 'p1', kind: 'order', dir: 'to_area', t: '2026-11-24T10:00:00Z', text: 'CORRECCIÓN v2 de MC001: Flujo\n\nHaz el botón azul' }] } };
 ok(/Haz el botón azul/.test(briefFor(cp3, cp3.items[0])) && /Cambiar el saludo/.test(briefFor(ip, ip.items[0])), 'a correction sends its saved order; a plain ticket sends its current text and comments');
 const dep = { ...ip, items: [{ id: 'd1', area: 'm', text: 'Subir MC001 a main', done: false, day: '2026-11-24', at: 0, deploy: { stack: 'p1' }, iris: { launch: true, state: 'pending', deploy: true } }], iris: { notes: [{ id: 'dn', item: 'd1', kind: 'order', dir: 'to_area', t: 'x', text: 'SUBIR A MAIN: pasos' }] } };
 ok(/SÍ puede hacer git merge y push a main/.test(defaultPrompt(dep, [dep.items[0]], 'MediLyft')) && /SUBIR A MAIN: pasos/.test(defaultPrompt(dep, [dep.items[0]], 'MediLyft')), 'a push-to-main message says this run may push, and carries the steps');
@@ -366,3 +366,14 @@ ok(approxTokens('x'.repeat(400)) === 100, 'a rough token count');
 import { docPathsIn, kindOf as kindOfFile } from '../../src/lib/devFiles.js';
 ok(docPathsIn('Examen en docs/entregables/examen-demo-anonimo/examen-demo-anonimo.pdf y la captura x/captura.png; guion docs/g.md, datos a.csv. Ver https://x.com/a.pdf').join() === 'docs/entregables/examen-demo-anonimo/examen-demo-anonimo.pdf,x/captura.png,docs/g.md,a.csv', 'PDFs, images, documents and data files named in a report are found; URLs are not');
 ok(kindOfFile('a/x.pdf') === 'pdf' && kindOfFile('x.PNG') === 'image' && kindOfFile('x.md') === 'markdown' && kindOfFile('x.csv') === 'text', 'each file is shown by its kind');
+
+const buried = { areas: [{ id: 'm', name: 'MediLyft' }], items: [{ id: 'bt', area: 'm', text: 'Demo Nova', note: 'Original', done: false, day: '2026-11-24', at: 600, dev: { s: 'bt', r: 'build', code: 'MD004', rev: 2 }, iris: { launch: true, state: 'pending' } }], iris: { notes: [
+  { id: 'a', item: 'bt', kind: 'order', dir: 'to_area', t: '2026-11-23T22:33:11Z', text: 'Ticket MD004. generico' },
+  { id: 'b', item: 'bt', kind: 'order', dir: 'to_area', t: '2026-11-23T22:33:11Z', text: 'CORRECCIÓN v2 de MD004: Demo\n\nLo que Franco pide corregir:\nCambiar la escena 4' },
+  { id: 'c', item: 'bt', kind: 'order', dir: 'to_area', t: '2026-11-23T22:33:20Z', text: 'Ticket MD004. generico otra vez (se reagendó)' }
+] } };
+ok(/Cambiar la escena 4/.test(briefFor(buried, buried.items[0])) && /Cambiar la escena 4/.test(defaultPrompt(buried, [buried.items[0]], 'MediLyft')), 'a later generic order (made when the block is scheduled again) no longer buries the correction');
+const v3 = { ...buried, items: [{ ...buried.items[0], dev: { ...buried.items[0].dev, rev: 3 } }] };
+ok(!/Cambiar la escena 4/.test(briefFor(v3, v3.items[0])), 'only the correction of the current version is sent, not an older one');
+const cr3 = requestCorrection({ items: [{ id: 'z', area: 'm', text: 'Z', note: 'Descripción original', done: true, day: '2026-11-22', at: 600, dev: { s: 'z', r: 'build', code: 'MD009', v: true }, iris: { launch: true, state: 'launched' } }], iris: { notes: [] } }, 'z', { text: 'Arregla X', day: '2026-11-25', at: 600 }, new Date(2026, 10, 24, 1, 0));
+ok(/Encargo original:\nDescripción original/.test(cr3.plan.iris.notes.filter((n) => /^CORRECCIÓN/.test(n.text)).pop().text), 'the correction also carries the original description so it stands on its own');

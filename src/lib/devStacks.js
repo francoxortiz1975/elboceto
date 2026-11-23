@@ -460,6 +460,7 @@ export function requestCorrection(plan, stackId, { text, day, at }, now = new Da
   const brief = [
     `CORRECCIÓN v${rev} de ${code}: ${main.text}`,
     `Lo que Franco pide corregir:\n${comment}`,
+    main.note && main.note.trim() ? `Encargo original:\n${main.note.trim()}` : '',
     prev.summary ? `Resumen de tu informe anterior: ${prev.summary}` : '',
     prev.branch ? `Trabaja sobre la MISMA rama (${prev.branch}) con commits nuevos encima; no abras otra rama.` : 'Trabaja sobre la misma rama del ticket con commits nuevos encima; no abras otra rama.',
     'Informa con el formato RESUMEN / HECHO / VERIFICAR / DECISIONES / PENDIENTE / RAMA · COMMIT.'
