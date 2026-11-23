@@ -276,3 +276,10 @@ const mls = mdb.filter((b) => b.t === 'list');
 ok(mls.length === 2 && !mls[0].ordered && mls[0].items.length === 2 && mls[0].items[1].sub.length === 1 && mls[1].ordered, 'lists: bullets with one nested level, and numbered');
 ok(mdb.some((b) => b.t === 'quote') && mdb.some((b) => b.t === 'hr') && mdb.some((b) => b.t === 'code' && b.v === 'x = 1'), 'quotes, rules and fenced code');
 ok(parseInline('<script>alert(1)</script>').every((n) => n.t === 'text'), 'raw HTML in a file stays text: nothing is ever rendered as markup');
+
+const qp = (extra) => ({ areas: [{ id: 'm', name: 'MediLyft' }], items: [{ id: 'q1', area: 'm', text: 'Q', done: false, day: '2026-11-23', at: 1380, dur: 30, iris: { launch: true, state: 'pending', ...extra } }] });
+const lateNow = new Date(2026, 10, 24, 0, 40);
+ok(findDue(qp({}), lateNow, { MediLyft: '/d' }).missed.length === 1, 'a block that never became due and whose slot is over is missed');
+const qd = findDue(qp({ notified: true }), lateNow, { MediLyft: '/d' });
+ok(qd.missed.length === 0 && qd.due.length === 1, 'a block that was already waiting in the queue keeps its place after its slot passes');
+ok(findDue(qp({ notified: true }), new Date(2026, 10, 26, 9, 0), { MediLyft: '/d' }).missed.length === 1, 'but not for ever: after a day it is missed');

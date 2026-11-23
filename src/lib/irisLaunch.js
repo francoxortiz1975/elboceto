@@ -3,7 +3,7 @@
 // The block's own time is the trigger, so when the planner moves the block the start moves with it.
 // This file is the pure logic (what is due, what to say); mcp/src/iris-launcher.mjs does the opening on the Mac.
 
-import { durOf, fmtMin, isoOf } from './areaPlan';
+import { durOf, fmtMin, isoOf, addDays } from './areaPlan';
 import { notesOf } from './iris';
 
 const isoRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,7 +27,11 @@ export function findDue(plan, now, areas = {}) {
     if (!isAutoStart(it) || it.done || stateOf(it) !== 'pending' || !isoRe.test(it.day || '') || typeof it.at !== 'number') return;
     const end = it.at + durOf(it);
     const past = it.day < today || (it.day === today && nowMin >= end);
-    if (past) { missed.push(it); return; }
+    // A block that was already due and is waiting in the queue (its conversation was busy) is not lost when its slot passes: it keeps its place until
+    // it runs, for up to a day. Only blocks that never became due are missed.
+    const queued = it.iris && it.iris.notified === true && it.day >= addDays(today, -1);
+    if (past && !queued) { missed.push(it); return; }
+    if (past && queued) { const dir = dirOf(it.area); if (dir) due.push({ item: it, dir }); else noDir.push(it); return; }
     if (it.day === today && nowMin >= it.at) {
       const dir = dirOf(it.area);
       if (dir) due.push({ item: it, dir }); else noDir.push(it);

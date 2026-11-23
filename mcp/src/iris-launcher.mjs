@@ -178,7 +178,8 @@ export async function tick({ now = new Date(), dry = false } = {}) {
     const cur = findDue(p, now, conf.areas);
     const taken = new Set();
     claimed = [];
-    for (const d of cur.due) {
+    const dueSorted = cur.due.slice().sort((x, y) => `${x.item.day}${String(x.item.at).padStart(5, '0')}`.localeCompare(`${y.item.day}${String(y.item.at).padStart(5, '0')}`)); // the earliest request goes first
+    for (const d of dueSorted) {
       if (claimed.length >= conf.maxPerTick) break;
       if (taken.has(d.item.id)) continue; // already travelling in another block's batch
       const areaName = (p.areas.find((a) => a.id === d.item.area) || {}).name || '';
@@ -234,10 +235,13 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       await new Promise((r) => setTimeout(r, Number(process.env.IRIS_STAGGER_MS ?? 4000))); // do not open several windows on top of each other
     } catch (e) {
       log(`no pude abrir ${c.item.text}: ${e.message}`);
-      await mutatePlan(cfg, (p) => ({
-        plan: addNotes(setLaunchState(p, [c.item.id], 'missed', now.toISOString()), [{ area: c.item.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: c.item.id, text: `No pude abrir la conversación para “${c.item.text}”: ${e.message}` }], now.toISOString()),
-        result: null
-      }));
+      // A network hiccup (cloud timeout, fetch failure) is not a lost block: put it back in the queue and try again next minute.
+      const transient = /timeout|timed out|fetch failed|network|ECONN|ENOTFOUND|EAI_AGAIN|upstream|socket|502|503|504/i.test(String(e.message));
+      try {
+        await mutatePlan(cfg, (p) => (transient
+          ? { plan: { ...setLaunchState(p, [c.item.id, ...(c.more || []).map((i) => i.id)], 'pending', now.toISOString()), items: setLaunchState(p, [c.item.id, ...(c.more || []).map((i) => i.id)], 'pending', now.toISOString()).items.map((i) => (i.id === c.item.id ? { ...i, iris: { ...i.iris, notified: true } } : i)) }, result: null }
+          : { plan: addNotes(setLaunchState(p, [c.item.id], 'missed', now.toISOString()), [{ area: c.item.area, dir: 'to_hub', kind: 'report', from: 'launcher', item: c.item.id, text: `No pude abrir la conversación para “${c.item.text}”: ${e.message}` }], now.toISOString()), result: null }));
+      } catch (e2) { log(`tampoco pude guardar el estado de ${c.item.text}: ${e2.message}`); }
     }
   }
   return { opened, missed: missedIds, noDir: peek.noDir.map((i) => i.id) };
