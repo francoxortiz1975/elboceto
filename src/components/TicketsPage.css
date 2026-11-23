@@ -200,3 +200,5 @@
 .tk-qempty { color: var(--tk-muted); font-size: 14px; }
 
 .tk-closeall { margin: -4px 0 0; font-size: 14px; }
+
+.tk-group { padding: 14px 16px 4px; font: 600 12px 'Geist', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tk-faint); }

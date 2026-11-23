@@ -25,7 +25,7 @@ export function TicketsPage({ plan, onChange, user }) {
   });
   const [filter, setFilter] = useState('all');
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState('llego');
+  const [sort, setSort] = useState('cola');
   const [ref, setRef] = useState(() => (window.location.pathname.split('/')[2] || '').toLowerCase()); // code or id from the URL
   const [mode, setMode] = useState(null); // null | 'correct' | 'schedule'
   const [corr, setCorr] = useState('');
@@ -112,7 +112,7 @@ export function TicketsPage({ plan, onChange, user }) {
       return (filter === 'all' ? b !== 'ok' : b === filter) && (!ql || `${codeOf(st.main)} ${st.main.text}`.toLowerCase().includes(ql));
     });
     const val = (st) => {
-      if (sort === 'cola') return qinfo.pos.has(st.id) ? String(qinfo.pos.get(st.id)).padStart(3, '0') : (scheduledISO(st.main) ? `~${scheduledISO(st.main)}` : '~~');
+      if (sort === 'cola') return qinfo.running.some((r) => r.st.id === st.id) ? 'a000' : qinfo.pos.has(st.id) ? `a${String(qinfo.pos.get(st.id)).padStart(3, '0')}` : (scheduledISO(st.main) ? `b${scheduledISO(st.main)}` : 'c'); // running, then the queue, then by date, then undated
       if (sort === 'prog') return scheduledISO(st.main) || '~';
       if (sort === 'estado') return String(STATUS_ORDER.indexOf(ticketStatus(plan, st).key)).padStart(2, '0');
       return arrivedAt(plan, st) || '';
@@ -334,14 +334,6 @@ export function TicketsPage({ plan, onChange, user }) {
           <section className="tk-kpis" aria-label="Filtrar por estado">
             {FILTERS.map(([k, l, d]) => <button key={k} className="tk-glass tk-kpi" aria-pressed={filter === k} onClick={() => setFilter(k)}><b>{counts[k]}</b><span><i className={`tk-dot ${d}`} />{l}</span></button>)}
           </section>
-          {(qinfo.running.length > 0 || qinfo.queue.length > 0) && (
-            <section className="tk-glass tk-queue" aria-label="Orden de ejecución">
-              <span className="tk-qlab">Cola de ejecución</span>
-              {qinfo.running.map((r) => <button key={`r${r.st.id}`} className="tk-qchip run" onClick={() => open(r.st)}><b>Ahora</b>{codeOf(r.st.main) || r.st.main.text.slice(0, 18)}{r.deploy ? ' · subiendo a main' : ''}</button>)}
-              {qinfo.queue.map((q, i) => <button key={`q${q.st.id}`} className="tk-qchip" onClick={() => open(q.st)}><b>{i + 1}º</b>{codeOf(q.st.main) || q.st.main.text.slice(0, 18)}{q.deploy ? ' · subir a main' : ''}</button>)}
-              {qinfo.queue.length === 0 && <span className="tk-qempty">Nada esperando</span>}
-            </section>
-          )}
           {newOpen && (
             <form className="tk-glass tk-new" onSubmit={(e) => {
               e.preventDefault();
@@ -362,22 +354,35 @@ export function TicketsPage({ plan, onChange, user }) {
             <section className="tk-glass tk-list" aria-label="Tickets">
               <div className="tk-listbar">
                 <span>{rows.length} {rows.length === 1 ? 'ticket' : 'tickets'}</span>
-                <label>Orden <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Orden"><option value="cola">Orden de ejecución</option><option value="llego">Más recientes</option><option value="prog">Próximos a lanzarse</option><option value="estado">Por estado</option></select></label>
+                <label>Orden <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Orden"><option value="cola">Orden de ejecución</option><option value="llego">Más recientes</option><option value="estado">Por estado</option></select></label>
                 {uncoded > 0 && <button className="tk-link" title="Da a cada ticket el código del módulo sugerido por su título" onClick={() => { if (window.confirm(`Asignar código a ${uncoded} tickets según el módulo sugerido por su título?\nLos códigos no cambian después.`)) { mutate((p) => bulkAssign(p, areaId).plan); say('Códigos asignados'); } }}>Asignar {uncoded} códigos</button>}
               </div>
               {!rows.length && <div className="tk-empty">Nada en esta vista.</div>}
-              {rows.map((st) => {
+              {(() => {
+                let lastG = null;
+                const groupOf = (st) => {
+                  if (qinfo.running.some((r) => r.st.id === st.id) || qinfo.pos.has(st.id)) return 'Ahora y en cola';
+                  const d = scheduledISO(st.main);
+                  return d ? fmtWhen(d.slice(0, 10)) : 'Sin agendar';
+                };
+                return rows.map((st) => {
+                const g = sort === 'cola' ? groupOf(st) : null;
+                const head = g && g !== lastG;
+                lastG = g;
                 const { ts, sch } = info(st);
                 const late = sch && sch.includes('T') && new Date(sch).getTime() < Date.now() && (ts.key === 'scheduled' || ts.key === 'missed');
                 const lote = st.main.iris && st.main.iris.launch && st.main.iris.batch;
                 return (
-                  <button key={st.id} className={`tk-row${unread.has(st.id) ? ' unread' : ''}`} aria-selected={sel && sel.id === st.id} onClick={() => open(sel && sel.id === st.id ? null : st)}>
+                  <React.Fragment key={st.id}>
+                  {head && <div className="tk-group">{g}</div>}
+                  <button className={`tk-row${unread.has(st.id) ? ' unread' : ''}`} aria-selected={sel && sel.id === st.id} onClick={() => open(sel && sel.id === st.id ? null : st)}>
                     <span className="tk-code">{codeOf(st.main) || '—'}{(st.main.dev.rev || 1) > 1 && <span className="tk-rev">v{st.main.dev.rev}</span>}</span>
                     <div><div className="tk-ttl">{unread.has(st.id) && <i className="tk-newdot" aria-label="Novedad sin leer" />}{st.main.text}</div><div className="tk-sub">{st.main.dev.mod && cfg ? cfg.modules[st.main.dev.mod] : 'Sin módulo'}{lote ? ' · en lote' : ''}</div></div>
                     <div className="tk-when"><span className={`tk-pill p-${ts.tone}`}>{qinfo.pos.has(st.id) ? `En cola · ${qinfo.pos.get(st.id)}º` : ts.label}</span><small className={late ? 'late' : ''}>{sch ? `${fmtWhen(sch)}${late ? ' · atrasado' : ''}` : 'Sin agendar'}</small></div>
                   </button>
+                  </React.Fragment>
                 );
-              })}
+              }); })()}
             </section>
             {sel ? panel(sel) : <aside className="tk-glass tk-panel tk-emptypanel"><div className="tk-empty">Elige un ticket para verlo completo.</div></aside>}
           </div>
