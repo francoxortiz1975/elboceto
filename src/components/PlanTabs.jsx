@@ -7,7 +7,6 @@ const TABS = [
   ['week', 'Semana'],
   ['month', 'Mes'],
   ['social', 'Redes'],
-  ['dev', 'Desarrollo'],
   ['motor', 'Motor']
 ];
 
@@ -24,6 +23,7 @@ export function PlanTabs({ value, onChange }) {
           </button>
         );
       })}
+      <button onClick={() => { window.location.href = '/tickets'; }} title="Abre la consola de tickets">Tickets ↗</button>
     </div>
   );
 }
