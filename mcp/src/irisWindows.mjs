@@ -11,10 +11,14 @@ export const loadWins = () => { try { const l = JSON.parse(fs.readFileSync(WIN_F
 export const saveWins = (list) => { fs.mkdirSync(path.dirname(WIN_FILE), { recursive: true }); fs.writeFileSync(WIN_FILE, JSON.stringify(list, null, 1), { mode: 0o600 }); };
 export const addWin = (rec) => { const list = loadWins().filter((w) => w.tty !== rec.tty); list.push(rec); saveWins(list.slice(-20)); };
 
-// Pure: which recorded windows have had no activity for `idleMs`? lastActivity(w) = ms timestamp of the last write to its conversation.
-export function windowsToClose(wins, { now = Date.now(), idleMs, lastActivity }) {
-  if (!(idleMs > 0)) return [];
-  return wins.filter((w) => now - Math.max(Number(lastActivity(w)) || 0, Date.parse(w.openedAt) || 0) > idleMs);
+// Pure: which recorded windows have had no activity for `idleMs`? lastActivity(w) = ms timestamp of the last write to its conversation or
+// change of its screen. A window whose blocks are all done (isDone) only waits `doneIdleMs`: the agent has nothing left to do.
+export function windowsToClose(wins, { now = Date.now(), idleMs, doneIdleMs, lastActivity, isDone = () => false }) {
+  return wins.filter((w) => {
+    const limit = isDone(w) && doneIdleMs > 0 ? doneIdleMs : idleMs;
+    if (!(limit > 0)) return false;
+    return now - Math.max(Number(lastActivity(w)) || 0, Date.parse(w.openedAt) || 0) > limit;
+  });
 }
 
 // Pure: rows of `ps -o pid=,pcpu=,command=` for one tty.

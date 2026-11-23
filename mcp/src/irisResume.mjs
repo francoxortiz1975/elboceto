@@ -69,7 +69,7 @@ export function listSessions(repo, limit = 8) {
 //  - its transcript was touched in the last `quietMs`, or
 //  - a `claude` process was started with that id (`--resume <id>`).
 // A conversation that is open but idle in the desktop app cannot be detected: keep the area's chat in ONE place.
-export function sessionInUse(repo, id, { now = Date.now(), quietMs = 60000, psOut } = {}) {
+export function sessionInUse(repo, id, { now = Date.now(), quietMs = 30000, psOut } = {}) {
   try { if (now - fs.statSync(sessionFile(repo, id)).mtimeMs < quietMs) return true; } catch { /* no file */ }
   let out = psOut;
   if (out === undefined) { try { out = execFileSync('ps', ['-axo', 'command='], { encoding: 'utf8', timeout: 4000 }); } catch { out = ''; } }

@@ -58,7 +58,7 @@ async function openFor(c, file, conf) {
       write(resumeMessage(c.item, c.areaName, '', c.more || []));
       const logFile = conf.background ? runLog(sid) : '';
       const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).deny, allow: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).allow, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
-      if (logFile) background(command); else { const tty = await terminalDo(command); if (/^\/dev\/ttys?\d+$/.test(tty)) addWin({ tty, sid, dir: rdir, openedAt: new Date().toISOString() }); }
+      if (logFile) background(command); else { const tty = await terminalDo(command); if (/^\/dev\/ttys?\d+$/.test(tty)) addWin({ tty, sid, dir: rdir, openedAt: new Date().toISOString(), items: [c.item.id, ...(c.more || []).map((i) => i.id)] }); }
       return 'resume';
     }
   }
@@ -119,7 +119,13 @@ export async function tick({ now = new Date(), dry = false } = {}) {
         if (h && h !== w.h) { w.h = h; w.ch = Date.now(); touched = true; }
       }
       if (touched) saveWins(wins);
-      const idle = windowsToClose(wins, { idleMs: conf.windowIdleMinutes * 60000, lastActivity: (w) => { let m = 0; try { m = fs.statSync(sessionFile(w.dir, w.sid)).mtimeMs; } catch { /* no transcript */ } return Math.max(m, w.ch || 0); } });
+      const doneIds = new Set(plan.items.filter((i) => i.done).map((i) => i.id));
+      const idle = windowsToClose(wins, {
+        idleMs: conf.windowIdleMinutes * 60000,
+        doneIdleMs: conf.windowDoneSeconds * 1000,
+        isDone: (w) => Array.isArray(w.items) && w.items.length > 0 && w.items.every((id) => doneIds.has(id)),
+        lastActivity: (w) => { let m = 0; try { m = fs.statSync(sessionFile(w.dir, w.sid)).mtimeMs; } catch { /* no transcript */ } return Math.max(m, w.ch || 0); }
+      });
       const done = [];
       for (const w of idle) {
         const r = await closeWindow(w).catch((e) => `error: ${e.message}`);

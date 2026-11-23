@@ -135,3 +135,7 @@ ok(WN.claudePidsOnTty(PS, 'aaa-1').join() === '102' && WN.claudePidsOnTty(PS, 'z
 ok(!WN.ttyBusy(PS) && WN.ttyBusy(PS + '  104  85.0 node /x/jest --runInBand\n'), 'a tty is busy when something there (not the shell) is using the CPU');
 
 ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p' }).includes("CLAUDE_CODE_[A-Z0-9_]*") && !R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', logFile: '/l' }).includes('unset'), 'a window run drops the CLAUDE_CODE_* variables it inherited (else Claude does not save the conversation); a background run needs no cleanup');
+
+const dw = [{ tty: '/dev/ttys7', sid: 'd1', openedAt: '2026-11-23T10:00:00Z', items: ['x'] }];
+const dnow = Date.parse('2026-11-23T10:30:00Z');
+ok(WN.windowsToClose(dw, { now: dnow, idleMs: 120000, doneIdleMs: 20000, lastActivity: () => dnow - 30000, isDone: () => true }).length === 1 && WN.windowsToClose(dw, { now: dnow, idleMs: 120000, doneIdleMs: 20000, lastActivity: () => dnow - 30000, isDone: () => false }).length === 0, 'a window whose blocks are all done closes after 20 s of quiet; one still open waits the full idle time');
