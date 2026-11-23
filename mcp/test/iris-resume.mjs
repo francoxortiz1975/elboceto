@@ -122,3 +122,14 @@ ok(dz.allow.includes('Bash(git push*)') && !dz.deny.includes('Bash(git push *)')
 const nz = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: ['Bash(git push *)'] }, 'Loginet');
 ok(!nz.allow.includes('Bash(git push*)') && nz.deny.includes('Bash(git push *)'), 'a normal run never gets push');
 ok(/SUBIR A MAIN/.test(R.resumeMessage({ id: 'd', text: 'Subir MC001 a main', deploy: { stack: 'f' } }, 'MediLyft')), 'a deploy block gets its own message');
+
+const WN = await import('../src/irisWindows.mjs');
+const wins = [{ tty: '/dev/ttys004', sid: 'aaa-1', dir: '/d', openedAt: '2026-11-23T10:00:00Z' }, { tty: '/dev/ttys005', sid: 'bbb-2', dir: '/d', openedAt: '2026-11-23T10:00:00Z' }];
+const t0 = Date.parse('2026-11-23T10:30:00Z');
+const closing = WN.windowsToClose(wins, { now: t0, idleMs: 5 * 60000, lastActivity: (w) => (w.sid === 'aaa-1' ? t0 - 6 * 60000 : t0 - 2 * 60000) });
+ok(closing.length === 1 && closing[0].sid === 'aaa-1', 'a window closes only after 5 minutes without writes to its conversation');
+ok(WN.windowsToClose(wins, { now: t0, idleMs: 0, lastActivity: () => 0 }).length === 0, 'with the timeout set to 0 nothing is ever closed');
+ok(WN.windowsToClose([{ tty: '/dev/ttys9', sid: 'c', openedAt: new Date(t0 - 60000).toISOString() }], { now: t0, idleMs: 5 * 60000, lastActivity: () => 0 }).length === 0, 'a window opened a minute ago is not closed even if the conversation has no recent writes');
+const PS = '  101   0.0 -zsh\n  102   1.2 /Users/x/.nvm/bin/claude --resume aaa-1 hola\n  103   0.1 node /srv/boceto-mcp/server.mjs\n';
+ok(WN.claudePidsOnTty(PS, 'aaa-1').join() === '102' && WN.claudePidsOnTty(PS, 'zzz').length === 0, 'only the claude process that carries the conversation id is picked');
+ok(!WN.ttyBusy(PS) && WN.ttyBusy(PS + '  104  85.0 node /x/jest --runInBand\n'), 'a tty is busy when something there (not the shell) is using the CPU');

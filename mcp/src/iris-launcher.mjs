@@ -17,6 +17,8 @@ import { findCompanions, isNight, staleLaunched, markEnded, findDue, launchPromp
 import { completePastClasses } from '../../src/lib/areaPlan';
 import { applyDeploys } from '../../src/lib/devStacks';
 import { analyzeStacks } from './gitMerged.mjs';
+import { addWin, loadWins, saveWins, windowsToClose, closeWindow } from './irisWindows.mjs';
+import { sessionFile } from './irisResume.mjs';
 import { addNotes } from '../../src/lib/iris';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -30,7 +32,7 @@ const log = (...a) => console.log(`[${new Date().toLocaleTimeString('es-ES')}]`,
 // resume falls back to notify when the pinned conversation does not exist or is in use right now (never two windows on one history).
 // A custom "opener" script, if set, wins over all of them. Permission prompts are never skipped; nothing is deployed or published.
 const exec = (cmd, args) => new Promise((resolve, reject) => execFile(cmd, args, (e) => (e ? reject(e) : resolve())));
-const terminalDo = (command) => exec('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'do script (item 1 of argv)', '-e', 'end tell', '-e', 'end run', command]);
+const terminalDo = (command) => new Promise((resolve, reject) => execFile('osascript', ['-e', 'on run argv', '-e', 'tell application "Terminal"', '-e', 'activate', '-e', 'set t to do script (item 1 of argv)', '-e', 'delay 1', '-e', 'set tt to tty of t', '-e', 'end tell', '-e', 'return tt', '-e', 'end run', command], (e, out) => (e ? reject(e) : resolve(String(out || '').trim()))));
 
 // Background run: its own session (survives the launcher, which exits every minute), no window; the output goes to ~/Library/Logs/iris-runs/.
 function runLog(sid) {
@@ -55,7 +57,7 @@ async function openFor(c, file, conf) {
       write(resumeMessage(c.item, c.areaName, '', c.more || []));
       const logFile = conf.background ? runLog(sid) : '';
       const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).deny, allow: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).allow, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
-      if (logFile) background(command); else await terminalDo(command);
+      if (logFile) background(command); else { const tty = await terminalDo(command); if (/^\/dev\/ttys?\d+$/.test(tty)) addWin({ tty, sid, dir: rdir, openedAt: new Date().toISOString() }); }
       return 'resume';
     }
   }
@@ -104,6 +106,21 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       return sid && rdir && !sessionInUse(rdir, sid);
     });
     if (quiet.length) { await mutatePlan(cfg, (p) => ({ plan: markEnded(p, quiet.map((i) => i.id), now.toISOString()), result: null })); log(`ejecución terminada, quedan abiertas: ${quiet.map((i) => i.text).join(', ')}`); }
+  }
+  // Terminal windows the launcher opened are closed after `windowIdleMinutes` without activity in their conversation
+  if (!dry && conf.windowIdleMinutes > 0) {
+    try {
+      const wins = loadWins();
+      const idle = windowsToClose(wins, { idleMs: conf.windowIdleMinutes * 60000, lastActivity: (w) => { try { return fs.statSync(sessionFile(w.dir, w.sid)).mtimeMs; } catch { return 0; } } });
+      const done = [];
+      for (const w of idle) {
+        const r = await closeWindow(w).catch((e) => `error: ${e.message}`);
+        if (r === 'busy') continue; // still working (CPU): look again next minute
+        done.push(w);
+        log(`ventana cerrada por inactividad (${conf.windowIdleMinutes} min): ${w.sid.slice(0, 8)} → ${r}`);
+      }
+      if (done.length) saveWins(wins.filter((w) => !done.includes(w)));
+    } catch (e) { log(`ventanas: ${e.message}`); }
   }
   // A finished "subir a main" block marks its feature as deployed (works with the app closed)
   if (!dry && applyDeploys(plan) !== plan) {
