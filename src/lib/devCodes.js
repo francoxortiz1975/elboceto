@@ -54,7 +54,7 @@ export function addModification(plan, parentRef, name, { day = 'later' } = {}) {
   const root = rootOf(codeOf(parent));
   const n = plan.items.reduce((m, i) => { const x = new RegExp(`^${root}\\.(\\d+)$`).exec(codeOf(i)); return x ? Math.max(m, Number(x[1])) : m; }, 0) + 1;
   const id = uid();
-  const item = { id, area: parent.area, text, done: false, day, at: 'any', src: 'desarrollo', dev: { s: id, r: 'build', mod: parent.dev.mod, code: `${root}.${n}`, parent: root } };
+  const item = { id, area: parent.area, text, done: false, day, at: 'any', src: 'desarrollo', dev: { s: id, r: 'build', mod: parent.dev.mod, code: `${root}.${n}`, parent: root, created: new Date().toISOString() } };
   return { plan: { ...plan, items: [...plan.items, item] }, id, code: item.dev.code, error: '' };
 }
 

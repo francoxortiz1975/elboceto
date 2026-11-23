@@ -220,3 +220,18 @@ ok(!mv2.error && !mv2.plan.items.some((i) => i.deploy), 'work with no branch is 
 
 const ms = lp({ day: '2026-11-27', at: 660, iris: { launch: true, state: 'missed' } });
 ok(ticketStatus(ms, { id: 'f1', main: ms.items[0] }).key === 'missed' && ticketStatus(ms, { id: 'f1', main: ms.items[0] }).action === 'schedule', 'a block that was never opened shows as lost, with "agendar" to try again');
+
+import { arrivedAt, finishedAt, scheduledISO, ticketTimeline } from '../../src/lib/devStacks.js';
+const tp = { items: [{ id: 't1', area: 'm', text: 'T', done: true, day: '2026-11-22', at: 570, iris: { launch: true, state: 'launched', at: '2026-11-22T09:37:00Z', ended: '2026-11-22T10:50:00Z' }, dev: { s: 't1', r: 'build', v: true, vAt: '2026-11-22T12:05:00Z', created: '2026-11-20T10:00:00Z', deployed: '2026-11-22T15:20:00Z' } }],
+  iris: { notes: [{ id: 'n1', item: 't1', dir: 'to_hub', from: 'area', kind: 'report', t: '2026-11-22T10:42:00Z', text: 'LISTO' }, { id: 'n2', item: 't1', dir: 'to_area', kind: 'order', t: '2026-11-20T09:00:00Z', text: 'o' }] } };
+const tst = { id: 't1', main: tp.items[0] };
+ok(scheduledISO(tp.items[0]) === '2026-11-22T09:30' && scheduledISO({ day: 'later', at: 'any' }) === '' && scheduledISO({ day: '2026-11-22', at: 'any' }) === '2026-11-22', 'the scheduled time is the block day and hour (date only without hour, nothing without an exact day)');
+ok(arrivedAt(tp, tst) === '2026-11-20T10:00:00Z' && arrivedAt(tp, { id: 't1', main: { ...tp.items[0], dev: { s: 't1', r: 'build' } } }) === '2026-11-20T09:00:00Z', 'arrival: stamped on creation, else the first order note');
+ok(finishedAt(tp, tst) === '2026-11-22T10:42:00Z', 'finish: the area\'s own report time when it was not stamped');
+const tl = ticketTimeline(tp, tst);
+ok(tl.map((x) => x.key).join() === 'arrived,scheduled,launched,finished,validated,main' && tl.every((x) => x.done) && tl[4].at === '2026-11-22T12:05:00Z' && tl[5].at === '2026-11-22T15:20:00Z', 'the timeline has the six steps with their dates');
+const tp2 = { items: [{ id: 't2', area: 'm', text: 'T2', done: false, day: '2026-11-25', at: 600, iris: { launch: true, state: 'pending' }, dev: { s: 't2', r: 'build', created: '2026-11-21T08:00:00Z' } }] };
+const tl2 = ticketTimeline(tp2, { id: 't2', main: tp2.items[0] });
+ok(tl2[1].planned && tl2[1].at === '2026-11-25T10:00' && !tl2[2].done && !tl2[3].done, 'a scheduled ticket shows its planned time and the later steps pending');
+const nv = setDevValid({ items: [{ ...tp.items[0], dev: { s: 't1', r: 'build' } }] }, 't1', true);
+ok(nv.items[0].dev.vAt && toggleDevDone(toggleDevDone({ items: [{ id: 'q', area: 'm', done: false, dev: { s: 'q', r: 'build' } }] }, 'q'), 'q').items[0].dev.doneAt === undefined, 'validating stamps the date; reopening clears the finish date');

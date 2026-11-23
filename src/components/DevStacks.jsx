@@ -3,7 +3,7 @@ import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-re
 import { PlanTabs } from './PlanTabs';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, needsDeploy, isValidated, toggleDevDone, setDevValid, stackVisible, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, needsDeploy, isValidated, toggleDevDone, setDevValid, stackVisible, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -35,7 +35,8 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [logFilter, setLogFilter] = useState('act');
   const [q, setQ] = useState('');
   const [modF, setModF] = useState('');
-  const [ord, setOrd] = useState('dia');
+  const [sortKey, setSortKey] = useState('llego');
+  const [sortDir, setSortDir] = useState('desc');
   const [logOpen, setLogOpen] = useState(null);
   const [reviewId, setReviewId] = useState(null); // piece whose final report is open in the reader
   const [mode, setMode] = useState(() => { try { const m = localStorage.getItem('el_boceto_dev_mode_v1'); return m === 'deploy' || m === 'all' ? m : 'work'; } catch { return 'work'; } });
@@ -218,7 +219,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     );
   };
 
-  // ---------- Registro: one line per ticket (code, title, status, time, one action), details on click ----------
+  // ---------- Registro (mesa de ayuda): table on the left, the whole ticket in a side panel on the right ----------
   const LOG_FILTERS = [['act', 'Activos'], ['pend', 'Pendiente'], ['agen', 'Agendado'], ['marcha', 'En marcha'], ['valid', 'Por validar'], ['valid2', 'Por subir a main'], ['ok', 'Deployado'], ['bad', 'Con problema']];
   const bucketOf = (st) => {
     const k = ticketStatus(plan, st).key;
@@ -226,8 +227,23 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     return ({ pending: 'pend', missed: 'bad', deployfail: 'bad', scheduled: 'agen', running: 'marcha', deploying: 'marcha', done: 'valid', deployed: 'ok' })[k] || 'pend';
   };
   const matchesFilter = (st, f) => (f === 'act' ? bucketOf(st) !== 'ok' : bucketOf(st) === f);
-  const STEP = { pending: 0, missed: 0, scheduled: 1, running: 2, done: 3, deploying: 4, deployfail: 4, validated: 4, deployed: 5 };
-  const ACTION_LABEL = { schedule: 'Agendar', now: 'Lanzar ahora', validate: 'Revisar', deploy: 'Subir a main', retry: 'Reintentar' };
+  const STATUS_ORDER = ['missed', 'deployfail', 'running', 'deploying', 'scheduled', 'pending', 'done', 'validated', 'deployed'];
+  const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const fmtD = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    const hasTime = String(iso).includes('T');
+    return `${d.getDate()} ${MONTHS[d.getMonth()]}${hasTime ? ` · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : ''}`;
+  };
+  const relD = (iso) => {
+    if (!iso) return '';
+    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    const a = Math.abs(mins);
+    const u = a >= 1440 ? `${Math.round(a / 1440)} d` : a >= 60 ? `${Math.round(a / 60)} h` : `${a} min`;
+    return mins >= 0 ? `hace ${u}` : `en ${u}`;
+  };
+  const ACTION_LABEL = { schedule: 'Agendar', now: 'Lanzar ahora', validate: 'Revisar', deploy: 'Subir a main', retry: 'Reintentar subida' };
   const doAction = (st, a) => {
     if (a === 'schedule') {
       const t = window.prompt('¿A qué hora debe empezar? (HH:MM)', '22:00');
@@ -243,16 +259,25 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); }
     }
   };
-  const dayKey = (m) => (/^\d{4}/.test(m.day || '') ? m.day : '9999');
+  const sortVal = (st, k) => {
+    if (k === 'codigo') return codeOf(st.main) || '~';
+    if (k === 'estado') return String(STATUS_ORDER.indexOf(ticketStatus(plan, st).key)).padStart(2, '0');
+    if (k === 'prog') return scheduledISO(st.main) || '~';
+    return arrivedAt(plan, st) || '';
+  };
   const logRows = () => {
     const ql = q.trim().toLowerCase();
-    let list = all.filter((st) => matchesFilter(st, logFilter) && (!modF || st.main.dev.mod === modF) && (!ql || `${codeOf(st.main)} ${st.main.text}`.toLowerCase().includes(ql)));
-    const order = Object.keys(STEP);
-    if (ord === 'estado') list = list.slice().sort((a, b) => order.indexOf(ticketStatus(plan, a).key) - order.indexOf(ticketStatus(plan, b).key));
-    else if (ord === 'codigo') list = list.slice().sort((a, b) => (codeOf(a.main) || '~').localeCompare(codeOf(b.main) || '~'));
-    else list = list.slice().sort((a, b) => dayKey(a.main).localeCompare(dayKey(b.main)) || (typeof a.main.at === 'number' ? a.main.at : 9999) - (typeof b.main.at === 'number' ? b.main.at : 9999));
-    return list;
+    const list = all.filter((st) => matchesFilter(st, logFilter) && (!modF || st.main.dev.mod === modF) && (!ql || `${codeOf(st.main)} ${st.main.text}`.toLowerCase().includes(ql)));
+    const dir = sortDir === 'asc' ? 1 : -1;
+    // tickets without a value for the column always go last
+    return list.slice().sort((a, b) => {
+      const x = sortVal(a, sortKey); const y = sortVal(b, sortKey);
+      const ex = !x || x === '~'; const ey = !y || y === '~';
+      if (ex !== ey) return ex ? 1 : -1;
+      return x.localeCompare(y) * dir;
+    });
   };
+  const sortBy = (k) => { if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); else { setSortKey(k); setSortDir(k === 'llego' ? 'desc' : 'asc'); } };
   const batchLabel = (st) => {
     const b = st.main.iris && st.main.iris.launch && st.main.iris.batch;
     if (!b) return '';
@@ -272,69 +297,113 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       </div>
     );
   };
-  const logDetail = (st) => {
+  // The side panel: everything about one ticket
+  const sidePanel = (st) => {
+    const ts = ticketStatus(plan, st);
+    const m = st.main;
     const rep = parseReport(reportOf(plan, st.id));
-    const b = st.main.iris && st.main.iris.launch && st.main.iris.batch;
+    const tl = ticketTimeline(plan, st);
+    const cur = tl.findIndex((x) => !x.done);
+    const b = m.iris && m.iris.launch && m.iris.batch;
+    const lote = batchLabel(st);
     return (
-      <div className="dl-det">
-        <input className="ds-title" value={st.main.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, st.id, { text: e.target.value }))} />
-        <textarea className="ds-note" rows={4} value={st.main.note || ''} placeholder="Comentarios, decisiones, enlaces, qué falta…" aria-label="Comentarios" onChange={(e) => mutate((p) => editDevItem(p, st.id, { note: e.target.value }))} />
-        {(rep.summary || rep.verify.length > 0 || rep.branch) && (
-          <div className="dl-rep">
-            <h4>Último informe del agente</h4>
-            {rep.summary && <p>{rep.summary}</p>}
-            {rep.verify.length > 0 && <><h4>Cómo verificarlo</h4><ol>{rep.verify.map((v, i) => <li key={i}>{v}</li>)}</ol></>}
-            {(rep.branch || rep.commit) && <p className="dr-meta">{rep.branch && <span>Rama <code>{rep.branch}</code></span>} {rep.commit && <span>Commit <code>{rep.commit}</code></span>}</p>}
-            {reportOf(plan, st.id) && <button className="ds-modbtn" onClick={() => setReviewId(st.id)}>Ver el informe completo</button>}
-          </div>
+      <aside className="dz-panel" aria-label={`Ticket ${codeOf(m) || ''}`}>
+        <div className="dz-ph">
+          <div><span className="dl-code">{codeOf(m) || 'Sin código'}</span></div>
+          <button className="dz-x" aria-label="Cerrar el panel" onClick={() => setLogOpen(null)}>×</button>
+        </div>
+        <input className="dz-title" value={m.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, st.id, { text: e.target.value }))} />
+        <div className="dz-state"><span className={`ds-status ${ts.key}`}>{ts.label}</span></div>
+        <div className="dz-acts">
+          {ts.action === 'validate' && needsDeploy(m) && <button className="ds-act primary" onClick={() => validatePush(st.id)}>Validar y subir a main</button>}
+          {ts.action && <button className={`ds-act${ts.action !== 'validate' ? ' primary' : ''}`} onClick={() => doAction(st, ts.action)}>{ACTION_LABEL[ts.action]}</button>}
+          {ts.action === 'deploy' && <button className="ds-act" onClick={() => mutate((p) => setNoDeploy(p, st.id))}>Sin deploy</button>}
+        </div>
+        <h4>Fechas</h4>
+        <ul className="dz-tl">
+          {tl.map((x, i) => (
+            <li key={x.key} className={x.done ? 'done' : i === cur ? 'now' : ''}>
+              <i />
+              <div><div className="l">{x.label}</div><div className="d">{x.at ? `${fmtD(x.at)}${x.planned ? ' (previsto)' : ''}` : x.done ? 'sin fecha registrada' : '—'}{x.at && x.done ? <span className="r"> · {relD(x.at)}</span> : null}</div></div>
+            </li>
+          ))}
+        </ul>
+        <h4>Detalles</h4>
+        <dl className="dz-props">
+          <dt>Módulo</dt><dd>{m.dev.mod && cfg ? `${m.dev.mod} · ${cfg.modules[m.dev.mod] || ''}` : '—'}</dd>
+          <dt>Lote</dt><dd>{lote || '—'}</dd>
+          {rep.branch && <><dt>Rama</dt><dd className="dz-mono">{rep.branch}</dd></>}
+          {rep.commit && <><dt>Commit</dt><dd className="dz-mono">{rep.commit}</dd></>}
+        </dl>
+        {(rep.summary || rep.verify.length > 0 || rep.decisions.length > 0 || rep.pending.length > 0) && (
+          <>
+            <h4>Último informe</h4>
+            <div className="dz-box">
+              {rep.summary && <p>{rep.summary}</p>}
+              {rep.verify.length > 0 && <><div className="dz-sub">Cómo verificarlo</div><ol>{rep.verify.map((v, i) => <li key={i}>{v}</li>)}</ol></>}
+              {rep.decisions.length > 0 && <><div className="dz-sub">Decisiones</div><ul>{rep.decisions.map((v, i) => <li key={i}>{v}</li>)}</ul></>}
+              {rep.pending.length > 0 && <><div className="dz-sub">Pendiente</div><ul>{rep.pending.map((v, i) => <li key={i}>{v}</li>)}</ul></>}
+              <button className="ds-modbtn" onClick={() => setReviewId(st.id)}>Abrir el informe completo</button>
+            </div>
+          </>
         )}
+        <h4>Comentarios</h4>
+        <textarea className="ds-note" rows={4} value={m.note || ''} placeholder="Comentarios, decisiones, enlaces, qué falta…" aria-label="Comentarios" onChange={(e) => mutate((p) => editDevItem(p, st.id, { note: e.target.value }))} />
+        <h4>Plan y verificación</h4>
         <div className="dl-pieces">{pieceBox(st, 'plan')}{pieceBox(st, 'check')}</div>
+        <h4>Programación</h4>
         {footerOf(st)}
-        {b && <button className="ds-modbtn" title="Cada feature vuelve a lanzarse sola a su propia hora" onClick={() => mutate((p) => unbatch(p, b))}>Deshacer el lote de este ticket</button>}
-        <button className="ds-modbtn" onClick={() => { if (window.confirm('¿Quitar el ticket completo?')) mutate((p) => removeDevItem(p, st.id)); }}>Quitar ticket</button>
-      </div>
+        <div className="dz-end">
+          {b && <button className="ds-modbtn" title="Cada feature vuelve a lanzarse sola a su propia hora" onClick={() => mutate((p) => unbatch(p, b))}>Deshacer el lote</button>}
+          <button className="ds-modbtn" onClick={() => { if (window.confirm('¿Quitar el ticket completo?')) { mutate((p) => removeDevItem(p, st.id)); setLogOpen(null); } }}>Quitar ticket</button>
+        </div>
+      </aside>
     );
   };
   const logView = () => {
     const list = logRows();
-    let lastD = null;
+    const sel = logOpen ? all.find((st) => st.id === logOpen) : null;
+    const arrow = (k) => (sortKey === k ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '');
     return (
-      <div className="dl">
+      <div className="dz">
         <div className="dl-bar">
-          <input type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por código o título" aria-label="Buscar" />
+          <input type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por código o asunto" aria-label="Buscar" />
           {cfg && <select value={modF} onChange={(e) => setModF(e.target.value)} aria-label="Módulo"><option value="">Todos los módulos</option>{Object.entries(cfg.modules).map(([k, l]) => <option key={k} value={k}>{k} · {l}</option>)}</select>}
-          <select value={ord} onChange={(e) => setOrd(e.target.value)} aria-label="Orden"><option value="dia">Por día y hora</option><option value="estado">Por estado</option><option value="codigo">Por código</option></select>
         </div>
         <div className="dl-chips">
           {LOG_FILTERS.map(([k, l]) => <button key={k} className="dl-chip" aria-pressed={logFilter === k} onClick={() => setLogFilter(k)}>{l}<b>{all.filter((st) => matchesFilter(st, k)).length}</b></button>)}
         </div>
-        {!list.length && <div className="rr-empty">Nada en esta vista.</div>}
-        {list.map((st) => {
-          const ts = ticketStatus(plan, st);
-          const m = st.main;
-          const head = ord === 'dia' && dayKey(m) !== lastD;
-          lastD = dayKey(m);
-          const lote = batchLabel(st);
-          const isOpen = logOpen === st.id;
-          return (
-            <React.Fragment key={st.id}>
-              {head && <div className="dl-day">{/^\d{4}/.test(m.day || '') ? dayLabel(m.day) : 'Sin día'}</div>}
-              <div className={`dl-row${isOpen ? ' open' : ''}`} onClick={(e) => { if (e.target.closest('button')) return; setLogOpen(isOpen ? null : st.id); }}>
-                <span className="dl-code">{codeOf(m) || '—'}</span>
-                <div className="dl-ttl">
-                  <div className="dl-t">{m.text}</div>
-                  <div className="dl-m">{m.dev.mod && <span>{m.dev.mod}</span>}
-                    <span className={`dl-steps${ts.key === 'missed' || ts.key === 'deployfail' ? ' bad' : ''}`} title="Agendado · En marcha · Hecho · Validado · En main">{[1, 2, 3, 4, 5].map((n) => <i key={n} className={STEP[ts.key] >= n ? 'on' : ''} />)}</span>
-                  </div>
+        <div className={`dz-wrap${sel ? ' split' : ''}`}>
+          <div className="dz-list">
+            <div className="dz-hd" role="row">
+              <button onClick={() => sortBy('codigo')}>Ticket{arrow('codigo')}</button>
+              <span>Asunto</span>
+              <button onClick={() => sortBy('estado')}>Estado{arrow('estado')}</button>
+              <button onClick={() => sortBy('llego')}>Llegó{arrow('llego')}</button>
+              <button onClick={() => sortBy('prog')}>Programado{arrow('prog')}</button>
+            </div>
+            {!list.length && <div className="rr-empty">Nada en esta vista.</div>}
+            {list.map((st) => {
+              const ts = ticketStatus(plan, st);
+              const m = st.main;
+              const arr = arrivedAt(plan, st);
+              const sch = scheduledISO(m);
+              const late = sch && sch.includes('T') && new Date(sch).getTime() < Date.now() && (ts.key === 'scheduled' || ts.key === 'missed');
+              const lote = batchLabel(st);
+              return (
+                <div key={st.id} className={`dz-row${logOpen === st.id ? ' sel' : ''}`} role="row" tabIndex={0}
+                  onClick={() => setLogOpen(logOpen === st.id ? null : st.id)} onKeyDown={(e) => { if (e.key === 'Enter') setLogOpen(logOpen === st.id ? null : st.id); }}>
+                  <span className="dl-code">{codeOf(m) || '—'}</span>
+                  <div className="dz-sub"><div className="dz-t">{m.text}</div><div className="dz-m">{m.dev.mod && cfg ? `${m.dev.mod} · ${cfg.modules[m.dev.mod] || ''}` : 'Sin módulo'}{lote ? ` · ${lote}` : ''}</div></div>
+                  <span className="dz-st"><span className={`ds-status ${ts.key}`}>{ts.label}</span></span>
+                  <div className="dz-dt ll">{fmtD(arr)}{arr && <em>{relD(arr)}</em>}</div>
+                  <div className={`dz-dt${late ? ' late' : ''}`}>{sch ? fmtD(sch) : 'Sin agendar'}{sch && <em>{relD(sch)}</em>}</div>
                 </div>
-                <span><span className={`ds-status ${ts.key}`}>{ts.label}</span></span>
-                <div className="dl-when">{typeof m.at === 'number' ? fmtMin(m.at) : '—'}{lote && <em>{lote}</em>}</div>
-                <div className="dl-act">{ts.action && <button className={`ds-act${ts.action === 'deploy' ? ' deploy' : ''}`} onClick={() => doAction(st, ts.action)}>{ACTION_LABEL[ts.action]}</button>}</div>
-              </div>
-              {isOpen && logDetail(st)}
-            </React.Fragment>
-          );
-        })}
+              );
+            })}
+          </div>
+          {sel && sidePanel(sel)}
+        </div>
       </div>
     );
   };

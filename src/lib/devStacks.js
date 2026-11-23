@@ -32,7 +32,7 @@ export function addDevStack(plan, { area, name, day, note = '' }) {
   const text = String(name || '').trim();
   if (!text) return { plan, id: null };
   const id = uid();
-  const item = { id, area, text, done: false, day: day || 'later', at: 'any', src: 'desarrollo', dev: { s: id, r: 'build' }, ...(note ? { note } : {}) };
+  const item = { id, area, text, done: false, day: day || 'later', at: 'any', src: 'desarrollo', dev: { s: id, r: 'build', created: new Date().toISOString() }, ...(note ? { note } : {}) };
   return { plan: { ...plan, items: [...plan.items, item] }, id };
 }
 
@@ -77,10 +77,14 @@ export const needsReview = (it) => !!(it && isDev(it) && it.done && !it.dev.v);
 export const isValidated = (it) => !!(it && isDev(it) && it.done && it.dev.v);
 export const toggleDevDone = (plan, id) => ({ ...plan, items: plan.items.map((i) => {
   if (i.id !== id || !isDev(i)) return i;
-  const { v, ...dev } = i.dev; // finishing (or reopening) it starts a new review
-  return { ...i, done: !i.done, dev };
+  const { v, vAt, doneAt, ...dev } = i.dev; // finishing (or reopening) it starts a new review
+  return { ...i, done: !i.done, dev: i.done ? dev : { ...dev, doneAt: new Date().toISOString() } };
 }) });
-export const setDevValid = (plan, id, on) => ({ ...plan, items: plan.items.map((i) => (i.id === id && isDev(i) ? { ...i, dev: { ...i.dev, v: !!on } } : i)) });
+export const setDevValid = (plan, id, on) => ({ ...plan, items: plan.items.map((i) => {
+  if (!(i.id === id && isDev(i))) return i;
+  const { vAt, ...dev } = i.dev;
+  return { ...i, dev: on ? { ...dev, v: true, vAt: new Date().toISOString() } : { ...dev, v: false } };
+}) });
 // A stack leaves the default view once everything in it that is done has been validated and the feature itself is done.
 // A feature that IRIS+ built has a local branch: it is not settled until that branch is in main (or the user says it needs no deploy).
 export const needsDeploy = (it) => !!(it && isDev(it) && it.iris && it.iris.launch === true && !it.dev.deployed && !it.dev.nodeploy);
@@ -331,4 +335,38 @@ export function validateAndDeploy(plan, stackId, now = new Date()) {
   const main = validated.items.find((i) => i.id === stackId);
   if (!needsDeploy(main)) return { plan: validated, error: '' };
   return requestDeploy(validated, stackId, now);
+}
+
+// ---- dates of a ticket (for the list and the side panel) ----
+const notesOfItem = (plan, id) => ((plan.iris && plan.iris.notes) || []).filter((n) => n.item === id);
+// When it arrived: stamped on creation; for older tickets, the time of its first order note (or nothing).
+export const arrivedAt = (plan, st) => st.main.dev.created || notesOfItem(plan, st.id).map((n) => n.t).filter(Boolean).sort()[0] || '';
+// When the area finished it: stamped when it was ticked; else its last report from the area, else the end of the run.
+export function finishedAt(plan, st) {
+  const m = st.main;
+  if (!m.done) return '';
+  const rep = notesOfItem(plan, st.id).filter((n) => n.dir === 'to_hub' && n.from !== 'launcher' && n.kind === 'report').map((n) => n.t).filter(Boolean).sort().pop();
+  return m.dev.doneAt || rep || (m.iris && m.iris.ended) || '';
+}
+// Local "YYYY-MM-DDTHH:MM" of the block's day and time ('' when it has no exact day, date only when it has no time).
+export function scheduledISO(m) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(m.day || '')) return '';
+  if (typeof m.at !== 'number') return m.day;
+  return `${m.day}T${String(Math.floor(m.at / 60)).padStart(2, '0')}:${String(m.at % 60).padStart(2, '0')}`;
+}
+// Steps of the ticket's life with their dates: { key, label, at, done, planned }. The first step not done is the one it is in now.
+export function ticketTimeline(plan, st) {
+  const m = st.main; const iris = m.iris || {};
+  const sched = scheduledISO(m);
+  const launchedAt = iris.state && iris.state !== 'pending' && iris.state !== 'missed' ? iris.at || '' : '';
+  const fin = finishedAt(plan, st);
+  const validated = !!(m.done && m.dev.v);
+  return [
+    { key: 'arrived', label: 'Llegó', at: arrivedAt(plan, st), done: true },
+    { key: 'scheduled', label: 'Agendado para', at: sched, done: !!sched && !!iris.launch, planned: !!sched && !launchedAt },
+    { key: 'launched', label: 'Lanzado', at: launchedAt, done: !!launchedAt },
+    { key: 'finished', label: 'Terminó', at: fin, done: !!m.done },
+    { key: 'validated', label: 'Validado', at: m.dev.vAt || '', done: validated },
+    { key: 'main', label: 'En main', at: m.dev.deployed || '', done: !!m.dev.deployed }
+  ];
 }
