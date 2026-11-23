@@ -202,3 +202,19 @@
 .tk-closeall { margin: -4px 0 0; font-size: 14px; }
 
 .tk-group { padding: 14px 16px 4px; font: 600 12px 'Geist', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tk-faint); }
+
+.tk-prompt { display: grid; gap: 8px; }
+.tk-tok { color: var(--tk-muted); font-size: 13px; }
+.tk-ptext { width: 100%; min-height: 260px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--tk-edge); background: rgba(0, 0, 0, 0.3); color: var(--tk-ink); font: 400 13.5px/1.6 'Geist Mono', ui-monospace, monospace; resize: vertical; }
+.tk-ptext:focus { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 1px; }
+.tk-ptext[readonly] { opacity: 0.75; }
+.tk-pfoot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tk-edited { padding: 2px 10px; border-radius: 999px; background: var(--tk-orange); color: #1d1002; font: 600 12px 'Geist', sans-serif; }
+
+.tk-ext { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--tk-glass2); color: var(--tk-muted); font: 600 11px 'Geist', sans-serif; text-transform: uppercase; vertical-align: 2px; }
+.tk-pdf { width: 100%; height: 62vh; border: 1px solid var(--tk-edge); border-radius: 12px; background: #fff; }
+.tk-imgbox { display: grid; place-items: center; }
+.tk-imgbox img { max-width: 100%; max-height: 60vh; border-radius: 10px; }
+
+.tk-rec.soft { background: var(--tk-glass2); color: var(--tk-ink); }
+.tk-suma.changed { color: var(--tk-orange); font-weight: 600; }

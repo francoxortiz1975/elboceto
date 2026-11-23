@@ -31,14 +31,8 @@ setTimeout(() => process.exit(0), 6000).unref(); // never keep the user waiting
     lines.push(`[IRIS · ${area.name}] Buzón sin notas nuevas.`);
   }
   if (mode === 'session') {
-    const today = isoOf(new Date());
-    const mine = plan.items.filter((i) => i.area === area.id && !i.done && /^\d{4}-\d{2}-\d{2}$/.test(i.day || '') && i.day >= today)
-      .sort((a, b) => `${a.day}${String(typeof a.at === 'number' ? a.at : 99999).padStart(5, '0')}` < `${b.day}${String(typeof b.at === 'number' ? b.at : 99999).padStart(5, '0')}` ? -1 : 1).slice(0, 5);
-    if (mine.length) {
-      lines.push('Próximos bloques de esta área:');
-      mine.forEach((i) => lines.push(`  - ${i.day}${typeof i.at === 'number' ? ` ${fmtMin(i.at)}–${fmtMin(i.at + durOf(i))}` : ''} ${i.text}${i.lock ? ' [con candado]' : ''}${i.kind === 'meeting' ? ' [reunión]' : ''} (bloque ${i.id})`));
-    }
-    lines.push(`Protocolo IRIS: eres la conversación del área ${area.name}. Cuando termines algo relevante (una rama lista, algo bloqueado, una duda), avisa al centro de mando con report_progress(area="${area.name}", text="…", item_id="<bloque>", done=true si terminó). Si tu trabajo cambia una fecha o el alcance de un encargo, dilo en esa misma nota. Las notas de arriba ya quedaron marcadas como leídas.`);
+    // No calendar here: an automatic run is told what to do in its message, and a manual session asks El Boceto when it needs the calendar.
+    lines.push(`Protocolo IRIS: eres la conversación del área ${area.name}. Al terminar algo relevante (una rama lista, algo bloqueado, una duda) avisa con report_progress(area="${area.name}", text="…").`);
   }
   // The notes are now in the conversation: mark them read so they are not shown twice.
   if (unread.length) await mutatePlan(cfg, (p) => ({ plan: markRead(p, { ids: unread.map((n) => n.id) }).plan, result: null }));

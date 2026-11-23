@@ -5,7 +5,8 @@ import {
   setDevTime, setDevLaunch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, fmtWhen, whenOptions, scheduleStack, requestCorrection,
   validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys, isUnread, needsMe, markSeen, queueOrder, closeWithoutDeploy
 } from '../lib/devStacks';
-import { filesOf, fileName, mdPathsIn } from '../lib/devFiles';
+import { filesOf, fileName, docPathsIn, extOf, MIME } from '../lib/devFiles';
+import { defaultPrompt, promptFor, isEdited, setLaunchPrompt, approxTokens } from '../lib/irisPrompt';
 import { DecisionsModal, FileModal } from './TicketsExtras';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import './TicketsPage.css';
@@ -60,7 +61,10 @@ export function TicketsPage({ plan, onChange, user }) {
     say(`${what} copiado`);
   };
   const download = (f) => {
-    const url = URL.createObjectURL(new Blob([f.text], { type: 'text/markdown;charset=utf-8' }));
+    let blob;
+    if (f.b64) { const bin = atob(f.b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i); blob = new Blob([arr], { type: f.mime || MIME[extOf(f.path)] || 'application/octet-stream' }); }
+    else blob = new Blob([f.text || ''], { type: MIME[extOf(f.path)] || 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = fileName(f.path); document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
@@ -167,7 +171,7 @@ export function TicketsPage({ plan, onChange, user }) {
   const actions = (st, ts) => {
     const m = st.main;
     const qs = parseReport(reportOf(plan, st.id)).decisionQs || [];
-    const decBtn = qs.length > 0 ? <button className="tk-btn orange" onClick={() => setDecFor(st.id)}>Responder {qs.length} {qs.length === 1 ? 'decisión' : 'decisiones'}</button> : null;
+    const decBtn = qs.length > 0 ? <button className="tk-btn orange" onClick={() => setDecFor(st.id)}>Revisar {qs.length} {qs.length === 1 ? 'decisión' : 'decisiones'} del agente</button> : null;
     if (mode === 'correct') {
       return (
         <div className="tk-act">
@@ -210,6 +214,31 @@ export function TicketsPage({ plan, onChange, user }) {
     return <div className="tk-act"><div className="tk-hint">Cerrado y en main.</div></div>;
   };
 
+  // What the agent will receive, shown (and editable) until the block is launched
+  const promptBox = (st) => {
+    const m = st.main;
+    if (m.done || (m.iris && m.iris.state === 'launched')) return null;
+    const b = m.iris && m.iris.launch && m.iris.batch;
+    const mates = b ? all.filter((x) => x.main.iris && x.main.iris.launch && x.main.iris.batch === b).sort((x, y) => (x.main.at || 0) - (y.main.at || 0)).map((x) => x.main) : [m];
+    const lead = mates[0];
+    const isLead = lead.id === m.id;
+    const def = defaultPrompt(plan, mates, areaName);
+    const cur = promptFor(plan, mates, areaName);
+    return (
+      <div className="tk-prompt">
+        <div className="tk-rephd"><h3>Lo que recibirá el agente</h3><span className="tk-tok">~{approxTokens(cur)} tokens</span></div>
+        <textarea className="tk-ptext" value={cur} readOnly={!isLead} aria-label="Texto que recibirá el agente" spellCheck={false}
+          onChange={(e) => mutate((p) => setLaunchPrompt(p, lead.id, e.target.value, def))} />
+        <div className="tk-pfoot">
+          {isEdited(lead) && <span className="tk-edited">Editado a mano</span>}
+          {!isLead && <span className="tk-hint">Va en un lote: el texto se edita en el primero ({codeOf(lead) || lead.text.slice(0, 20)}).</span>}
+          {!b && <span className="tk-hint">Si hay otros bloques seguidos de esta noche, irán en este mismo mensaje.</span>}
+          <button className="tk-link" onClick={() => copy(cur, 'Texto')}>Copiar</button>
+          {isEdited(lead) && isLead && <button className="tk-link" onClick={() => mutate((p) => setLaunchPrompt(p, lead.id, '', def))}>Restaurar el texto por defecto</button>}
+        </div>
+      </div>
+    );
+  };
   const panel = (st) => {
     const { ts } = info(st);
     const m = st.main;
@@ -218,7 +247,7 @@ export function TicketsPage({ plan, onChange, user }) {
     const tl = ticketTimeline(plan, st);
     const cur = tl.findIndex((x) => !x.done);
     const files = filesOf(plan, st.id);
-    const mentioned = mdPathsIn(`${raw}\n${m.note || ''}`);
+    const mentioned = docPathsIn(`${raw}\n${m.note || ''}`);
     const sec = (title, items, ordered) => (items.length ? <><h4>{title}</h4>{ordered ? <ol>{items.map((v, i) => <li key={i}>{v}</li>)}</ol> : <ul>{items.map((v, i) => <li key={i}>{v}</li>)}</ul>}</> : null);
     return (
       <aside className="tk-glass tk-panel" aria-label={`Ticket ${codeOf(m) || ''}`}>
@@ -233,6 +262,7 @@ export function TicketsPage({ plan, onChange, user }) {
         {ts.tone !== 'green' && !mode && (
           <button className="tk-link tk-closeall" title="Pasa el ticket a Cerrado ahora mismo. No sube nada y cancela cualquier subida en cola." onClick={() => { if (ts.key === 'running' && !(m.iris && m.iris.ended) && !window.confirm('El agente todavía está trabajando en esto. Cerrarlo no lo detiene. ¿Cerrar de todos modos?')) return; justClose(st); }}>Cerrar directamente, sin subir nada</button>
         )}
+        {promptBox(st)}
         <div>
           <h3>Historial</h3>
           <ul className="tk-tl">
@@ -247,7 +277,7 @@ export function TicketsPage({ plan, onChange, user }) {
             <div className="tk-rephd"><h3>Informe</h3><button className="tk-copy" onClick={() => copy(reportAsText(st, rep), 'Informe')}>Copiar informe</button></div>
             {rep.summary && <p className="lead">{rep.summary}</p>}
             {rep.verify.length > 0 && <><div className="tk-lab">Para comprobarlo</div><ol>{rep.verify.map((v, i) => <li key={i}>{v}</li>)}</ol></>}
-            {rep.decisionQs && rep.decisionQs.length > 0 && <><div className="tk-lab">Decisiones tuyas ({rep.decisionQs.length})</div><ul>{rep.decisionQs.map((d, i) => <li key={i}>{d.q}</li>)}</ul></>}
+            {rep.decisionQs && rep.decisionQs.length > 0 && <><div className="tk-lab">Decisiones que tomó el agente ({rep.decisionQs.length})</div><ul>{rep.decisionQs.map((d, i) => { const c = d.options.find((o) => o.k === d.chosen); return <li key={i}>{d.q}{c ? <> → <b>{c.text}</b></> : null}</li>; })}</ul></>}
             {rep.pending.length > 0 && <><div className="tk-lab">Pendiente</div><ul>{rep.pending.map((v, i) => <li key={i}>{v}</li>)}</ul></>}
             {rep.done.length > 0 && <details className="tk-more"><summary>Qué se hizo</summary><ul>{rep.done.map((v, i) => <li key={i}>{v}</li>)}</ul></details>}
             {(rep.branch || rep.commit) && <div className="tk-mono">{rep.branch}{rep.commit ? ` · ${rep.commit}` : ''}</div>}
@@ -259,13 +289,15 @@ export function TicketsPage({ plan, onChange, user }) {
             <div className="tk-files">
               {files.map((f) => (
                 <div key={f.path} className="tk-file">
-                  <div className="tk-fn"><b>{fileName(f.path)}</b><small>{f.path}</small></div>
+                  <div className="tk-fn"><b>{fileName(f.path)}</b><span className="tk-ext">{extOf(f.path)}</span><small>{f.path}</small></div>
                   <div className="tk-fb">
-                    {f.text && <button onClick={() => setFileView(f)}>Ver</button>}
-                    {f.text && <button onClick={() => download(f)}>Descargar</button>}
+                    {(f.text || f.b64) && f.kind !== 'text' && <button onClick={() => setFileView(f)}>Ver</button>}
+                    {(f.text || f.b64) && f.kind === 'text' && <button onClick={() => setFileView(f)}>Ver</button>}
+                    {(f.text || f.b64) && <button onClick={() => download(f)}>Descargar</button>}
                     <button onClick={() => copy(f.abs, 'Ruta')}>Copiar ruta</button>
                   </div>
                   {f.missing && <small className="tk-fm">No se pudo leer: ¿está en la rama del ticket?</small>}
+                  {f.tooBig && <small className="tk-fm">Pesa {Math.round((f.bytes || 0) / 1024)} KB: demasiado para guardarlo aquí. Copia la ruta y ábrelo en tu Mac.</small>}
                 </div>
               ))}
               {mentioned.filter((p) => !files.some((f) => f.path === p)).map((p) => (
@@ -392,10 +424,10 @@ export function TicketsPage({ plan, onChange, user }) {
         const st = all.find((x) => x.id === decFor);
         const qs = st ? parseReport(reportOf(plan, st.id)).decisionQs : [];
         if (!st || !qs.length) return null;
-        return <DecisionsModal code={codeOf(st.main)} title={st.main.text} qs={qs} onCancel={() => setDecFor(null)} onSend={({ text, day, at }) => {
+        return <DecisionsModal code={codeOf(st.main)} title={st.main.text} qs={qs} onCancel={() => setDecFor(null)} onValidate={() => { setDecFor(null); validate(st); }} onSend={({ text, day, at }) => {
           const out = requestCorrection(plan, st.id, { text, day, at });
           if (out.error) { setMsg(out.error); setDecFor(null); return; }
-          setMsg(''); mutate(() => out.plan); setDecFor(null); say(`Decisiones enviadas · v${out.rev}`);
+          setMsg(''); mutate(() => out.plan); setDecFor(null); say(`Cambios enviados · v${out.rev}`);
         }} />;
       })()}
       {fileView && <FileModal file={fileView} onClose={() => setFileView(null)} onCopy={copy} onDownload={download} />}

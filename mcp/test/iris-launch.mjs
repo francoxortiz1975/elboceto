@@ -261,8 +261,10 @@ ok(parseDecision('Decidir cómo se ve el backlog').options.length === 0 && parse
 const rp2 = parseReport('RESUMEN: Listo\nDECISIONES:\n- ¿Color? | A) Rojo | B) Azul | RECOMIENDO: A\n- ¿Texto del botón?\nPENDIENTE:\n- Nada');
 ok(rp2.decisionQs.length === 2 && rp2.decisionQs[0].rec === 'A' && rp2.decisionQs[1].options.length === 0, 'structured reports expose their decisions as questions');
 const brief = decisionsBrief(rp2.decisionQs, [{ opt: 'B' }, { opt: 'otra', text: 'Guardar cambios' }], 'Gracias');
-ok(/1\. ¿Color\?\n   → B\) Azul/.test(brief) && /2\. ¿Texto del botón\?\n   → Guardar cambios/.test(brief) && /Comentario: Gracias/.test(brief), 'the answers are written for the agent, with the free reply and the comment');
-ok(/\(la recomendada\)/.test(decisionsBrief(rp2.decisionQs, [{ opt: 'A' }, {}])), 'choosing the recommended option says so; an unanswered question falls back to the recommendation');
+ok(/CAMBIOS A TUS DECISIONES/.test(brief) && /1\. ¿Color\?\n   Elegiste A\) Rojo\. Cámbialo a: B\) Azul/.test(brief) && /2\. ¿Texto del botón\?\n   Cámbialo a: Guardar cambios/.test(brief) && /Comentario: Gracias/.test(brief), 'only the changes go back: what the agent chose, and what the user wants instead');
+ok(!/¿Color\?/.test(decisionsBrief(rp2.decisionQs, [{ opt: 'A' }, { opt: 'otra', text: 'Otra' }])) && /SIN CAMBIOS/.test(decisionsBrief(rp2.decisionQs, [{ opt: 'A' }, {}])), 'a decision the user keeps is not sent again; if nothing changes there is nothing to send');
+const dcq = parseDecision('¿Modelo? | A) El actual | B) Otro | RECOMIENDO: A | ELEGIDA: A');
+ok(dcq.chosen === 'A' && dcq.rec === 'A' && parseDecision('¿X? | A) uno | B) dos | RECOMIENDO: B').chosen === 'B' && parseDecision('¿X? | A) uno | B) dos | RECOMIENDO: B | ELEGIDA: A').chosen === 'A', 'the chosen option is what the agent says it implemented; it defaults to the recommended one');
 ok(mdPathsIn('Guion en docs/entregables/guion-demo-nova.md y nota README.md. Ver https://x.com/a.md y ../fuera/x.md').join() === 'docs/entregables/guion-demo-nova.md,README.md', 'markdown paths are found; URLs and parent folders are not');
 ok(filesOf({ devFiles: { a: [{ path: 'x.md' }] } }, 'a').length === 1 && filesOf({}, 'a').length === 0, 'files of an item');
 
@@ -341,3 +343,26 @@ const closedQ = closeWithoutDeploy(cwp, 'k2');
 ok(ticketStatus(closedQ, { id: 'k2', main: closedQ.items[0] }).tone === 'green' && queueOrder({ ...closedQ, areas: [{ id: 'm', name: 'MediLyft' }] }, new Date(2026, 10, 24, 0, 10)).queue.length === 0, 'a queued push that is cancelled leaves the queue and never launches');
 const closedOpen = closeWithoutDeploy({ items: [{ id: 'w', area: 'm', text: 'W', done: false, day: '2026-11-23', at: 600, dev: { s: 'w', r: 'build' }, iris: { launch: true, state: 'launched', ended: 'x' } }] }, 'w');
 ok(closedOpen.items[0].done === true && closedOpen.items[0].dev.nodeploy === true, 'closing an open ticket also marks it done');
+
+import { briefFor, defaultPrompt, promptFor, isEdited, setLaunchPrompt, approxTokens } from '../../src/lib/irisPrompt.js';
+const ip = { areas: [{ id: 'm', name: 'MediLyft' }], items: [
+  { id: 'p1', area: 'm', text: 'Flujo del bot', note: 'Cambiar el saludo', done: false, day: '2026-11-25', at: 600, dev: { s: 'p1', r: 'build', code: 'MC001' }, iris: { launch: true, state: 'pending' } },
+  { id: 'p2', area: 'm', text: 'Otro', done: false, day: '2026-11-25', at: 660, dev: { s: 'p2', r: 'build', code: 'MC002' }, iris: { launch: true, state: 'pending', batch: 'b1' } },
+  { id: 'p3', area: 'm', text: 'Tercero', done: false, day: '2026-11-25', at: 720, dev: { s: 'p3', r: 'build', code: 'MC003' }, iris: { launch: true, state: 'pending', batch: 'b1' } }
+], iris: { notes: [] } };
+const d1 = defaultPrompt(ip, [ip.items[0]], 'MediLyft');
+ok(/Encargo automático/.test(d1) && /No consultes el calendario/.test(d1) && /\[MC001\] "Flujo del bot"/.test(d1) && /Cambiar el saludo/.test(d1) && /item_id="p1"/.test(d1) && /Sin push, sin deploy/.test(d1), 'the message states it is automatic, forbids checking the calendar, carries the ticket and its comments, and the rules');
+ok(!/pide confirmación/i.test(d1) && !/buzón/i.test(d1), 'no asking for confirmation (nobody is there) and no pointing to the inbox: the task is inside the message');
+const d3 = defaultPrompt(ip, [ip.items[1], ip.items[2]], 'MediLyft');
+ok(/Son 2 encargos/.test(d3) && d3.indexOf('MC002') < d3.indexOf('MC003') && /item_id="p2"/.test(d3) && /item_id="p3"/.test(d3), 'a batch lists every task in order, each with its item id');
+const edited = setLaunchPrompt(ip, 'p1', 'Haz solo X.', d1);
+ok(isEdited(edited.items[0]) && promptFor(edited, [edited.items[0]], 'MediLyft') === 'Haz solo X.' && !isEdited(setLaunchPrompt(edited, 'p1', '', d1).items[0]) && !isEdited(setLaunchPrompt(ip, 'p1', d1, d1).items[0]), 'an edited message is what gets sent; empty or equal to the default restores it');
+const cp3 = { ...ip, iris: { notes: [{ id: 'c', item: 'p1', kind: 'order', dir: 'to_area', t: '2026-11-24T10:00:00Z', text: 'CORRECCIÓN v2 de MC001: Flujo\n\nHaz el botón azul' }] } };
+ok(/Haz el botón azul/.test(briefFor(cp3, cp3.items[0])) && /Cambiar el saludo/.test(briefFor(ip, ip.items[0])), 'a correction sends its saved order; a plain ticket sends its current text and comments');
+const dep = { ...ip, items: [{ id: 'd1', area: 'm', text: 'Subir MC001 a main', done: false, day: '2026-11-24', at: 0, deploy: { stack: 'p1' }, iris: { launch: true, state: 'pending', deploy: true } }], iris: { notes: [{ id: 'dn', item: 'd1', kind: 'order', dir: 'to_area', t: 'x', text: 'SUBIR A MAIN: pasos' }] } };
+ok(/SÍ puede hacer git merge y push a main/.test(defaultPrompt(dep, [dep.items[0]], 'MediLyft')) && /SUBIR A MAIN: pasos/.test(defaultPrompt(dep, [dep.items[0]], 'MediLyft')), 'a push-to-main message says this run may push, and carries the steps');
+ok(approxTokens('x'.repeat(400)) === 100, 'a rough token count');
+
+import { docPathsIn, kindOf as kindOfFile } from '../../src/lib/devFiles.js';
+ok(docPathsIn('Examen en docs/entregables/examen-demo-anonimo/examen-demo-anonimo.pdf y la captura x/captura.png; guion docs/g.md, datos a.csv. Ver https://x.com/a.pdf').join() === 'docs/entregables/examen-demo-anonimo/examen-demo-anonimo.pdf,x/captura.png,docs/g.md,a.csv', 'PDFs, images, documents and data files named in a report are found; URLs are not');
+ok(kindOfFile('a/x.pdf') === 'pdf' && kindOfFile('x.PNG') === 'image' && kindOfFile('x.md') === 'markdown' && kindOfFile('x.csv') === 'text', 'each file is shown by its kind');

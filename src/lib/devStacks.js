@@ -188,17 +188,22 @@ export const unbatch = (plan, batchId) => ({ ...plan, items: plan.items.map((i) 
 const SECTION = /^\s*(RESUMEN|HECHO|VERIFICAR|DECISIONES|PENDIENTE|RAMA|COMMIT)\s*:\s*(.*)$/i;
 const bullet = (l) => l.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').trim();
 const KEY = { RESUMEN: 'summary', HECHO: 'done', VERIFICAR: 'verify', DECISIONES: 'decisions', PENDIENTE: 'pending' };
-// "¿Qué texto usar? | A) Hola y nombre | B) Solo Hola | RECOMIENDO: A" -> { q, options: [{ k, text }], rec }
+// "¿Qué texto usar? | A) Hola y nombre | B) Solo Hola | RECOMIENDO: B | ELEGIDA: B" -> { q, options: [{ k, text }], rec, chosen }
+// The agent takes the recommended option and carries on; ELEGIDA says which one it implemented (the recommended one when it does not say).
 export function parseDecision(str) {
   const parts = String(str).split('|').map((x) => x.trim()).filter(Boolean);
-  const options = []; let rec = '';
+  const options = []; let rec = ''; let picked = '';
   parts.slice(1).forEach((p) => {
     const o = /^([A-Za-z0-9])[).:]\s*(.+)$/.exec(p);
     if (o) { options.push({ k: o[1].toUpperCase(), text: o[2] }); return; }
     const r = /^RECOMIEND[AO]\s*:?\s*([A-Za-z0-9])\b/i.exec(p);
-    if (r) rec = r[1].toUpperCase();
+    if (r) { rec = r[1].toUpperCase(); return; }
+    const c = /^ELEGID[AO]\s*:?\s*([A-Za-z0-9])\b/i.exec(p);
+    if (c) picked = c[1].toUpperCase();
   });
-  return { q: parts[0] || String(str), options, rec: options.some((o) => o.k === rec) ? rec : '' };
+  const has = (k) => options.some((o) => o.k === k);
+  const recommended = has(rec) ? rec : '';
+  return { q: parts[0] || String(str), options, rec: recommended, chosen: has(picked) ? picked : recommended };
 }
 export function parseReport(raw = '') {
   const out = { summary: '', done: [], verify: [], decisions: [], pending: [], branch: '', commit: '', structured: false };
@@ -463,15 +468,20 @@ export function requestCorrection(plan, stackId, { text, day, at }, now = new Da
   return { plan: addNotes(scheduled, [{ area: main.area, dir: 'to_area', kind: 'order', from: 'boceto', item: stackId, text: brief }], now.toISOString()), error: '', rev };
 }
 
-// The answers to a report's decisions, written for the agent. answers: [{ opt: 'A' | 'otra' | '', text }] (one per question).
+// The user's review of the decisions the agent took. answers: [{ opt: 'A' | 'otra' | '', text }] (one per question).
+// Only what changes is sent; everything else stays as the agent implemented it.
+export function decisionChanges(qs, answers) {
+  return qs.map((d, i) => ({ d, i, a: answers[i] || {} })).filter(({ d, a }) => (a.opt === 'otra' ? !!(a.text || '').trim() : !!a.opt && a.opt !== d.chosen));
+}
 export function decisionsBrief(qs, answers, note = '') {
-  const lines = qs.map((d, i) => {
-    const a = answers[i] || {};
-    const chosen = d.options.find((o) => o.k === a.opt);
-    const reply = a.opt === 'otra' ? (a.text || '').trim() : chosen ? `${chosen.k}) ${chosen.text}${chosen.k === d.rec ? ' (la recomendada)' : ''}` : d.rec ? `${d.rec}) ${(d.options.find((o) => o.k === d.rec) || {}).text} (la recomendada)` : (a.text || '').trim();
-    return `${i + 1}. ${d.q}\n   → ${reply || 'sin respuesta'}`;
+  const lines = decisionChanges(qs, answers).map(({ d, i, a }) => {
+    const opt = d.options.find((o) => o.k === a.opt);
+    const before = d.options.find((o) => o.k === d.chosen);
+    const reply = a.opt === 'otra' ? (a.text || '').trim() : `${opt.k}) ${opt.text}`;
+    return `${i + 1}. ${d.q}\n   ${before ? `Elegiste ${before.k}) ${before.text}. ` : ''}Cámbialo a: ${reply}`;
   });
-  return `DECISIONES DE FRANCO:\n${lines.join('\n')}${note.trim() ? `\n\nComentario: ${note.trim()}` : ''}`;
+  const head = lines.length ? 'CAMBIOS A TUS DECISIONES (solo estos; todo lo demás queda como lo dejaste):' : 'SIN CAMBIOS EN TUS DECISIONES.';
+  return `${head}${lines.length ? `\n${lines.join('\n')}` : ''}${note.trim() ? `\n\nComentario: ${note.trim()}` : ''}`;
 }
 
 // ---- news and attention: what is unread (bold) and what needs an answer (notification) ----

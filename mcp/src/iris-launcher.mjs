@@ -20,7 +20,8 @@ import { analyzeStacks } from './gitMerged.mjs';
 import { collectFiles } from './gitFiles.mjs';
 import { addWin, loadWins, saveWins, windowsToClose, closeWindow, screenHash } from './irisWindows.mjs';
 import { sessionFile } from './irisResume.mjs';
-import { addNotes } from '../../src/lib/iris';
+import { addNotes, notesOf, markRead } from '../../src/lib/iris';
+import { promptFor } from '../../src/lib/irisPrompt';
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 const log = (...a) => console.log(`[${new Date().toLocaleTimeString('es-ES')}]`, ...a);
@@ -55,7 +56,7 @@ async function openFor(c, file, conf) {
     if (!sid || !sessionExists(rdir, sid)) { mode = 'notify'; why = 'la conversación fijada no existe en esa carpeta'; }
     else if (sessionInUse(rdir, sid)) { mode = 'notify'; why = 'esa conversación está en uso ahora mismo'; if (c.item.iris && c.item.iris.notified) return `wait (${why})`; }
     else {
-      write(resumeMessage(c.item, c.areaName, '', c.more || []));
+      write(c.msg || resumeMessage(c.item, c.areaName, '', c.more || []));
       const logFile = conf.background ? runLog(sid) : '';
       const command = resumeCommand({ dir: rdir, sid, promptFile: file, claudeBin: conf.claudeBin, model: conf.model, effort: conf.effort, permissionMode: conf.permissionMode, deny: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).deny, allow: toolsFor(conf, c.areaName, { deploy: !!c.item.deploy }).allow, logFile, maxBudget: conf.maxBudgetUsd * (1 + (c.more || []).length) });
       if (logFile) background(command); else { const tty = await terminalDo(command); if (/^\/dev\/ttys?\d+$/.test(tty)) addWin({ tty, sid, dir: rdir, openedAt: new Date().toISOString(), items: [c.item.id, ...(c.more || []).map((i) => i.id)] }); }
@@ -211,11 +212,16 @@ export async function tick({ now = new Date(), dry = false } = {}) {
       const night = !conf.batchNightOnly || isNight(d.item.at);
       const more = d.item.deploy ? [] : sid && d.item.iris && d.item.iris.batch ? findCompanions(p, d.item).filter((i) => !taken.has(i.id)) : sid && night && conf.batchMinutes > 0 ? findCompanions(p, d.item, { windowMin: conf.batchMinutes, max: conf.batchMax }).filter((i) => !taken.has(i.id)) : [];
       more.forEach((i) => taken.add(i.id));
-      claimed.push({ item: d.item, dir: d.dir, areaName, mode, prompt: launchPrompt(p, d.item), more });
+      // the exact message the conversation receives (the user's edited text if there is one); the web page shows the same text beforehand
+      claimed.push({ item: d.item, dir: d.dir, areaName, mode, prompt: launchPrompt(p, d.item), more, msg: promptFor(p, [d.item, ...more], areaName) });
     }
     missedIds.splice(0, missedIds.length, ...cur.missed.map((i) => i.id));
     if (!claimed.length && !cur.missed.length) return { plan: p, result: null };
     let next = setLaunchState(p, claimed.flatMap((c) => [c.item.id, ...c.more.map((i) => i.id)]), 'launched', now.toISOString());
+    // The orders are inside the message now: mark them read so the session hook does not hand them over a second time
+    const claimedIds = new Set(claimed.flatMap((c) => [c.item.id, ...c.more.map((i) => i.id)]));
+    const orderIds = notesOf(p).filter((n) => n.kind === 'order' && n.dir === 'to_area' && !n.read && claimedIds.has(n.item)).map((n) => n.id);
+    if (orderIds.length) next = markRead(next, { ids: orderIds }).plan;
     next = setLaunchState(next, missedIds, 'missed', now.toISOString());
     const areaName = (id) => (p.areas.find((a) => a.id === id) || {}).name || id;
     next = addNotes(next, [
