@@ -283,3 +283,21 @@ ok(findDue(qp({}), lateNow, { MediLyft: '/d' }).missed.length === 1, 'a block th
 const qd = findDue(qp({ notified: true }), lateNow, { MediLyft: '/d' });
 ok(qd.missed.length === 0 && qd.due.length === 1, 'a block that was already waiting in the queue keeps its place after its slot passes');
 ok(findDue(qp({ notified: true }), new Date(2026, 10, 26, 9, 0), { MediLyft: '/d' }).missed.length === 1, 'but not for ever: after a day it is missed');
+
+import { newsAt, needsMe, isUnread, markSeen, alertsDue, markAlerted } from '../../src/lib/devStacks.js';
+const NOWMS = Date.parse('2026-11-23T23:00:00Z');
+const np = (dev, iris, notes = []) => ({ items: [{ id: 'n1', area: 'm', text: 'Ticket', done: true, day: '2026-11-23', at: 600, dev: { s: 'n1', r: 'build', code: 'MC001', ...dev }, iris: { launch: true, state: 'launched', ...iris } }], iris: { notes } });
+const nst = (p) => ({ id: 'n1', main: p.items[0] });
+const fresh = np({ doneAt: '2026-11-23T22:50:00Z' }, { ended: '2026-11-23T22:40:00Z' });
+ok(newsAt(fresh, nst(fresh)) === '2026-11-23T22:50:00Z', 'the news time is the latest event: report, finish, end of run, validation…');
+const rpn = np({}, {}, [{ id: 'r', item: 'n1', dir: 'to_hub', from: 'area', kind: 'report', t: '2026-11-23T22:55:00Z', text: 'x' }, { id: 'l', item: 'n1', dir: 'to_hub', from: 'launcher', kind: 'report', t: '2026-11-23T22:59:00Z', text: 'aviso' }]);
+ok(newsAt(rpn, nst(rpn)) === '2026-11-23T22:55:00Z', 'the launcher\'s own notices are not news');
+ok(isUnread(fresh, nst(fresh), NOWMS) && !isUnread(markSeen(fresh, 'n1', '2026-11-23T22:58:00Z'), nst(markSeen(fresh, 'n1', '2026-11-23T22:58:00Z')), NOWMS), 'news is unread until the user opens the ticket (seen after the news)');
+ok(!isUnread(np({ doneAt: '2026-11-10T10:00:00Z' }, {}), nst(np({ doneAt: '2026-11-10T10:00:00Z' }, {})), NOWMS) && !isUnread(np({}, {}), nst(np({}, {})), NOWMS), 'old news and tickets without news are not unread');
+ok(needsMe(fresh, nst(fresh)) && !needsMe(np({ doneAt: 'x', v: true, deployed: 'd' }, {}), nst(np({ doneAt: 'x', v: true, deployed: 'd' }, {}))), 'waiting for review needs the user; a ticket in main does not');
+const al = alertsDue(fresh, NOWMS);
+ok(al.notify.length === 1 && al.notify[0].code === 'MC001' && /revisión/.test(al.notify[0].why) && al.silent.length === 0, 'fresh news that needs an answer is notified');
+const al2 = alertsDue(markAlerted(fresh, al.notify), NOWMS);
+ok(al2.notify.length === 0 && al2.silent.length === 0, 'once alerted it is not notified again');
+ok(alertsDue(np({ doneAt: '2026-11-23T10:00:00Z' }, {}), NOWMS).notify.length === 0 && alertsDue(np({ doneAt: '2026-11-23T10:00:00Z' }, {}), NOWMS).silent.length === 1, 'old news is marked silently, not notified');
+ok(alertsDue(markSeen(fresh, 'n1', '2026-11-23T22:58:00Z'), NOWMS).notify.length === 0, 'what the user already read is not notified');

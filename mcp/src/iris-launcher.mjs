@@ -15,7 +15,7 @@ import { loadAreas } from './irisAreas.mjs';
 import { modeFor, pinnedSession, pinnedDir, modelFlags, permissionFlags, sessionExists, sessionInUse, resumeMessage, resumeCommand, notifyArgs, toolsFor } from './irisResume.mjs';
 import { findCompanions, isNight, staleLaunched, markEnded, findDue, launchPrompt, setLaunchState, deepLink, findFinished, markReported } from '../../src/lib/irisLaunch';
 import { completePastClasses } from '../../src/lib/areaPlan';
-import { applyDeploys } from '../../src/lib/devStacks';
+import { applyDeploys, alertsDue, markAlerted } from '../../src/lib/devStacks';
 import { analyzeStacks } from './gitMerged.mjs';
 import { collectFiles } from './gitFiles.mjs';
 import { addWin, loadWins, saveWins, windowsToClose, closeWindow, screenHash } from './irisWindows.mjs';
@@ -134,6 +134,21 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   if (!dry && applyDeploys(plan) !== plan) {
     await mutatePlan(cfg, (p) => ({ plan: applyDeploys(p, now.toISOString()), result: null }));
     log('subido a main: tickets marcados como deployados');
+  }
+  // A notification only when a ticket needs an answer from the user (waiting for review, left open, failed), once per piece of news
+  if (!dry && process.platform === 'darwin') {
+    try {
+      const { notify, silent } = alertsDue(plan, Date.now());
+      if (notify.length || silent.length) {
+        const nameOf = (id) => (plan.areas.find((a) => a.id === id) || {}).name || 'IRIS';
+        for (const n of notify.slice(0, 3)) {
+          await exec('osascript', notifyArgs(`IRIS · ${nameOf(n.area)}`, `${n.code ? `${n.code} ` : ''}${n.why}: ${n.text}`.slice(0, 140), conf.notifySound)).catch(() => {});
+        }
+        if (notify.length > 3) await exec('osascript', notifyArgs('IRIS', `y ${notify.length - 3} tickets más esperan algo de ti`, conf.notifySound)).catch(() => {});
+        await mutatePlan(cfg, (p) => ({ plan: markAlerted(p, [...notify, ...silent]), result: null }));
+        if (notify.length) log(`aviso: ${notify.map((n) => n.code || n.text).join(', ')}`);
+      }
+    } catch (e) { log(`avisos: ${e.message}`); }
   }
   // Every 2 minutes: markdown files named in the areas' reports are read and kept in the plan so the web page can show and download them
   if (!dry && now.getMinutes() % 2 === 0) {

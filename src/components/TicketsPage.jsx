@@ -3,7 +3,7 @@ import { isoOf } from '../lib/areaPlan';
 import {
   devStacks, addDevStack, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsDeploy, toggleDevDone, setDevValid, reportOf, parseReport,
   setDevTime, setDevLaunch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, fmtWhen, whenOptions, scheduleStack, requestCorrection,
-  validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys
+  validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys, isUnread, needsMe, markSeen
 } from '../lib/devStacks';
 import { filesOf, fileName, mdPathsIn } from '../lib/devFiles';
 import { DecisionsModal, FileModal } from './TicketsExtras';
@@ -42,7 +42,6 @@ export function TicketsPage({ plan, onChange, user }) {
   const toastTimer = useRef(null);
   const mutate = (fn) => onChange((p) => fn(p));
 
-  useEffect(() => { document.title = 'Tickets'; }, []);
   useEffect(() => { const h = () => setRef((window.location.pathname.split('/')[2] || '').toLowerCase()); window.addEventListener('popstate', h); return () => window.removeEventListener('popstate', h); }, []);
   // A finished "subir a main" block marks its feature as deployed; open work of the area becomes tickets (both once).
   useEffect(() => { if (applyDeploys(plan) !== plan) onChange((p) => applyDeploys(p)); }, [plan, onChange]);
@@ -69,6 +68,7 @@ export function TicketsPage({ plan, onChange, user }) {
     const part = (title, items, numbered) => (items.length ? `\n${title}\n${items.map((v, i) => (numbered ? `${i + 1}. ${v}` : `- ${v}`)).join('\n')}\n` : '');
     return [`${codeOf(st.main) || 'Ticket'} · ${st.main.text}`, rep.summary ? `\n${rep.summary}` : '', part('Qué se hizo', rep.done), part('Cómo comprobarlo', rep.verify, true), part('Decisiones', rep.decisions), part('Pendiente', rep.pending), (rep.branch || rep.commit) ? `\n${rep.branch}${rep.commit ? ` · ${rep.commit}` : ''}` : ''].join('\n').replace(/\n{3,}/g, '\n\n').trim();
   };
+  useEffect(() => { if (sel && isUnread(plan, sel)) onChange((p) => markSeen(p, sel.id)); }, [sel && sel.id, plan]); // eslint-disable-line react-hooks/exhaustive-deps
   const say = (t) => { setToast(t); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 2400); };
   const open = (st) => { const r = st ? (codeOf(st.main) || st.id) : ''; window.history.pushState(null, '', r ? `/tickets/${r}` : '/tickets'); setRef(r.toLowerCase()); };
   const pickArea = (v) => { setAreaId(v); open(null); try { localStorage.setItem(AREA_KEY, v); } catch { /* storage unavailable */ } };
@@ -80,6 +80,19 @@ export function TicketsPage({ plan, onChange, user }) {
     return { ...n, all: all.length - n.ok };
   }, [all, plan]);
   const waiting = counts.wait;
+  // News not opened yet: bold in the list. Of those, the ones that need an answer also raise the tab count and a browser notification.
+  const unread = useMemo(() => new Set(all.filter((st) => isUnread(plan, st)).map((st) => st.id)), [all, plan]);
+  const needing = useMemo(() => all.filter((st) => unread.has(st.id) && needsMe(plan, st)), [all, plan, unread]);
+  useEffect(() => { document.title = needing.length ? `(${needing.length}) Tickets` : 'Tickets'; }, [needing.length]);
+  const prevNeeding = useRef(null);
+  useEffect(() => {
+    const ids = new Set(needing.map((st) => st.id));
+    if (prevNeeding.current && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      needing.filter((st) => !prevNeeding.current.has(st.id)).slice(0, 3).forEach((st) => { try { new Notification(`${codeOf(st.main) || 'Ticket'} necesita tu respuesta`, { body: st.main.text }); } catch { /* notifications unavailable */ } });
+    }
+    prevNeeding.current = ids;
+  }, [needing]);
+  const [notifPerm, setNotifPerm] = useState(() => (typeof Notification !== 'undefined' ? Notification.permission : 'denied'));
 
   const rows = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -295,6 +308,7 @@ export function TicketsPage({ plan, onChange, user }) {
             <div className="tk-tools">
               <select className="tk-glass tk-areasel" value={areaId} onChange={(e) => pickArea(e.target.value)} aria-label="Área">{plan.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
               <label className="tk-glass tk-search"><span aria-hidden="true">⌕</span><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por código o asunto" aria-label="Buscar" /></label>
+              {notifPerm === 'default' && <button className="tk-glass tk-add" title="Avisa cuando un ticket necesite tu respuesta" onClick={() => Notification.requestPermission().then(setNotifPerm)}>Activar avisos</button>}
               <button className="tk-glass tk-add" onClick={() => setNewOpen((v) => !v)}>+ Nuevo</button>
             </div>
           </header>
@@ -331,9 +345,9 @@ export function TicketsPage({ plan, onChange, user }) {
                 const late = sch && sch.includes('T') && new Date(sch).getTime() < Date.now() && (ts.key === 'scheduled' || ts.key === 'missed');
                 const lote = st.main.iris && st.main.iris.launch && st.main.iris.batch;
                 return (
-                  <button key={st.id} className="tk-row" aria-selected={sel && sel.id === st.id} onClick={() => open(sel && sel.id === st.id ? null : st)}>
+                  <button key={st.id} className={`tk-row${unread.has(st.id) ? ' unread' : ''}`} aria-selected={sel && sel.id === st.id} onClick={() => open(sel && sel.id === st.id ? null : st)}>
                     <span className="tk-code">{codeOf(st.main) || '—'}{(st.main.dev.rev || 1) > 1 && <span className="tk-rev">v{st.main.dev.rev}</span>}</span>
-                    <div><div className="tk-ttl">{st.main.text}</div><div className="tk-sub">{st.main.dev.mod && cfg ? cfg.modules[st.main.dev.mod] : 'Sin módulo'}{lote ? ' · en lote' : ''}</div></div>
+                    <div><div className="tk-ttl">{unread.has(st.id) && <i className="tk-newdot" aria-label="Novedad sin leer" />}{st.main.text}</div><div className="tk-sub">{st.main.dev.mod && cfg ? cfg.modules[st.main.dev.mod] : 'Sin módulo'}{lote ? ' · en lote' : ''}</div></div>
                     <div className="tk-when"><span className={`tk-pill p-${ts.tone}`}>{ts.label}</span><small className={late ? 'late' : ''}>{sch ? `${fmtWhen(sch)}${late ? ' · atrasado' : ''}` : 'Sin agendar'}</small></div>
                   </button>
                 );

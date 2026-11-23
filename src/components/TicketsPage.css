@@ -184,3 +184,9 @@
 .md-reader table { width: 100%; border-collapse: collapse; font-size: 16px; }
 .md-reader th, .md-reader td { padding: 10px 14px; border: 1px solid var(--tk-edge); text-align: left; vertical-align: top; }
 .md-reader th { background: rgba(255, 255, 255, 0.1); font-weight: 600; }
+
+/* unread news: bold title with a dot; read tickets are regular weight */
+.tk-ttl { font-weight: 500; }
+.tk-row.unread .tk-ttl { font-weight: 700; }
+.tk-row.unread .tk-code { color: var(--tk-ink); font-weight: 600; }
+.tk-newdot { display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: var(--tk-orange); vertical-align: 1px; box-shadow: 0 0 0 3px rgba(242, 146, 43, 0.25); }

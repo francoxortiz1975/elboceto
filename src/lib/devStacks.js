@@ -469,3 +469,42 @@ export function decisionsBrief(qs, answers, note = '') {
   });
   return `DECISIONES DE FRANCO:\n${lines.join('\n')}${note.trim() ? `\n\nComentario: ${note.trim()}` : ''}`;
 }
+
+// ---- news and attention: what is unread (bold) and what needs an answer (notification) ----
+// When something new happened that the user should look at: the area's report, the end of its run, finishing, validating, a lost block.
+export function newsAt(plan, st) {
+  const m = st.main; const iris = m.iris || {};
+  const reports = ((plan.iris && plan.iris.notes) || []).filter((n) => n.item === st.id && n.dir === 'to_hub' && n.from !== 'launcher' && n.kind === 'report').map((n) => n.t);
+  const lost = iris.launch && iris.state === 'missed' ? iris.at : '';
+  return [...reports, m.dev.doneAt, iris.ended, lost, m.dev.vAt, m.dev.deployed].filter(Boolean).sort().pop() || '';
+}
+// A ticket needs the user when it waits for something from them (orange) or failed (red).
+export const needsMe = (plan, st) => { const t = ticketStatus(plan, st).tone; return t === 'orange' || t === 'red'; };
+// Unread = news the user has not opened yet (and recent: older news does not flood the list).
+export function isUnread(plan, st, now = Date.now(), maxAgeMs = 72 * 36e5) {
+  const n = Date.parse(newsAt(plan, st));
+  if (!n || now - n > maxAgeMs) return false;
+  return n > (Date.parse(st.main.dev.seen || '') || 0);
+}
+export const markSeen = (plan, id, now = new Date().toISOString()) => ({ ...plan, items: plan.items.map((i) => (i.id === id && isDev(i) ? { ...i, dev: { ...i.dev, seen: now } } : i)) });
+
+const WHY = { done: 'espera tu revisión', running: 'terminó y necesita algo de ti', validated: 'falta subirlo a main', missed: 'no llegó a abrirse', deployfail: 'falló la subida a main' };
+// Notifications to send now: tickets that need an answer, with news not yet alerted. Old news and what the user already read are marked silently.
+export function alertsDue(plan, now = Date.now(), { freshMs = 3 * 36e5 } = {}) {
+  const notify = []; const silent = [];
+  devStacks(plan).forEach((st) => {
+    if (!needsMe(plan, st)) return;
+    const news = newsAt(plan, st);
+    const t = Date.parse(news);
+    if (!t || t <= (Date.parse(st.main.dev.alertedAt || '') || 0)) return;
+    const seen = t <= (Date.parse(st.main.dev.seen || '') || 0);
+    if (seen || now - t > freshMs) { silent.push({ id: st.id, news }); return; }
+    const ts = ticketStatus(plan, st);
+    notify.push({ id: st.id, news, area: st.main.area, code: st.main.dev.code || '', text: st.main.text, why: WHY[ts.key] || ts.label });
+  });
+  return { notify, silent };
+}
+export const markAlerted = (plan, list) => {
+  const by = new Map(list.map((x) => [x.id, x.news]));
+  return by.size ? { ...plan, items: plan.items.map((i) => (by.has(i.id) && isDev(i) ? { ...i, dev: { ...i.dev, alertedAt: by.get(i.id) } } : i)) } : plan;
+};
