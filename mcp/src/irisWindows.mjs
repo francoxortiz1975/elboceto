@@ -44,9 +44,16 @@ const CLOSE_SCRIPT = ['on run argv', 'set target to item 1 of argv', 'tell appli
 const osa = (lines, arg) => new Promise((resolve, reject) => execFile('osascript', [...lines.flatMap((l) => ['-e', l]), arg], (e, out) => (e ? reject(e) : resolve(String(out || '').trim()))));
 
 // Ends the conversation's claude process on that tty (SIGTERM; the conversation is already saved) and closes the window if it was alone.
+// A recorded tty can be reused by another Terminal window after the original one is closed. The window is ours only if its screen still shows
+// the conversation id we launched (the command we typed is in its history).
+export const windowIsOurs = (screenText, sid) => !!sid && String(screenText || '').includes(String(sid));
+
 export async function closeWindow(w) {
   const ttyName = String(w.tty).replace('/dev/', '');
   if (!/^ttys?\d+$/.test(ttyName)) return 'bad-tty';
+  const screen = await new Promise((resolve) => execFile('osascript', [...HISTORY_SCRIPT.flatMap((l) => ['-e', l]), w.tty], { maxBuffer: 16 * 1024 * 1024 }, (e, out) => resolve(e ? '' : String(out || ''))));
+  if (!screen || screen.trim() === 'gone') return 'gone';          // the window is already closed
+  if (!windowIsOurs(screen, w.sid)) return 'other';                // another window took that tty: leave it alone
   let ps = '';
   try { ps = execFileSync('ps', ['-t', ttyName, '-o', 'pid=,pcpu=,command='], { encoding: 'utf8' }); } catch { /* no processes on that tty */ }
   if (ttyBusy(ps)) return 'busy';

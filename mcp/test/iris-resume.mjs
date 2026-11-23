@@ -145,3 +145,5 @@ const md = '# Proyecto\n\nCosas.\n\n## El Boceto: backlog\n\n- Al empezar una se
 const ex = AC.extractBocetoRules(md);
 ok(/El Boceto: backlog/.test(ex) && /get_today/.test(ex) && /Detalle/.test(ex) && !/Otra cosa/.test(ex) && !/Cosas\./.test(ex), 'the El Boceto section of a CLAUDE.md is extracted with its subsections and nothing else');
 ok(AC.asksForCalendar(ex) && !AC.asksForCalendar('Trabaja en una rama.') && AC.extractBocetoRules('# Solo\n\nnada') === '', 'it notices a rule that asks for the calendar; no section means empty');
+
+ok(WN.windowIsOurs('cd x && claude --resume \'e466-aaa\' hola', 'e466-aaa') && !WN.windowIsOurs('francoortiz@mac ~ % ls', 'e466-aaa') && !WN.windowIsOurs('', 'e466-aaa'), 'a window is closed only if its screen shows the conversation we launched in it (a reused tty is left alone)');
