@@ -193,7 +193,8 @@ export async function tick({ now = new Date(), dry = false } = {}) {
     const cur = findDue(p, now, conf.areas);
     const taken = new Set();
     claimed = [];
-    const dueSorted = cur.due.slice().sort((x, y) => `${x.item.day}${String(x.item.at).padStart(5, '0')}`.localeCompare(`${y.item.day}${String(y.item.at).padStart(5, '0')}`)); // the earliest request goes first
+    // pushes to main go first (short, and the user is waiting on them); then the earliest request
+    const dueSorted = cur.due.slice().sort((x, y) => (x.item.deploy ? 0 : 1) - (y.item.deploy ? 0 : 1) || `${x.item.day}${String(x.item.at).padStart(5, '0')}`.localeCompare(`${y.item.day}${String(y.item.at).padStart(5, '0')}`));
     for (const d of dueSorted) {
       if (claimed.length >= conf.maxPerTick) break;
       if (taken.has(d.item.id)) continue; // already travelling in another block's batch

@@ -301,3 +301,10 @@ const al2 = alertsDue(markAlerted(fresh, al.notify), NOWMS);
 ok(al2.notify.length === 0 && al2.silent.length === 0, 'once alerted it is not notified again');
 ok(alertsDue(np({ doneAt: '2026-11-23T10:00:00Z' }, {}), NOWMS).notify.length === 0 && alertsDue(np({ doneAt: '2026-11-23T10:00:00Z' }, {}), NOWMS).silent.length === 1, 'old news is marked silently, not notified');
 ok(alertsDue(markSeen(fresh, 'n1', '2026-11-23T22:58:00Z'), NOWMS).notify.length === 0, 'what the user already read is not notified');
+
+const qd2 = requestDeploy({ items: [{ id: 'k', area: 'm', text: 'K', done: true, day: '2026-11-22', at: 600, dev: { s: 'k', r: 'build', code: 'MC001', v: true }, iris: { launch: true, state: 'launched' } }] }, 'k', new Date(2026, 10, 23, 23, 36)).plan;
+ok(ticketStatus(qd2, { id: 'k', main: qd2.items[0] }).label === 'En cola para subir a main', 'a push to main that has not started shows as queued, not as running');
+const run2 = { ...qd2, items: qd2.items.map((i) => (i.deploy ? { ...i, iris: { ...i.iris, state: 'launched' } } : i)) };
+ok(ticketStatus(run2, { id: 'k', main: run2.items[0] }).label === 'Subiendo a main', 'once it starts it says it is going up');
+const qs3 = lp({ day: '2026-11-25', at: 600, iris: { launch: true, state: 'pending', notified: true } });
+ok(ticketStatus(qs3, { id: 'f1', main: qs3.items[0] }).label === 'En cola', 'a scheduled block waiting for a busy conversation shows as queued');

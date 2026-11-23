@@ -295,6 +295,9 @@ export function ticketStatus(plan, st) {
   let tone = TONES[r.key]; let label = LABELS[r.key];
   if (r.key === 'running' && st.main.iris && st.main.iris.ended) { tone = 'orange'; label = 'Esperando · abierto'; }
   if (r.key === 'validated' && r.action === 'deploy') { tone = 'orange'; label = 'Falta subir a main'; }
+  // waiting in the queue (its conversation was busy): say so instead of "running"
+  if (r.key === 'deploying') { const open = deployItems(plan, st.id).find((i) => !i.done); if (open && open.iris && open.iris.state === 'pending') label = 'En cola para subir a main'; }
+  if (r.key === 'scheduled' && st.main.iris && st.main.iris.notified) label = 'En cola';
   return { ...r, tone, label };
 }
 
