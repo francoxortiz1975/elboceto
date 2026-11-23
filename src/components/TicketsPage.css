@@ -120,3 +120,43 @@
 .tk-copy { padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--tk-edge); background: var(--tk-glass); color: var(--tk-ink); font: 600 13px 'Geist', sans-serif; cursor: pointer; }
 .tk-copy:hover { background: var(--tk-glass2); }
 .tk-root .tk-rep, .tk-root .tk-revi, .tk-root .tk-title, .tk-root .tk-note { -webkit-user-select: text; user-select: text; }
+
+/* text can be selected anywhere on this page (the app disables it globally) */
+.tk-root { -webkit-user-select: text; user-select: text; }
+.tk-root button { -webkit-user-select: none; user-select: none; }
+.tk-root .tk-row * { -webkit-user-select: text; user-select: text; }
+.tk-btn.orange { background: var(--tk-orange); border-color: var(--tk-orange); color: #1d1002; }
+.tk-lab { margin: 12px 0 4px; font-size: 14px; font-weight: 600; color: var(--tk-muted); }
+.tk-rep ol, .tk-rep ul { margin: 0; padding-left: 22px; display: grid; gap: 5px; font-size: 16px; }
+.tk-more { margin-top: 12px; }
+.tk-more summary { cursor: pointer; color: var(--tk-muted); font-weight: 500; font-size: 14px; }
+.tk-more ul { margin-top: 8px; padding-left: 22px; display: grid; gap: 5px; }
+.tk-files { display: grid; gap: 8px; }
+.tk-file { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: rgba(0, 0, 0, 0.22); }
+.tk-fn b { display: block; font-size: 16px; }
+.tk-fn small, .tk-fm { color: var(--tk-muted); font: 400 13px 'Geist Mono', ui-monospace, monospace; overflow-wrap: anywhere; }
+.tk-fb { display: flex; gap: 8px; flex-wrap: wrap; }
+.tk-fb button { padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--tk-edge); background: var(--tk-glass); color: var(--tk-ink); font: 600 13px 'Geist', sans-serif; cursor: pointer; }
+.tk-fb button:hover { background: var(--tk-glass2); }
+.tk-modalback { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(5, 6, 8, 0.6); }
+.tk-modal { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 24px; display: grid; gap: 16px; background: rgba(30, 32, 38, 0.82); }
+.tk-modal.wide { width: min(900px, 100%); }
+.tk-mh { display: flex; align-items: center; gap: 12px; }
+.tk-mstep { margin-left: auto; color: var(--tk-muted); font-size: 14px; font-weight: 600; }
+.tk-mh .tk-x { margin-left: 0; }
+.tk-bar { height: 4px; border-radius: 99px; background: var(--tk-glass2); overflow: hidden; }
+.tk-bar i { display: block; height: 100%; background: var(--tk-orange); transition: width 0.25s; }
+.tk-q { margin: 0; font: 600 24px/1.3 'Geist', sans-serif; letter-spacing: -0.01em; }
+.tk-opts { display: grid; gap: 10px; }
+.tk-opt { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 16px; border: 1.5px solid var(--tk-edge); background: var(--tk-glass); color: var(--tk-ink); text-align: left; cursor: pointer; font: 500 17px/1.35 'Geist', sans-serif; }
+.tk-opt:hover { background: var(--tk-glass2); }
+.tk-opt[aria-pressed='true'] { border-color: var(--tk-ink); background: var(--tk-glass2); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.tk-ok { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--tk-ink); color: #111; font: 700 14px 'Geist', sans-serif; }
+.tk-rec { padding: 3px 10px; border-radius: 999px; background: var(--tk-green); color: #04210f; font: 600 12px 'Geist', sans-serif; white-space: nowrap; }
+.tk-mf { display: flex; justify-content: space-between; gap: 10px; }
+.tk-mf .tk-btn { flex: 1; }
+.tk-mf .tk-btn:disabled { opacity: 0.35; cursor: default; }
+.tk-sum { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
+.tk-sumq { border: 0; background: none; padding: 0; color: var(--tk-ink); font: 600 16px/1.35 'Geist', sans-serif; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--tk-faint); }
+.tk-suma { margin-top: 3px; color: var(--tk-muted); font-size: 16px; }
+.tk-filetext { margin: 0; padding: 16px; border-radius: 14px; background: rgba(0, 0, 0, 0.3); color: var(--tk-ink); font: 400 14px/1.6 'Geist Mono', ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 56vh; overflow: auto; -webkit-user-select: text; user-select: text; }

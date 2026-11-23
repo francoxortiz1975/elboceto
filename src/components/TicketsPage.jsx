@@ -5,6 +5,8 @@ import {
   setDevTime, setDevLaunch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, fmtWhen, whenOptions, scheduleStack, requestCorrection,
   validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys
 } from '../lib/devStacks';
+import { filesOf, fileName, mdPathsIn } from '../lib/devFiles';
+import { DecisionsModal, FileModal } from './TicketsExtras';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import './TicketsPage.css';
 
@@ -35,6 +37,8 @@ export function TicketsPage({ plan, onChange, user }) {
   const [newOpen, setNewOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newMod, setNewMod] = useState('');
+  const [decFor, setDecFor] = useState(null); // ticket whose decisions are being answered
+  const [fileView, setFileView] = useState(null);
   const toastTimer = useRef(null);
   const mutate = (fn) => onChange((p) => fn(p));
 
@@ -55,6 +59,11 @@ export function TicketsPage({ plan, onChange, user }) {
       try { document.execCommand('copy'); } catch { /* nothing else to try */ } document.body.removeChild(ta);
     }
     say(`${what} copiado`);
+  };
+  const download = (f) => {
+    const url = URL.createObjectURL(new Blob([f.text], { type: 'text/markdown;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = fileName(f.path); document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const reportAsText = (st, rep) => {
     const part = (title, items, numbered) => (items.length ? `\n${title}\n${items.map((v, i) => (numbered ? `${i + 1}. ${v}` : `- ${v}`)).join('\n')}\n` : '');
@@ -129,6 +138,8 @@ export function TicketsPage({ plan, onChange, user }) {
 
   const actions = (st, ts) => {
     const m = st.main;
+    const qs = parseReport(reportOf(plan, st.id)).decisionQs || [];
+    const decBtn = qs.length > 0 ? <button className="tk-btn orange" onClick={() => setDecFor(st.id)}>Responder {qs.length} {qs.length === 1 ? 'decisión' : 'decisiones'}</button> : null;
     if (mode === 'correct') {
       return (
         <div className="tk-act">
@@ -147,6 +158,7 @@ export function TicketsPage({ plan, onChange, user }) {
     if (ts.key === 'done') {
       return (
         <div className="tk-act">
+          {decBtn}
           <div className="tk-two"><button className="tk-btn go" onClick={() => validate(st)}>✓ Validar</button><button className="tk-btn" onClick={() => setMode('correct')}>✎ Corrección</button></div>
           <div className="tk-hint">{needsDeploy(m) ? 'Validar lo sube a main y lo cierra.' : 'Validar lo da por cerrado.'}</div>
         </div>
@@ -156,6 +168,7 @@ export function TicketsPage({ plan, onChange, user }) {
       return (
         <div className="tk-act">
           <div className="tk-hint">El agente terminó y lo dejó abierto: necesita algo de ti. Lee su informe abajo.</div>
+          {decBtn}
           <div className="tk-two"><button className="tk-btn" onClick={() => setMode('correct')}>✎ Corrección</button><button className="tk-btn go" onClick={() => mutate((p) => toggleDevDone(p, st.id))}>✓ Darlo por hecho</button></div>
         </div>
       );
@@ -176,6 +189,8 @@ export function TicketsPage({ plan, onChange, user }) {
     const rep = parseReport(raw);
     const tl = ticketTimeline(plan, st);
     const cur = tl.findIndex((x) => !x.done);
+    const files = filesOf(plan, st.id);
+    const mentioned = mdPathsIn(`${raw}\n${m.note || ''}`);
     const sec = (title, items, ordered) => (items.length ? <><h4>{title}</h4>{ordered ? <ol>{items.map((v, i) => <li key={i}>{v}</li>)}</ol> : <ul>{items.map((v, i) => <li key={i}>{v}</li>)}</ul>}</> : null);
     return (
       <aside className="tk-glass tk-panel" aria-label={`Ticket ${codeOf(m) || ''}`}>
@@ -198,10 +213,38 @@ export function TicketsPage({ plan, onChange, user }) {
         </div>
         {raw && (
           <div className="tk-rep">
-            <div className="tk-rephd"><h3>Último informe</h3><button className="tk-copy" onClick={() => copy(reportAsText(st, rep), 'Informe')}>Copiar informe</button></div>
+            <div className="tk-rephd"><h3>Informe</h3><button className="tk-copy" onClick={() => copy(reportAsText(st, rep), 'Informe')}>Copiar informe</button></div>
             {rep.summary && <p className="lead">{rep.summary}</p>}
-            {sec('Qué se hizo', rep.done)}{sec('Cómo comprobarlo', rep.verify, true)}{sec('Decisiones', rep.decisions)}{sec('Pendiente', rep.pending)}
+            {rep.verify.length > 0 && <><div className="tk-lab">Para comprobarlo</div><ol>{rep.verify.map((v, i) => <li key={i}>{v}</li>)}</ol></>}
+            {rep.decisionQs && rep.decisionQs.length > 0 && <><div className="tk-lab">Decisiones tuyas ({rep.decisionQs.length})</div><ul>{rep.decisionQs.map((d, i) => <li key={i}>{d.q}</li>)}</ul></>}
+            {rep.pending.length > 0 && <><div className="tk-lab">Pendiente</div><ul>{rep.pending.map((v, i) => <li key={i}>{v}</li>)}</ul></>}
+            {rep.done.length > 0 && <details className="tk-more"><summary>Qué se hizo</summary><ul>{rep.done.map((v, i) => <li key={i}>{v}</li>)}</ul></details>}
             {(rep.branch || rep.commit) && <div className="tk-mono">{rep.branch}{rep.commit ? ` · ${rep.commit}` : ''}</div>}
+          </div>
+        )}
+        {(files.length > 0 || mentioned.length > 0) && (
+          <div>
+            <h3>Archivos</h3>
+            <div className="tk-files">
+              {files.map((f) => (
+                <div key={f.path} className="tk-file">
+                  <div className="tk-fn"><b>{fileName(f.path)}</b><small>{f.path}</small></div>
+                  <div className="tk-fb">
+                    {f.text && <button onClick={() => setFileView(f)}>Ver</button>}
+                    {f.text && <button onClick={() => download(f)}>Descargar</button>}
+                    <button onClick={() => copy(f.abs, 'Ruta')}>Copiar ruta</button>
+                  </div>
+                  {f.missing && <small className="tk-fm">No se pudo leer: ¿está en la rama del ticket?</small>}
+                </div>
+              ))}
+              {mentioned.filter((p) => !files.some((f) => f.path === p)).map((p) => (
+                <div key={p} className="tk-file">
+                  <div className="tk-fn"><b>{fileName(p)}</b><small>{p}</small></div>
+                  <div className="tk-fb"><button onClick={() => copy(p, 'Ruta')}>Copiar ruta</button></div>
+                  <small className="tk-fm">Aún no se ha leído; aparecerá en un par de minutos.</small>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         <div>
@@ -300,6 +343,17 @@ export function TicketsPage({ plan, onChange, user }) {
           </div>
         </div>
       </div>
+      {decFor && (() => {
+        const st = all.find((x) => x.id === decFor);
+        const qs = st ? parseReport(reportOf(plan, st.id)).decisionQs : [];
+        if (!st || !qs.length) return null;
+        return <DecisionsModal code={codeOf(st.main)} title={st.main.text} qs={qs} onCancel={() => setDecFor(null)} onSend={({ text, day, at }) => {
+          const out = requestCorrection(plan, st.id, { text, day, at });
+          if (out.error) { setMsg(out.error); setDecFor(null); return; }
+          setMsg(''); mutate(() => out.plan); setDecFor(null); say(`Decisiones enviadas · v${out.rev}`);
+        }} />;
+      })()}
+      {fileView && <FileModal file={fileView} onClose={() => setFileView(null)} onCopy={copy} onDownload={download} />}
       <div className={`tk-glass tk-toast${toast ? ' show' : ''}`} role="status">{toast}</div>
     </div>
   );

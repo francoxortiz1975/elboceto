@@ -187,6 +187,18 @@ export const unbatch = (plan, batchId) => ({ ...plan, items: plan.items.map((i) 
 const SECTION = /^\s*(RESUMEN|HECHO|VERIFICAR|DECISIONES|PENDIENTE|RAMA|COMMIT)\s*:\s*(.*)$/i;
 const bullet = (l) => l.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').trim();
 const KEY = { RESUMEN: 'summary', HECHO: 'done', VERIFICAR: 'verify', DECISIONES: 'decisions', PENDIENTE: 'pending' };
+// "¿Qué texto usar? | A) Hola y nombre | B) Solo Hola | RECOMIENDO: A" -> { q, options: [{ k, text }], rec }
+export function parseDecision(str) {
+  const parts = String(str).split('|').map((x) => x.trim()).filter(Boolean);
+  const options = []; let rec = '';
+  parts.slice(1).forEach((p) => {
+    const o = /^([A-Za-z0-9])[).:]\s*(.+)$/.exec(p);
+    if (o) { options.push({ k: o[1].toUpperCase(), text: o[2] }); return; }
+    const r = /^RECOMIEND[AO]\s*:?\s*([A-Za-z0-9])\b/i.exec(p);
+    if (r) rec = r[1].toUpperCase();
+  });
+  return { q: parts[0] || String(str), options, rec: options.some((o) => o.k === rec) ? rec : '' };
+}
 export function parseReport(raw = '') {
   const out = { summary: '', done: [], verify: [], decisions: [], pending: [], branch: '', commit: '', structured: false };
   const text = String(raw || '');
@@ -209,7 +221,8 @@ export function parseReport(raw = '') {
     if (!t || !cur) return;
     if (cur === 'summary') out.summary += (out.summary ? ' ' : '') + t; else out[cur].push(t);
   });
-  if (hits >= 2) { out.structured = true; return out; }
+  out.decisionQs = [];
+  if (hits >= 2) { out.structured = true; out.decisionQs = out.decisions.map(parseDecision); return out; }
   // free text: sentences, sorted by what they talk about
   const b = /rama(?: local)?\s+([\w./-]{3,})/i.exec(text); const c = /commit\s+([0-9a-f]{7,40})/i.exec(text);
   if (b) out.branch = b[1]; if (c) out.commit = c[1];
@@ -444,4 +457,15 @@ export function requestCorrection(plan, stackId, { text, day, at }, now = new Da
   ].filter(Boolean).join('\n\n');
   const scheduled = scheduleStack(reopened, stackId, { day, at }, now);
   return { plan: addNotes(scheduled, [{ area: main.area, dir: 'to_area', kind: 'order', from: 'boceto', item: stackId, text: brief }], now.toISOString()), error: '', rev };
+}
+
+// The answers to a report's decisions, written for the agent. answers: [{ opt: 'A' | 'otra' | '', text }] (one per question).
+export function decisionsBrief(qs, answers, note = '') {
+  const lines = qs.map((d, i) => {
+    const a = answers[i] || {};
+    const chosen = d.options.find((o) => o.k === a.opt);
+    const reply = a.opt === 'otra' ? (a.text || '').trim() : chosen ? `${chosen.k}) ${chosen.text}${chosen.k === d.rec ? ' (la recomendada)' : ''}` : d.rec ? `${d.rec}) ${(d.options.find((o) => o.k === d.rec) || {}).text} (la recomendada)` : (a.text || '').trim();
+    return `${i + 1}. ${d.q}\n   → ${reply || 'sin respuesta'}`;
+  });
+  return `DECISIONES DE FRANCO:\n${lines.join('\n')}${note.trim() ? `\n\nComentario: ${note.trim()}` : ''}`;
 }

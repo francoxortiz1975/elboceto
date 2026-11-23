@@ -17,6 +17,7 @@ import { findCompanions, isNight, staleLaunched, markEnded, findDue, launchPromp
 import { completePastClasses } from '../../src/lib/areaPlan';
 import { applyDeploys } from '../../src/lib/devStacks';
 import { analyzeStacks } from './gitMerged.mjs';
+import { collectFiles } from './gitFiles.mjs';
 import { addWin, loadWins, saveWins, windowsToClose, closeWindow } from './irisWindows.mjs';
 import { sessionFile } from './irisResume.mjs';
 import { addNotes } from '../../src/lib/iris';
@@ -126,6 +127,18 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   if (!dry && applyDeploys(plan) !== plan) {
     await mutatePlan(cfg, (p) => ({ plan: applyDeploys(p, now.toISOString()), result: null }));
     log('subido a main: tickets marcados como deployados');
+  }
+  // Every 2 minutes: markdown files named in the areas' reports are read and kept in the plan so the web page can show and download them
+  if (!dry && now.getMinutes() % 2 === 0) {
+    try {
+      const nameOf = (id) => (plan.areas.find((a) => a.id === id) || {}).name || '';
+      const dirOf = (areaId) => { const n = nameOf(areaId); const k = Object.keys(conf.areas).find((x) => x.toLowerCase() === n.toLowerCase()); return pinnedDir(conf, n) || (k ? conf.areas[k] : ''); };
+      const found = collectFiles(plan, dirOf);
+      if (Object.keys(found).length) {
+        await mutatePlan(cfg, (p) => ({ plan: { ...p, devFiles: { ...(p.devFiles || {}), ...found } }, result: null }));
+        log(`archivos .md guardados para ${Object.keys(found).length} ticket(s)`);
+      }
+    } catch (e) { log(`archivos md: ${e.message}`); }
   }
   // Every 5 minutes: features whose branch is already in main (merged by hand) are marked "deployado en main"
   if (!dry && now.getMinutes() % 5 === 0) {

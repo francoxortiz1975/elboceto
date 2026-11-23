@@ -252,3 +252,16 @@ ok(!cr.error && cr.rev === 2 && c1.done === false && !c1.dev.v && !c1.dev.deploy
 const corrN = cr.plan.iris.notes.filter((n) => n.kind === 'order' && n.item === 'c1').pop();
 ok(/CORRECCIÓN v2 de MC001/.test(corrN.text) && /azul/.test(corrN.text) && /iris\/MC001-flujo/.test(corrN.text) && /MISMA rama/.test(corrN.text), 'the order carries the comment, the previous summary and the branch to keep working on');
 ok(requestCorrection(corrP, 'c1', { text: '  ', day: '2026-11-24', at: 540 }, NW).error !== '' && requestCorrection(corrP, 'c1', { text: 'x' }, NW).error !== '' && requestCorrection(cr.plan, 'c1', { text: 'otra', day: '2026-11-25', at: 'now' }, NW).rev === 3, 'a correction needs a comment and a time; the next one is v3');
+
+import { parseDecision, decisionsBrief } from '../../src/lib/devStacks.js';
+import { mdPathsIn, filesOf } from '../../src/lib/devFiles.js';
+const dq = parseDecision('¿Qué texto usar en el saludo? | A) Hola y nombre | B) Solo Hola | C) Sin saludo | RECOMIENDO: B');
+ok(dq.q === '¿Qué texto usar en el saludo?' && dq.options.length === 3 && dq.options[1].text === 'Solo Hola' && dq.rec === 'B', 'a decision line becomes a question with its options and the recommended one');
+ok(parseDecision('Decidir cómo se ve el backlog').options.length === 0 && parseDecision('¿X? | A) uno | RECOMIENDO: Z').rec === '', 'a decision without options is an open question; an unknown recommendation is ignored');
+const rp2 = parseReport('RESUMEN: Listo\nDECISIONES:\n- ¿Color? | A) Rojo | B) Azul | RECOMIENDO: A\n- ¿Texto del botón?\nPENDIENTE:\n- Nada');
+ok(rp2.decisionQs.length === 2 && rp2.decisionQs[0].rec === 'A' && rp2.decisionQs[1].options.length === 0, 'structured reports expose their decisions as questions');
+const brief = decisionsBrief(rp2.decisionQs, [{ opt: 'B' }, { opt: 'otra', text: 'Guardar cambios' }], 'Gracias');
+ok(/1\. ¿Color\?\n   → B\) Azul/.test(brief) && /2\. ¿Texto del botón\?\n   → Guardar cambios/.test(brief) && /Comentario: Gracias/.test(brief), 'the answers are written for the agent, with the free reply and the comment');
+ok(/\(la recomendada\)/.test(decisionsBrief(rp2.decisionQs, [{ opt: 'A' }, {}])), 'choosing the recommended option says so; an unanswered question falls back to the recommendation');
+ok(mdPathsIn('Guion en docs/entregables/guion-demo-nova.md y nota README.md. Ver https://x.com/a.md y ../fuera/x.md').join() === 'docs/entregables/guion-demo-nova.md,README.md', 'markdown paths are found; URLs and parent folders are not');
+ok(filesOf({ devFiles: { a: [{ path: 'x.md' }] } }, 'a').length === 1 && filesOf({}, 'a').length === 0, 'files of an item');
