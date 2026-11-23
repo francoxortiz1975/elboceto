@@ -265,3 +265,14 @@ ok(/1\. ¿Color\?\n   → B\) Azul/.test(brief) && /2\. ¿Texto del botón\?\n  
 ok(/\(la recomendada\)/.test(decisionsBrief(rp2.decisionQs, [{ opt: 'A' }, {}])), 'choosing the recommended option says so; an unanswered question falls back to the recommendation');
 ok(mdPathsIn('Guion en docs/entregables/guion-demo-nova.md y nota README.md. Ver https://x.com/a.md y ../fuera/x.md').join() === 'docs/entregables/guion-demo-nova.md,README.md', 'markdown paths are found; URLs and parent folders are not');
 ok(filesOf({ devFiles: { a: [{ path: 'x.md' }] } }, 'a').length === 1 && filesOf({}, 'a').length === 0, 'files of an item');
+
+import { parseMarkdown, parseInline } from '../../src/lib/mdParse.js';
+const mdb = parseMarkdown('# Guion\n\nTexto con **negrita**, `código` y [enlace](https://a.com) o [malo](javascript:alert(1)).\n\n## Escena\n\n| Escribe | El bot responde |\n|---|---|\n| `hola` | Saluda |\n| **Sí** | Lista |\n\n- uno\n- dos\n  - sub\n\n1. a\n2. b\n\n> nota\n\n---\n\n```js\nx = 1\n```');
+ok(mdb[0].t === 'h' && mdb[0].n === 1 && mdb[2].t === 'h' && mdb[2].n === 2, 'headings are read with their level');
+ok(mdb[1].c.some((n) => n.t === 'b') && mdb[1].c.some((n) => n.t === 'code') && mdb[1].c.some((n) => n.t === 'a' && n.href === 'https://a.com') && !mdb[1].c.some((n) => n.t === 'a' && /javascript/.test(n.href)), 'inline bold, code and links; a javascript: link is kept as plain text');
+const mtb = mdb.find((b) => b.t === 'table');
+ok(mtb && mtb.head.length === 2 && mtb.rows.length === 2 && mtb.rows[1][0][0].t === 'b', 'tables keep their header, rows and the formatting inside cells');
+const mls = mdb.filter((b) => b.t === 'list');
+ok(mls.length === 2 && !mls[0].ordered && mls[0].items.length === 2 && mls[0].items[1].sub.length === 1 && mls[1].ordered, 'lists: bullets with one nested level, and numbered');
+ok(mdb.some((b) => b.t === 'quote') && mdb.some((b) => b.t === 'hr') && mdb.some((b) => b.t === 'code' && b.v === 'x = 1'), 'quotes, rules and fenced code');
+ok(parseInline('<script>alert(1)</script>').every((n) => n.t === 'text'), 'raw HTML in a file stays text: nothing is ever rendered as markup');

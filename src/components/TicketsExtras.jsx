@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MarkdownView } from './MarkdownView';
 import { whenOptions } from '../lib/devStacks';
 import { decisionsBrief } from '../lib/devStacks';
 
@@ -90,16 +91,21 @@ export function DecisionsModal({ code, title, qs, onCancel, onSend }) {
   );
 }
 
-// A markdown file the area left, shown as plain selectable text.
+// A markdown file the area left: read as a document (default) or as plain selectable text.
 export function FileModal({ file, onClose, onCopy, onDownload }) {
+  const [reader, setReader] = useState(true);
   return (
     <div className="tk-modalback" role="dialog" aria-modal="true" aria-label={file.path} onClick={onClose}>
       <div className="tk-glass tk-modal wide" onClick={(e) => e.stopPropagation()}>
         <div className="tk-mh">
           <span className="tk-code">{file.path}</span>
+          <div className="tk-seg" role="group" aria-label="Cómo verlo">
+            <button aria-pressed={reader} onClick={() => setReader(true)}>Lector</button>
+            <button aria-pressed={!reader} onClick={() => setReader(false)}>Texto</button>
+          </div>
           <button className="tk-x" aria-label="Cerrar" onClick={onClose}>×</button>
         </div>
-        <pre className="tk-filetext">{file.text}</pre>
+        {reader ? <div className="tk-filebox"><MarkdownView text={file.text} /></div> : <pre className="tk-filetext">{file.text}</pre>}
         {file.truncated && <div className="tk-hint">Se muestran los primeros 80 KB. Para verlo completo, ábrelo en tu Mac.</div>}
         <div className="tk-mf">
           <button className="tk-btn" onClick={() => onCopy(file.text, 'Texto')}>Copiar texto</button>
