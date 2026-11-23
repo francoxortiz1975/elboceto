@@ -18,7 +18,7 @@ import { completePastClasses } from '../../src/lib/areaPlan';
 import { applyDeploys } from '../../src/lib/devStacks';
 import { analyzeStacks } from './gitMerged.mjs';
 import { collectFiles } from './gitFiles.mjs';
-import { addWin, loadWins, saveWins, windowsToClose, closeWindow } from './irisWindows.mjs';
+import { addWin, loadWins, saveWins, windowsToClose, closeWindow, screenHash } from './irisWindows.mjs';
 import { sessionFile } from './irisResume.mjs';
 import { addNotes } from '../../src/lib/iris';
 
@@ -112,7 +112,14 @@ export async function tick({ now = new Date(), dry = false } = {}) {
   if (!dry && conf.windowIdleMinutes > 0) {
     try {
       const wins = loadWins();
-      const idle = windowsToClose(wins, { idleMs: conf.windowIdleMinutes * 60000, lastActivity: (w) => { try { return fs.statSync(sessionFile(w.dir, w.sid)).mtimeMs; } catch { return 0; } } });
+      // Activity = the conversation being written to OR the window's screen changing (the transcript is not written while a tool runs)
+      let touched = false;
+      for (const w of wins) {
+        const h = await screenHash(w.tty);
+        if (h && h !== w.h) { w.h = h; w.ch = Date.now(); touched = true; }
+      }
+      if (touched) saveWins(wins);
+      const idle = windowsToClose(wins, { idleMs: conf.windowIdleMinutes * 60000, lastActivity: (w) => { let m = 0; try { m = fs.statSync(sessionFile(w.dir, w.sid)).mtimeMs; } catch { /* no transcript */ } return Math.max(m, w.ch || 0); } });
       const done = [];
       for (const w of idle) {
         const r = await closeWindow(w).catch((e) => `error: ${e.message}`);

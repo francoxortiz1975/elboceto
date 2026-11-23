@@ -144,7 +144,10 @@ export function resumeCommand({ dir, sid, promptFile, claudeBin = '', model = ''
   const p = logFile ? ' -p' : '';
   const budget = logFile && maxBudget > 0 ? ` --max-budget-usd ${Number(maxBudget)}` : '';
   const tail = logFile ? ` >> ${q(logFile)} 2>&1` : '';
-  return `cd ${q(dir)} && ${withPath}${bin}${p} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny, allow)}${budget}${tail}`;
+  // A Terminal window can inherit CLAUDE_CODE_* variables from the app that started Terminal; with them Claude thinks it is a child session
+  // and does not save the conversation. A window run drops them first.
+  const clean = logFile ? '' : `unset $(env | sed -n 's/^\\(CLAUDE_CODE_[A-Z0-9_]*\\)=.*/\\1/p') && `;
+  return `cd ${q(dir)} && ${clean}${withPath}${bin}${p} --resume ${q(sid)} "$(cat ${q(promptFile)})"${modelFlags(model, effort)}${permissionFlags(permissionMode, deny, allow)}${budget}${tail}`;
 }
 
 // IRIS always runs on one model and effort (default Sonnet 5.5, medium): "model" / "effort" in iris-areas.json change it.

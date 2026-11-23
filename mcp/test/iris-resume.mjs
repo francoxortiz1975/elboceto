@@ -48,9 +48,9 @@ const item = { id: 'ap_1', text: 'Formulario', at: 21 * 60 };
 const msg = R.resumeMessage(item, 'Loginet', '21:00–22:00');
 ok(/bloque "Formulario" \(21:00–22:00\) del área Loginet/.test(msg) && /report_progress\(area="Loginet", item_id="ap_1"/.test(msg) && /read_notes/.test(msg) && /sin desplegar ni publicar/.test(msg), 'the resume message names the block, points to the inbox, asks for a branch and for report_progress');
 const cmd = R.resumeCommand({ dir: "/Users/x/it's here", sid: 'bbb-222', promptFile: '/tmp/m.txt', claudeBin: '/Users/x/.nvm/versions/node/v22/bin/claude' });
-ok(cmd === `cd '/Users/x/it'\\''s here' && PATH='/Users/x/.nvm/versions/node/v22/bin':"$PATH" '/Users/x/.nvm/versions/node/v22/bin/claude' --resume 'bbb-222' "$(cat '/tmp/m.txt')"`, 'resume command: quoted folder, claude by full path with its folder on PATH, --resume <id>');
-ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p' }) === `cd '/a' && claude --resume 's' "$(cat '/p')"`, 'without a known claude path it uses plain `claude`');
-ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', model: 'claude-sonnet-5-5', effort: 'medium' }) === `cd '/a' && claude --resume 's' "$(cat '/p')" --model 'claude-sonnet-5-5' --effort 'medium'`, 'IRIS runs on Sonnet 5.5 with medium effort: --model and --effort go into the command');
+ok(cmd === `cd '/Users/x/it'\\''s here' && unset $(env | sed -n 's/^\\(CLAUDE_CODE_[A-Z0-9_]*\\)=.*/\\1/p') && PATH='/Users/x/.nvm/versions/node/v22/bin':"$PATH" '/Users/x/.nvm/versions/node/v22/bin/claude' --resume 'bbb-222' "$(cat '/tmp/m.txt')"`, 'resume command: quoted folder, claude by full path with its folder on PATH, --resume <id>');
+ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p' }) === `cd '/a' && unset $(env | sed -n 's/^\\(CLAUDE_CODE_[A-Z0-9_]*\\)=.*/\\1/p') && claude --resume 's' "$(cat '/p')"`, 'without a known claude path it uses plain `claude`');
+ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', model: 'claude-sonnet-5-5', effort: 'medium' }) === `cd '/a' && unset $(env | sed -n 's/^\\(CLAUDE_CODE_[A-Z0-9_]*\\)=.*/\\1/p') && claude --resume 's' "$(cat '/p')" --model 'claude-sonnet-5-5' --effort 'medium'`, 'IRIS runs on Sonnet 5.5 with medium effort: --model and --effort go into the command');
 ok(R.modelFlags("x; rm -rf /", 'bogus') === ` --model 'claude-sonnet-5-5' --effort 'medium'`, 'a model or effort with odd characters or an unknown level falls back to the defaults');
 ok(R.modelFlags('claude-opus-5-5', 'high') === ` --model 'claude-opus-5-5' --effort 'high'` && R.modelFlags('', '') === '', 'other models and efforts can be configured; none means no flags');
 const na = R.notifyArgs('IRIS · Loginet', 'Empieza "x"; rm -rf /');
@@ -133,3 +133,5 @@ ok(WN.windowsToClose([{ tty: '/dev/ttys9', sid: 'c', openedAt: new Date(t0 - 600
 const PS = '  101   0.0 -zsh\n  102   1.2 /Users/x/.nvm/bin/claude --resume aaa-1 hola\n  103   0.1 node /srv/boceto-mcp/server.mjs\n';
 ok(WN.claudePidsOnTty(PS, 'aaa-1').join() === '102' && WN.claudePidsOnTty(PS, 'zzz').length === 0, 'only the claude process that carries the conversation id is picked');
 ok(!WN.ttyBusy(PS) && WN.ttyBusy(PS + '  104  85.0 node /x/jest --runInBand\n'), 'a tty is busy when something there (not the shell) is using the CPU');
+
+ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p' }).includes("CLAUDE_CODE_[A-Z0-9_]*") && !R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p', logFile: '/l' }).includes('unset'), 'a window run drops the CLAUDE_CODE_* variables it inherited (else Claude does not save the conversation); a background run needs no cleanup');

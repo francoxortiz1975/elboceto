@@ -25,6 +25,16 @@ export const claudePidsOnTty = (psOut, sid) => parsePs(psOut).filter((r) => /(^|
 // Something is working on that tty (the agent or a command it started, e.g. a long test run) when the processes there, the shell aside, use CPU.
 export const ttyBusy = (psOut, { cpuLimit = 10 } = {}) => parsePs(psOut).filter((r) => !/(^|\/)-?(zsh|bash|sh|login)(\s|$)/.test(r.cmd)).reduce((t, r) => t + r.cpu, 0) > cpuLimit;
 
+// What the window shows (text) as a short hash: while the agent works the screen keeps changing (spinner, output), at an idle prompt it does not.
+const HISTORY_SCRIPT = ['on run argv', 'set target to item 1 of argv', 'tell application "Terminal"', 'repeat with w in windows', 'repeat with t in tabs of w', 'try', 'if (tty of t) is target then return history of t', 'end try', 'end repeat', 'end repeat', 'end tell', 'return "gone"', 'end run'];
+export async function screenHash(tty) {
+  const text = await new Promise((resolve) => execFile('osascript', [...HISTORY_SCRIPT.flatMap((l) => ['-e', l]), tty], { maxBuffer: 16 * 1024 * 1024 }, (e, out) => resolve(e ? '' : String(out || ''))));
+  if (!text || text.trim() === 'gone') return '';
+  let h = 5381;
+  for (let i = 0; i < text.length; i += 1) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return `${text.length}:${h}`;
+}
+
 const CLOSE_SCRIPT = ['on run argv', 'set target to item 1 of argv', 'tell application "Terminal"', 'repeat with w in windows', 'repeat with t in tabs of w', 'try',
   'if (tty of t) is target then', 'if (count of tabs of w) is 1 then', 'close w', 'return "closed"', 'else', 'return "multi"', 'end if', 'end if', 'end try', 'end repeat', 'end repeat', 'end tell', 'return "gone"', 'end run'];
 const osa = (lines, arg) => new Promise((resolve, reject) => execFile('osascript', [...lines.flatMap((l) => ['-e', l]), arg], (e, out) => (e ? reject(e) : resolve(String(out || '').trim()))));
