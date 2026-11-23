@@ -3,7 +3,7 @@ import { isoOf } from '../lib/areaPlan';
 import {
   devStacks, addDevStack, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsDeploy, toggleDevDone, setDevValid, reportOf, parseReport,
   setDevTime, setDevLaunch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, fmtWhen, whenOptions, scheduleStack, requestCorrection,
-  validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys, isUnread, needsMe, markSeen, queueOrder
+  validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys, isUnread, needsMe, markSeen, queueOrder, closeWithoutDeploy
 } from '../lib/devStacks';
 import { filesOf, fileName, mdPathsIn } from '../lib/devFiles';
 import { DecisionsModal, FileModal } from './TicketsExtras';
@@ -149,6 +149,9 @@ export function TicketsPage({ plan, onChange, user }) {
     } else { mutate((p) => setDevValid(p, st.id, true)); say('Validado'); }
   };
 
+  const justClose = (st) => { mutate((p) => closeWithoutDeploy(p, st.id)); say('Cerrado, sin subir nada'); };
+  const closeLink = (st, text = 'Solo cerrar, sin subir nada') => <button className="tk-link" onClick={() => justClose(st)}>{text}</button>;
+
   const picker = (label, onConfirm) => (
     <>
       <div className="tk-label">¿Cuándo?</div>
@@ -186,6 +189,7 @@ export function TicketsPage({ plan, onChange, user }) {
           {decBtn}
           <div className="tk-two"><button className="tk-btn go" onClick={() => validate(st)}>✓ Validar</button><button className="tk-btn" onClick={() => setMode('correct')}>✎ Corrección</button></div>
           <div className="tk-hint">{needsDeploy(m) ? 'Validar lo sube a main y lo cierra.' : 'Validar lo da por cerrado.'}</div>
+          {needsDeploy(m) && closeLink(st)}
         </div>
       );
     }
@@ -198,12 +202,12 @@ export function TicketsPage({ plan, onChange, user }) {
         </div>
       );
     }
-    if (ts.key === 'validated' && ts.action === 'deploy') return <div className="tk-act"><button className="tk-btn go" onClick={() => pushMain(st, false)}>Subir a main</button><button className="tk-link" onClick={() => mutate((p) => setNoDeploy(p, st.id))}>No necesita subirse</button></div>;
+    if (ts.key === 'validated' && ts.action === 'deploy') return <div className="tk-act"><button className="tk-btn go" onClick={() => pushMain(st, false)}>Subir a main</button>{closeLink(st)}</div>;
     if (ts.key === 'pending' || ts.key === 'missed') return <div className="tk-act">{ts.key === 'missed' && <div className="tk-hint">No llegó a abrirse. Agéndalo de nuevo.</div>}{picker('Agendar', (w) => { mutate((p) => scheduleStack(p, st.id, w)); say('Agendado'); })}</div>;
     if (ts.key === 'scheduled') return <div className="tk-act"><div className="tk-two"><button className="tk-btn dark" onClick={() => { mutate((p) => launchNow(p, st.id)); say('Lanzado'); }}>Lanzar ahora</button><button className="tk-btn" onClick={() => setMode('schedule')}>Cambiar horario</button></div></div>;
-    if (ts.key === 'deployfail') return <div className="tk-act"><button className="tk-btn dark" onClick={() => pushMain(st, true)}>Reintentar subida a main</button></div>;
+    if (ts.key === 'deployfail') return <div className="tk-act"><div className="tk-hint">La subida a main no terminó. Puedes reintentarla o cerrar el ticket sin subir nada.</div><button className="tk-btn dark" onClick={() => pushMain(st, true)}>Reintentar subida a main</button>{closeLink(st)}</div>;
     if (ts.key === 'running') return <div className="tk-act"><div className="tk-hint">El agente está trabajando en esto.</div></div>;
-    if (ts.key === 'deploying') return <div className="tk-act"><div className="tk-hint">Subiendo a main…</div></div>;
+    if (ts.key === 'deploying') return <div className="tk-act"><div className="tk-hint">{ts.label === 'En cola para subir a main' ? 'La subida espera su turno.' : 'Subiendo a main…'}</div>{closeLink(st, 'Cancelar la subida y cerrar')}</div>;
     return <div className="tk-act"><div className="tk-hint">Cerrado y en main.</div></div>;
   };
 

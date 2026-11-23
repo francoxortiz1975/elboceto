@@ -524,3 +524,18 @@ export function queueOrder(plan, now = new Date()) {
   const running = plan.items.filter((i) => i.iris && i.iris.launch && i.iris.state === 'launched' && !i.done && !i.iris.ended && !(i.dev && i.dev.r === 'build' && i.dev.deployed)).map((i) => i.id);
   return { running, queue };
 }
+
+// "Solo cerrar": the ticket is closed as it is, nothing is pushed. Validates it, marks it as needing no deploy and drops any push to main
+// that was queued, running or failed (a queued one will never be launched).
+export function closeWithoutDeploy(plan, stackId, now = new Date().toISOString()) {
+  const main = plan.items.find((i) => i.id === stackId);
+  if (!main || !isDev(main) || main.dev.r !== 'build') return plan;
+  return { ...plan, items: plan.items.map((i) => {
+    if (i.id === stackId) {
+      const { doneAt, vAt } = i.dev;
+      return { ...i, done: true, dev: { ...i.dev, v: true, vAt: vAt || now, doneAt: doneAt || now, nodeploy: true } };
+    }
+    if (i.deploy && i.deploy.stack === stackId && !i.done) return { ...i, deploy: { ...i.deploy, failed: true }, iris: { ...(i.iris || {}), launch: false, state: 'skipped' } };
+    return i;
+  }) };
+}

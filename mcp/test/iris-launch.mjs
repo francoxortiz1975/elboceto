@@ -329,3 +329,15 @@ const odp = { items: [
   { id: 'o5', area: 'm', text: 'never ran', done: false, day: '2026-11-23', at: 600, iris: { launch: true, state: 'pending' } }
 ] };
 ok(overdueItems(odp, '2026-11-24').map((i) => i.id).join() === 'o1,o5', 'the nightly rollover leaves alone what IRIS+ is running or has queued, and push-to-main blocks');
+
+import { closeWithoutDeploy } from '../../src/lib/devStacks.js';
+const cwp = requestDeploy({ items: [{ id: 'k2', area: 'm', text: 'K2', done: true, day: '2026-11-22', at: 600, dev: { s: 'k2', r: 'build', code: 'MC001', v: true }, iris: { launch: true, state: 'launched' } }] }, 'k2', new Date(2026, 10, 23, 23, 36)).plan;
+const failed2 = { ...cwp, items: cwp.items.map((i) => (i.deploy ? { ...i, iris: { ...i.iris, state: 'launched', ended: 'x' } } : i)) };
+ok(ticketStatus(failed2, { id: 'k2', main: failed2.items[0] }).key === 'deployfail', 'a push that ended unfinished is an error');
+const closed = closeWithoutDeploy(failed2, 'k2', '2026-11-24T00:30:00Z');
+const cst = ticketStatus(closed, { id: 'k2', main: closed.items[0] });
+ok(cst.tone === 'green' && cst.label === 'Cerrado' && closed.items.find((i) => i.deploy).iris.launch === false && closed.items.find((i) => i.deploy).deploy.failed === true, '"solo cerrar" turns the error into a closed ticket and drops the push');
+const closedQ = closeWithoutDeploy(cwp, 'k2');
+ok(ticketStatus(closedQ, { id: 'k2', main: closedQ.items[0] }).tone === 'green' && queueOrder({ ...closedQ, areas: [{ id: 'm', name: 'MediLyft' }] }, new Date(2026, 10, 24, 0, 10)).queue.length === 0, 'a queued push that is cancelled leaves the queue and never launches');
+const closedOpen = closeWithoutDeploy({ items: [{ id: 'w', area: 'm', text: 'W', done: false, day: '2026-11-23', at: 600, dev: { s: 'w', r: 'build' }, iris: { launch: true, state: 'launched', ended: 'x' } }] }, 'w');
+ok(closedOpen.items[0].done === true && closedOpen.items[0].dev.nodeploy === true, 'closing an open ticket also marks it done');
