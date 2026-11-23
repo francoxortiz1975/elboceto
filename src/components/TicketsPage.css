@@ -218,3 +218,9 @@
 
 .tk-rec.soft { background: var(--tk-glass2); color: var(--tk-ink); }
 .tk-suma.changed { color: var(--tk-orange); font-weight: 600; }
+
+.tk-ctx { font-size: 14px; }
+.tk-ctx summary { cursor: pointer; color: var(--tk-muted); font-weight: 500; }
+.tk-ctxbox { display: grid; gap: 6px; margin-top: 10px; }
+.tk-ctxbox pre { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(0, 0, 0, 0.3); color: var(--tk-ink); font: 400 13px/1.55 'Geist Mono', ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
+.tk-warn { padding: 10px 14px; border-radius: 12px; background: rgba(242, 146, 43, 0.18); font-size: 14px; }

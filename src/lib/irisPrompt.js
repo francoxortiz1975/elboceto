@@ -55,3 +55,6 @@ export function setLaunchPrompt(plan, itemId, text, defaultText = '') {
 
 // A rough size, to see what each message costs. Spanish text: about 4 characters per token.
 export const approxTokens = (text) => Math.ceil(String(text).length / 4);
+
+// What the session hook adds when the conversation opens (the orders are already inside the message, so normally just the protocol line).
+export const hookSessionText = (areaName) => `[IRIS · ${areaName}] Buzón sin notas nuevas.\nProtocolo IRIS: eres la conversación del área ${areaName}. Al terminar algo relevante (una rama lista, algo bloqueado, una duda) avisa con report_progress(area="${areaName}", text="…").`;

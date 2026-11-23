@@ -6,7 +6,7 @@ import {
   validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys, isUnread, needsMe, markSeen, queueOrder, closeWithoutDeploy
 } from '../lib/devStacks';
 import { filesOf, fileName, docPathsIn, extOf, MIME } from '../lib/devFiles';
-import { defaultPrompt, promptFor, isEdited, setLaunchPrompt, approxTokens } from '../lib/irisPrompt';
+import { defaultPrompt, promptFor, isEdited, setLaunchPrompt, approxTokens, hookSessionText } from '../lib/irisPrompt';
 import { DecisionsModal, FileModal } from './TicketsExtras';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import './TicketsPage.css';
@@ -224,6 +224,7 @@ export function TicketsPage({ plan, onChange, user }) {
     const isLead = lead.id === m.id;
     const def = defaultPrompt(plan, mates, areaName);
     const cur = promptFor(plan, mates, areaName);
+    const rules = (plan.devContext && plan.devContext[areaId]) || {};
     return (
       <div className="tk-prompt">
         <div className="tk-rephd"><h3>Lo que recibirá el agente</h3><span className="tk-tok">~{approxTokens(cur)} tokens</span></div>
@@ -236,6 +237,16 @@ export function TicketsPage({ plan, onChange, user }) {
           <button className="tk-link" onClick={() => copy(cur, 'Texto')}>Copiar</button>
           {isEdited(lead) && isLead && <button className="tk-link" onClick={() => mutate((p) => setLaunchPrompt(p, lead.id, '', def))}>Restaurar el texto por defecto</button>}
         </div>
+        <details className="tk-ctx">
+          <summary>También le llega al abrir la sesión</summary>
+          <div className="tk-ctxbox">
+            <div className="tk-lab">Hook de IRIS (automático)</div>
+            <pre>{hookSessionText(areaName)}</pre>
+            <div className="tk-lab">Reglas del proyecto ({rules.file || 'CLAUDE.md'}, parte de El Boceto)</div>
+            {rules.rules ? <pre>{rules.rules}</pre> : <div className="tk-hint">{rules.file === undefined ? 'Aún no se ha leído; aparecerá en unos minutos.' : 'El proyecto no tiene reglas sobre El Boceto.'}</div>}
+            {rules.asksCalendar && <div className="tk-warn">Estas reglas piden revisar el calendario al empezar. El mensaje de arriba le dice que lo ignore en estos encargos; el texto del proyecto no se toca.</div>}
+          </div>
+        </details>
       </div>
     );
   };

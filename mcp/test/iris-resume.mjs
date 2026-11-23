@@ -139,3 +139,9 @@ ok(R.resumeCommand({ dir: '/a', sid: 's', promptFile: '/p' }).includes("CLAUDE_C
 const dw = [{ tty: '/dev/ttys7', sid: 'd1', openedAt: '2026-11-23T10:00:00Z', items: ['x'] }];
 const dnow = Date.parse('2026-11-23T10:30:00Z');
 ok(WN.windowsToClose(dw, { now: dnow, idleMs: 120000, doneIdleMs: 20000, lastActivity: () => dnow - 30000, isDone: () => true }).length === 1 && WN.windowsToClose(dw, { now: dnow, idleMs: 120000, doneIdleMs: 20000, lastActivity: () => dnow - 30000, isDone: () => false }).length === 0, 'a window whose blocks are all done closes after 20 s of quiet; one still open waits the full idle time');
+
+const AC = await import('../src/areaContext.mjs');
+const md = '# Proyecto\n\nCosas.\n\n## El Boceto: backlog\n\n- Al empezar una sesión: get_today y list_backlog.\n- Trabajamos en este orden.\n\n### Detalle\n\nMás sobre el boceto.\n\n## Otra cosa\n\nNo debe salir.\n';
+const ex = AC.extractBocetoRules(md);
+ok(/El Boceto: backlog/.test(ex) && /get_today/.test(ex) && /Detalle/.test(ex) && !/Otra cosa/.test(ex) && !/Cosas\./.test(ex), 'the El Boceto section of a CLAUDE.md is extracted with its subsections and nothing else');
+ok(AC.asksForCalendar(ex) && !AC.asksForCalendar('Trabaja en una rama.') && AC.extractBocetoRules('# Solo\n\nnada') === '', 'it notices a rule that asks for the calendar; no section means empty');

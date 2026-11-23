@@ -7,6 +7,7 @@
 import { loadConfig, readPlan, mutatePlan } from './cloud.mjs';
 import { isoOf, durOf, fmtMin } from '../../src/lib/areaPlan';
 import { notesOf, markRead, noteLine } from '../../src/lib/iris';
+import { hookSessionText } from '../../src/lib/irisPrompt';
 
 const mode = process.argv[2] === 'prompt' ? 'prompt' : 'session';
 const areaRef = (process.env.IRIS_AREA || '').trim().toLowerCase();
@@ -32,7 +33,7 @@ setTimeout(() => process.exit(0), 6000).unref(); // never keep the user waiting
   }
   if (mode === 'session') {
     // No calendar here: an automatic run is told what to do in its message, and a manual session asks El Boceto when it needs the calendar.
-    lines.push(`Protocolo IRIS: eres la conversación del área ${area.name}. Al terminar algo relevante (una rama lista, algo bloqueado, una duda) avisa con report_progress(area="${area.name}", text="…").`);
+    lines.push(hookSessionText(area.name).split('\n')[1]);
   }
   // The notes are now in the conversation: mark them read so they are not shown twice.
   if (unread.length) await mutatePlan(cfg, (p) => ({ plan: markRead(p, { ids: unread.map((n) => n.id) }).plan, result: null }));

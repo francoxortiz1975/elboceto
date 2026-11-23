@@ -18,6 +18,7 @@ import { completePastClasses } from '../../src/lib/areaPlan';
 import { applyDeploys, alertsDue, markAlerted } from '../../src/lib/devStacks';
 import { analyzeStacks } from './gitMerged.mjs';
 import { collectFiles } from './gitFiles.mjs';
+import { readAreaRules } from './areaContext.mjs';
 import { addWin, loadWins, saveWins, windowsToClose, closeWindow, screenHash } from './irisWindows.mjs';
 import { sessionFile } from './irisResume.mjs';
 import { addNotes, notesOf, markRead } from '../../src/lib/iris';
@@ -168,6 +169,24 @@ export async function tick({ now = new Date(), dry = false } = {}) {
         log(`archivos .md guardados para ${Object.keys(found).length} ticket(s)`);
       }
     } catch (e) { log(`archivos md: ${e.message}`); }
+  }
+  // Every 10 minutes: the project's own rules (CLAUDE.md, the El Boceto part) go into the plan, so the page shows what else the agent receives
+  if (!dry && now.getMinutes() % 10 === 0) {
+    try {
+      const found = {};
+      plan.areas.forEach((a) => {
+        const k = Object.keys(conf.areas).find((x) => x.toLowerCase() === a.name.toLowerCase());
+        const dir = pinnedDir(conf, a.name) || (k ? conf.areas[k] : '');
+        if (!dir) return;
+        const r = readAreaRules(dir);
+        const prev = (plan.devContext || {})[a.id] || {};
+        if (r.file && (r.rules !== prev.rules || r.file !== prev.file)) found[a.id] = { ...r, at: new Date().toISOString() };
+      });
+      if (Object.keys(found).length) {
+        await mutatePlan(cfg, (p) => ({ plan: { ...p, devContext: { ...(p.devContext || {}), ...found } }, result: null }));
+        log(`reglas del proyecto guardadas: ${Object.keys(found).length} área(s)`);
+      }
+    } catch (e) { log(`reglas del proyecto: ${e.message}`); }
   }
   // Every 5 minutes: features whose branch is already in main (merged by hand) are marked "deployado en main"
   if (!dry && now.getMinutes() % 5 === 0) {
