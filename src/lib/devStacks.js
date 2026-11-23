@@ -260,7 +260,7 @@ export function addToBatch(plan, batchId, stackIds, now = new Date().toISOString
 
 // ---- lifecycle: pendiente -> agendado -> en marcha -> completado -> validado -> deployado en main ----
 const deployItems = (plan, stackId) => plan.items.filter((i) => i.deploy && i.deploy.stack === stackId && !i.deploy.failed);
-export function ticketStatus(plan, st) {
+function baseStatus(plan, st) {
   const m = st.main; const iris = m.iris || {};
   const dep = deployItems(plan, st.id);
   if (m.dev.deployed) return { key: 'deployed', label: 'deployado en main' };
@@ -272,6 +272,17 @@ export function ticketStatus(plan, st) {
   if (iris.launch && iris.state === 'launched') return { key: 'running', label: iris.ended ? 'ejecución terminada · abierto' : 'en marcha' };
   if (iris.launch && iris.state === 'pending' && /^\d{4}-/.test(m.day || '') && typeof m.at === 'number') return { key: 'scheduled', label: 'agendado', action: 'now' };
   return { key: 'pending', label: 'pendiente', action: 'schedule' };
+}
+
+// Colour of each state: gray = pending, black = booked / running, orange = waiting for the user, red = error, green = closed (in main).
+const TONES = { pending: 'gray', scheduled: 'black', running: 'black', deploying: 'black', done: 'orange', validated: 'green', deployed: 'green', missed: 'red', deployfail: 'red' };
+const LABELS = { pending: 'Pendiente', scheduled: 'Agendado', running: 'En marcha', deploying: 'Subiendo a main', done: 'Esperando revisión', validated: 'Cerrado', deployed: 'En main', missed: 'Se perdió', deployfail: 'Falló la subida' };
+export function ticketStatus(plan, st) {
+  const r = baseStatus(plan, st);
+  let tone = TONES[r.key]; let label = LABELS[r.key];
+  if (r.key === 'running' && st.main.iris && st.main.iris.ended) { tone = 'orange'; label = 'Esperando · abierto'; }
+  if (r.key === 'validated' && r.action === 'deploy') { tone = 'orange'; label = 'Falta subir a main'; }
+  return { ...r, tone, label };
 }
 
 // "Lanzar ahora": today, this minute; the launcher picks it up on its next pass.
@@ -369,4 +380,68 @@ export function ticketTimeline(plan, st) {
     { key: 'validated', label: 'Validado', at: m.dev.vAt || '', done: validated },
     { key: 'main', label: 'En main', at: m.dev.deployed || '', done: !!m.dev.deployed }
   ];
+}
+
+// ---- how a date reads: today = just the time, tomorrow = "Mañana", this week = weekday + day ("mié. 24") ----
+const WD = ['dom.', 'lun.', 'mar.', 'mié.', 'jue.', 'vie.', 'sáb.'];
+const MO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const dayStart = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+export function fmtWhen(iso, now = new Date()) {
+  if (!iso) return '';
+  const hasTime = String(iso).includes('T');
+  const d = hasTime ? new Date(iso) : new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const diff = Math.round((dayStart(d) - dayStart(now)) / 864e5);
+  let day;
+  if (diff === 0) day = '';
+  else if (diff === 1) day = 'Mañana';
+  else if (diff === -1) day = 'Ayer';
+  else if (Math.abs(diff) <= 6) day = `${WD[d.getDay()]} ${d.getDate()}`;
+  else day = `${d.getDate()} ${MO[d.getMonth()]}${d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : ''}`;
+  if (!hasTime) return day || 'Hoy';
+  return day ? `${day} · ${time}` : time;
+}
+
+// Quick answers to "¿cuándo?": now, tonight, tomorrow morning, tomorrow night. { key, label, day, at } (at = minutes, or 'now')
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export function whenOptions(now = new Date()) {
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const today = isoDay(now);
+  const tomorrow = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+  const out = [{ key: 'now', label: 'Ahora', day: today, at: 'now' }];
+  if (nowMin < 21 * 60 + 30) out.push({ key: 'tonight', label: 'Esta noche · 22:00', day: today, at: 22 * 60 });
+  out.push({ key: 'tm-am', label: 'Mañana · 09:00', day: tomorrow, at: 9 * 60 });
+  out.push({ key: 'tm-pm', label: 'Mañana · 22:00', day: tomorrow, at: 22 * 60 });
+  return out;
+}
+
+// Puts the ticket on the launcher's calendar: day, time and the automatic start. at = minutes, or 'now'.
+export function scheduleStack(plan, stackId, { day, at }, now = new Date()) {
+  if (at === 'now') return launchNow(plan, stackId, now);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '') || typeof at !== 'number') return plan;
+  return setDevLaunch(setDevTime(moveDevStack(plan, stackId, day), stackId, at), stackId, true, now.toISOString());
+}
+
+// ---- corrections: the ticket goes back to work as its next version (v2, v3…), with the user's comment ----
+export function requestCorrection(plan, stackId, { text, day, at }, now = new Date()) {
+  const main = plan.items.find((i) => i.id === stackId);
+  const comment = String(text || '').trim();
+  if (!main || !isDev(main) || main.dev.r !== 'build') return { plan, error: 'No es un ticket.' };
+  if (!comment) return { plan, error: 'Escribe qué hay que corregir.' };
+  if (at !== 'now' && (!/^\d{4}-\d{2}-\d{2}$/.test(day || '') || typeof at !== 'number')) return { plan, error: 'Elige cuándo.' };
+  const rev = (main.dev.rev || 1) + 1;
+  const code = main.dev.code || main.text;
+  const prev = parseReport(reportOf(plan, stackId));
+  const { v, vAt, doneAt, deployed, ...dev } = main.dev;
+  const reopened = { ...plan, items: plan.items.map((i) => (i.id === stackId ? { ...i, done: false, dev: { ...dev, rev, revisions: [...(main.dev.revisions || []), { n: rev, at: now.toISOString(), text: comment }] }, iris: { launch: true, state: 'pending' } } : i)) };
+  const brief = [
+    `CORRECCIÓN v${rev} de ${code}: ${main.text}`,
+    `Lo que Franco pide corregir:\n${comment}`,
+    prev.summary ? `Resumen de tu informe anterior: ${prev.summary}` : '',
+    prev.branch ? `Trabaja sobre la MISMA rama (${prev.branch}) con commits nuevos encima; no abras otra rama.` : 'Trabaja sobre la misma rama del ticket con commits nuevos encima; no abras otra rama.',
+    'Informa con el formato RESUMEN / HECHO / VERIFICAR / DECISIONES / PENDIENTE / RAMA · COMMIT.'
+  ].filter(Boolean).join('\n\n');
+  const scheduled = scheduleStack(reopened, stackId, { day, at }, now);
+  return { plan: addNotes(scheduled, [{ area: main.area, dir: 'to_area', kind: 'order', from: 'boceto', item: stackId, text: brief }], now.toISOString()), error: '', rev };
 }

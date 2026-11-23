@@ -235,3 +235,20 @@ const tl2 = ticketTimeline(tp2, { id: 't2', main: tp2.items[0] });
 ok(tl2[1].planned && tl2[1].at === '2026-11-25T10:00' && !tl2[2].done && !tl2[3].done, 'a scheduled ticket shows its planned time and the later steps pending');
 const nv = setDevValid({ items: [{ ...tp.items[0], dev: { s: 't1', r: 'build' } }] }, 't1', true);
 ok(nv.items[0].dev.vAt && toggleDevDone(toggleDevDone({ items: [{ id: 'q', area: 'm', done: false, dev: { s: 'q', r: 'build' } }] }, 'q'), 'q').items[0].dev.doneAt === undefined, 'validating stamps the date; reopening clears the finish date');
+
+import { fmtWhen, whenOptions, scheduleStack, requestCorrection } from '../../src/lib/devStacks.js';
+const NW = new Date(2026, 10, 23, 14, 0); // lunes 23 nov 2026
+ok(fmtWhen('2026-11-23T22:00', NW) === '22:00', 'today shows only the time');
+ok(fmtWhen('2026-11-24T22:00', NW) === 'Mañana · 22:00' && fmtWhen('2026-11-22T08:30', NW) === 'Ayer · 08:30', 'tomorrow and yesterday are named');
+ok(fmtWhen('2026-11-25T10:00', NW) === 'mié. 25 · 10:00' && fmtWhen('2026-11-28', NW) === 'sáb. 28', 'within the week: weekday and day number (date only when there is no time)');
+ok(fmtWhen('2026-12-03T09:00', NW) === '3 dic · 09:00' && fmtWhen('2027-01-05T09:00', NW) === '5 ene 2027 · 09:00' && fmtWhen('', NW) === '', 'further away: day and month (and year when it differs)');
+ok(whenOptions(NW).map((o) => o.key).join() === 'now,tonight,tm-am,tm-pm' && whenOptions(new Date(2026, 10, 23, 22, 30)).map((o) => o.key).join() === 'now,tm-am,tm-pm', 'quick times: tonight is offered only while it is still ahead');
+const sc2 = scheduleStack({ items: [{ id: 'w', area: 'm', text: 'W', done: false, day: 'later', at: 'any', dev: { s: 'w', r: 'build' } }] }, 'w', { day: '2026-11-24', at: 540 }, NW);
+ok(sc2.items[0].day === '2026-11-24' && sc2.items[0].at === 540 && sc2.items[0].iris.launch === true, 'scheduling puts the ticket on the launcher calendar');
+const corrP = { items: [{ id: 'c1', area: 'm', text: 'Feature', done: true, day: '2026-11-22', at: 600, iris: { launch: true, state: 'launched', ended: 'x' }, dev: { s: 'c1', r: 'build', code: 'MC001', v: true, vAt: 'y', doneAt: 'z', deployed: 'd' } }], iris: { notes: [{ id: 'r', item: 'c1', dir: 'to_hub', from: 'area', kind: 'report', t: '2026-11-22T10:00:00Z', text: 'RESUMEN: Hecho el flujo\nRAMA: iris/MC001-flujo · COMMIT: abc1234' }] } };
+const cr = requestCorrection(corrP, 'c1', { text: 'El botón debe ser azul', day: '2026-11-24', at: 540 }, NW);
+const c1 = cr.plan.items[0];
+ok(!cr.error && cr.rev === 2 && c1.done === false && !c1.dev.v && !c1.dev.deployed && c1.dev.revisions.length === 1 && c1.day === '2026-11-24' && c1.at === 540 && c1.iris.state === 'pending', 'a correction reopens the ticket as v2, clears its validation and schedules it');
+const corrN = cr.plan.iris.notes.filter((n) => n.kind === 'order' && n.item === 'c1').pop();
+ok(/CORRECCIÓN v2 de MC001/.test(corrN.text) && /azul/.test(corrN.text) && /iris\/MC001-flujo/.test(corrN.text) && /MISMA rama/.test(corrN.text), 'the order carries the comment, the previous summary and the branch to keep working on');
+ok(requestCorrection(corrP, 'c1', { text: '  ', day: '2026-11-24', at: 540 }, NW).error !== '' && requestCorrection(corrP, 'c1', { text: 'x' }, NW).error !== '' && requestCorrection(cr.plan, 'c1', { text: 'otra', day: '2026-11-25', at: 'now' }, NW).rev === 3, 'a correction needs a comment and a time; the next one is v3');

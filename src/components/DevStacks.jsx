@@ -3,7 +3,7 @@ import { Check, X, Plus, ChevronUp, ArrowUp, ArrowDown, Rocket } from 'lucide-re
 import { PlanTabs } from './PlanTabs';
 import { codeConfig, codeOf, assignCode, addModification, suggestModule, bulkAssign } from '../lib/devCodes';
 import { AREA_COLORS, dayLabel, isoOf, addDays, fmtMin } from '../lib/areaPlan';
-import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, needsDeploy, isValidated, toggleDevDone, setDevValid, stackVisible, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
+import { DEV_ROLES, devStacks, addDevStack, addDevSlot, editDevItem, moveDevStack, removeDevItem, migrateToDev, needsReview, needsDeploy, isValidated, toggleDevDone, setDevValid, stackVisible, reportOf, parseReport, dropDev, detachDev, nudgeDevStack, setDevTime, setDevLaunch, setDevBatch, unbatch, batchStatus, addToBatch, ticketStatus, ticketTimeline, arrivedAt, scheduledISO, fmtWhen, whenOptions, scheduleStack, requestCorrection, validateAndDeploy, launchNow, setNoDeploy, requestDeploy, applyDeploys } from '../lib/devStacks';
 import './SocialManager.css';
 import './DevStacks.css';
 
@@ -35,6 +35,11 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const [logFilter, setLogFilter] = useState('act');
   const [q, setQ] = useState('');
   const [modF, setModF] = useState('');
+  const [panelMode, setPanelMode] = useState(null); // null | 'correct' | 'schedule'
+  const [corrText, setCorrText] = useState('');
+  const [whenKey, setWhenKey] = useState('tonight');
+  const [whenDay, setWhenDay] = useState(() => isoOf(new Date()));
+  const [whenTime, setWhenTime] = useState('22:00');
   const [sortKey, setSortKey] = useState('llego');
   const [sortDir, setSortDir] = useState('desc');
   const [logOpen, setLogOpen] = useState(null);
@@ -46,6 +51,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   useEffect(() => { if (applyDeploys(plan) !== plan) onChange((p) => applyDeploys(p)); }, [plan, onChange]);
   // The tasks the area already has become stacks (once; running again changes nothing).
   useEffect(() => { if (areaId && migrateToDev(plan, areaId) !== plan) onChange((p) => migrateToDev(p, areaId)); }, [plan, areaId, onChange]);
+  useEffect(() => { setPanelMode(null); setCorrText(''); setWhenKey(whenOptions(new Date())[1].key); setMsg(''); }, [logOpen]);
   const area = plan.areas.find((a) => a.id === areaId);
   const color = area ? AREA_COLORS[area.c % AREA_COLORS.length] : AREA_COLORS[0];
   const all = devStacks(plan, areaId);
@@ -138,7 +144,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
               };
               return (
                 <>
-                  <span className={`ds-status ${ts.key}`}>{ts.label}</span>
+                  <span className={`ds-status ${ts.key} t-${ts.tone}`}>{ts.label}</span>
                   {ts.action === 'schedule' && <button className="ds-act" onClick={schedule}>Agendar</button>}
                   {ts.action === 'now' && <button className="ds-act" onClick={() => mutate((p) => launchNow(p, st.id))}>Lanzar ahora</button>}
                   {ts.action === 'validate' && <button className="ds-act" onClick={() => setReviewId(st.id)}>Revisar y validar</button>}
@@ -220,45 +226,12 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   };
 
   // ---------- Registro (mesa de ayuda): table on the left, the whole ticket in a side panel on the right ----------
-  const LOG_FILTERS = [['act', 'Activos'], ['pend', 'Pendiente'], ['agen', 'Agendado'], ['marcha', 'En marcha'], ['valid', 'Por validar'], ['valid2', 'Por subir a main'], ['ok', 'Deployado'], ['bad', 'Con problema']];
-  const bucketOf = (st) => {
-    const k = ticketStatus(plan, st).key;
-    if (k === 'validated') return needsDeploy(st.main) ? 'valid2' : 'ok';
-    return ({ pending: 'pend', missed: 'bad', deployfail: 'bad', scheduled: 'agen', running: 'marcha', deploying: 'marcha', done: 'valid', deployed: 'ok' })[k] || 'pend';
-  };
+  // Colours: gray = pending, black = booked / running, orange = waiting for the user, red = error, green = closed (in main).
+  const LOG_FILTERS = [['act', 'Activos'], ['pend', 'Pendiente'], ['black', 'Agendado'], ['wait', 'Esperando'], ['bad', 'Error'], ['ok', 'Cerrado']];
+  const bucketOf = (st) => ({ gray: 'pend', black: 'black', orange: 'wait', red: 'bad', green: 'ok' })[ticketStatus(plan, st).tone] || 'pend';
   const matchesFilter = (st, f) => (f === 'act' ? bucketOf(st) !== 'ok' : bucketOf(st) === f);
-  const STATUS_ORDER = ['missed', 'deployfail', 'running', 'deploying', 'scheduled', 'pending', 'done', 'validated', 'deployed'];
-  const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const fmtD = (iso) => {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    const hasTime = String(iso).includes('T');
-    return `${d.getDate()} ${MONTHS[d.getMonth()]}${hasTime ? ` · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : ''}`;
-  };
-  const relD = (iso) => {
-    if (!iso) return '';
-    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-    const a = Math.abs(mins);
-    const u = a >= 1440 ? `${Math.round(a / 1440)} d` : a >= 60 ? `${Math.round(a / 60)} h` : `${a} min`;
-    return mins >= 0 ? `hace ${u}` : `en ${u}`;
-  };
-  const ACTION_LABEL = { schedule: 'Agendar', now: 'Lanzar ahora', validate: 'Revisar', deploy: 'Subir a main', retry: 'Reintentar subida' };
-  const doAction = (st, a) => {
-    if (a === 'schedule') {
-      const t = window.prompt('¿A qué hora debe empezar? (HH:MM)', '22:00');
-      const mm = /^(\d{1,2}):(\d{2})$/.exec(t || '');
-      if (!mm) return;
-      const d = /^\d{4}-/.test(st.main.day || '') ? st.main.day : addDays(isoOf(new Date()), 1);
-      mutate((p) => setDevLaunch(setDevTime(moveDevStack(p, st.id, d), st.id, Number(mm[1]) * 60 + Number(mm[2])), st.id, true));
-    } else if (a === 'now') mutate((p) => launchNow(p, st.id));
-    else if (a === 'validate') setReviewId(st.id);
-    else if (a === 'deploy' || a === 'retry') {
-      if (!window.confirm(`Subir ${st.main.dev.code || st.main.text} a main?\n\nLa conversación del área hará merge de su rama a main, push y comprobará el despliegue en producción. Se lanza ahora, solo para esto.`)) return;
-      const out = requestDeploy(plan, st.id);
-      if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); }
-    }
-  };
+  const STATUS_ORDER = ['missed', 'deployfail', 'done', 'running', 'deploying', 'scheduled', 'pending', 'validated', 'deployed'];
+  const pill = (ts) => <span className={`ds-status ${ts.key} t-${ts.tone}`}>{ts.label}</span>;
   const sortVal = (st, k) => {
     if (k === 'codigo') return codeOf(st.main) || '~';
     if (k === 'estado') return String(STATUS_ORDER.indexOf(ticketStatus(plan, st).key)).padStart(2, '0');
@@ -284,16 +257,112 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
     const mates = all.filter((x) => x.main.iris && x.main.iris.batch === b && x.main.iris.launch).sort((x, y) => (x.main.at || 0) - (y.main.at || 0));
     return `Lote ${mates.findIndex((x) => x.id === st.id) + 1}/${mates.length}`;
   };
-  const pieceBox = (st, role) => {
-    const it = role === 'plan' ? st.plan : st.check;
-    const label = DEV_ROLES.find((r) => r.role === role).label;
-    if (!it) return <button className="ds-modbtn" onClick={() => { const out = addDevSlot(plan, st.id, role); mutate(() => out.plan); }}>+ {label}</button>;
+  const resolveWhen = () => {
+    if (whenKey === 'custom') {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(whenTime || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(whenDay || '') || !m) { setMsg('Elige el día y la hora.'); return null; }
+      return { day: whenDay, at: Number(m[1]) * 60 + Number(m[2]) };
+    }
+    const o = whenOptions(new Date()).find((x) => x.key === whenKey) || whenOptions(new Date())[1];
+    return { day: o.day, at: o.at };
+  };
+  // "¿Cuándo?": quick choices plus a free day and time
+  const whenPicker = (confirmLabel, onConfirm) => (
+    <div className="dz-when">
+      <div className="dz-label">¿Cuándo?</div>
+      <div className="dz-opts">
+        {whenOptions(new Date()).map((o) => <button key={o.key} className={`dz-opt${whenKey === o.key ? ' on' : ''}`} onClick={() => setWhenKey(o.key)}>{o.label}</button>)}
+        <button className={`dz-opt${whenKey === 'custom' ? ' on' : ''}`} onClick={() => setWhenKey('custom')}>Elegir día y hora…</button>
+      </div>
+      {whenKey === 'custom' && <div className="dz-custom"><input type="date" value={whenDay} onChange={(e) => setWhenDay(e.target.value)} aria-label="Día" /><input type="time" value={whenTime} onChange={(e) => setWhenTime(e.target.value)} aria-label="Hora" /></div>}
+      <button className="dz-big dark" onClick={() => { const w = resolveWhen(); if (w) onConfirm(w); }}>{confirmLabel}</button>
+    </div>
+  );
+  const validateTicket = (st) => { if (needsDeploy(st.main)) validatePush(st.id); else validateOnly(st.id); };
+  const ticketActions = (st, ts) => {
+    const m = st.main;
+    if (panelMode === 'correct') {
+      return (
+        <div className="dz-act">
+          <div className="dz-label">Corrección</div>
+          <textarea className="dz-corr" rows={6} autoFocus value={corrText} onChange={(e) => setCorrText(e.target.value)} placeholder="Escribe qué hay que corregir, con tus palabras…" aria-label="Qué hay que corregir" />
+          {whenPicker('Enviar corrección', (w) => {
+            const out = requestCorrection(plan, st.id, { text: corrText, day: w.day, at: w.at });
+            if (out.error) { setMsg(out.error); return; }
+            setMsg(''); mutate(() => out.plan); setPanelMode(null); setCorrText('');
+          })}
+          <button className="dz-link" onClick={() => setPanelMode(null)}>Cancelar</button>
+        </div>
+      );
+    }
+    if (panelMode === 'schedule') {
+      return <div className="dz-act">{whenPicker('Agendar', (w) => { mutate((p) => scheduleStack(p, st.id, w)); setPanelMode(null); })}<button className="dz-link" onClick={() => setPanelMode(null)}>Cancelar</button></div>;
+    }
+    if (ts.key === 'done') {
+      return (
+        <div className="dz-act">
+          <div className="dz-two">
+            <button className="dz-big green" onClick={() => validateTicket(st)}>✓ Validar</button>
+            <button className="dz-big" onClick={() => setPanelMode('correct')}>✎ Corrección</button>
+          </div>
+          <div className="dz-hint">{needsDeploy(m) ? 'Validar sube el cambio a main.' : 'Validar lo da por cerrado.'}</div>
+        </div>
+      );
+    }
+    if (ts.key === 'running' && m.iris && m.iris.ended) {
+      return (
+        <div className="dz-act">
+          <div className="dz-hint">El agente terminó y lo dejó abierto: necesita algo de ti. Lee su informe abajo.</div>
+          <div className="dz-two">
+            <button className="dz-big" onClick={() => setPanelMode('correct')}>✎ Corrección</button>
+            <button className="dz-big green" onClick={() => mutate((p) => toggleDevDone(p, st.id))}>✓ Darlo por hecho</button>
+          </div>
+        </div>
+      );
+    }
+    if (ts.key === 'validated' && ts.action === 'deploy') {
+      return (
+        <div className="dz-act">
+          <button className="dz-big green" onClick={() => doAction(st, 'deploy')}>Subir a main</button>
+          <button className="dz-link" onClick={() => mutate((p) => setNoDeploy(p, st.id))}>No necesita subirse</button>
+        </div>
+      );
+    }
+    if (ts.key === 'pending' || ts.key === 'missed') {
+      return <div className="dz-act"><div className="dz-label">{ts.key === 'missed' ? 'No llegó a abrirse. Agéndalo de nuevo' : 'Agendar'}</div>{whenPicker('Agendar', (w) => mutate((p) => scheduleStack(p, st.id, w)))}</div>;
+    }
+    if (ts.key === 'scheduled') {
+      return (
+        <div className="dz-act">
+          <div className="dz-two">
+            <button className="dz-big dark" onClick={() => mutate((p) => launchNow(p, st.id))}>Lanzar ahora</button>
+            <button className="dz-big" onClick={() => setPanelMode('schedule')}>Cambiar horario</button>
+          </div>
+        </div>
+      );
+    }
+    if (ts.key === 'deployfail') return <div className="dz-act"><button className="dz-big dark" onClick={() => doAction(st, 'retry')}>Reintentar subida a main</button></div>;
+    if (ts.key === 'running') return <div className="dz-act"><div className="dz-hint">El agente está trabajando en esto.</div></div>;
+    if (ts.key === 'deploying') return <div className="dz-act"><div className="dz-hint">Subiendo a main…</div></div>;
+    return null;
+  };
+  const doAction = (st, a) => {
+    if (a === 'deploy' || a === 'retry') {
+      if (!window.confirm(`Subir ${st.main.dev.code || st.main.text} a main?\n\nLa conversación del área hará merge de su rama a main, push y comprobará el despliegue en producción. Se lanza ahora, solo para esto.`)) return;
+      const out = requestDeploy(plan, st.id);
+      if (out.error) setMsg(out.error); else { setMsg(''); mutate(() => out.plan); }
+    }
+  };
+  const reportBlock = (rep, st) => {
+    const sec = (title, items, ordered) => (items.length ? <section className="dz-sec"><h5>{title}</h5>{ordered ? <ol>{items.map((v, i) => <li key={i}>{v}</li>)}</ol> : <ul>{items.map((v, i) => <li key={i}>{v}</li>)}</ul>}</section> : null);
     return (
-      <div className="dl-piece">
-        <label className="ds-auto"><input type="checkbox" checked={!!it.done} onChange={() => mutate((p) => toggleDevDone(p, it.id))} /> {label}</label>
-        <input className="ds-title" value={it.text} aria-label={`Título de ${label}`} onChange={(e) => mutate((p) => editDevItem(p, it.id, { text: e.target.value }))} />
-        <textarea className="ds-note" rows={2} value={it.note || ''} placeholder="Comentarios…" aria-label={`Comentarios de ${label}`} onChange={(e) => mutate((p) => editDevItem(p, it.id, { note: e.target.value }))} />
-        <button className="ds-modbtn" onClick={() => mutate((p) => removeDevItem(p, it.id))}>Quitar {label.toLowerCase()}</button>
+      <div className="dz-rep">
+        {rep.summary && <p className="dz-lead">{rep.summary}</p>}
+        {sec('Qué se hizo', rep.done)}
+        {sec('Cómo comprobarlo', rep.verify, true)}
+        {sec('Decisiones', rep.decisions)}
+        {sec('Pendiente', rep.pending)}
+        <button className="dz-link" onClick={() => setReviewId(st.id)}>Abrir el informe completo</button>
       </div>
     );
   };
@@ -301,61 +370,53 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
   const sidePanel = (st) => {
     const ts = ticketStatus(plan, st);
     const m = st.main;
-    const rep = parseReport(reportOf(plan, st.id));
+    const raw = reportOf(plan, st.id);
+    const rep = parseReport(raw);
     const tl = ticketTimeline(plan, st);
     const cur = tl.findIndex((x) => !x.done);
     const b = m.iris && m.iris.launch && m.iris.batch;
     const lote = batchLabel(st);
     return (
       <aside className="dz-panel" aria-label={`Ticket ${codeOf(m) || ''}`}>
-        <div className="dz-ph">
-          <div><span className="dl-code">{codeOf(m) || 'Sin código'}</span></div>
+        <header className="dz-ph">
+          <div className="dz-ph1"><span className="dz-code">{codeOf(m) || 'Sin código'}</span>{(m.dev.rev || 1) > 1 && <span className="dz-rev">v{m.dev.rev}</span>}{pill(ts)}</div>
           <button className="dz-x" aria-label="Cerrar el panel" onClick={() => setLogOpen(null)}>×</button>
-        </div>
-        <input className="dz-title" value={m.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, st.id, { text: e.target.value }))} />
-        <div className="dz-state"><span className={`ds-status ${ts.key}`}>{ts.label}</span></div>
-        <div className="dz-acts">
-          {ts.action === 'validate' && needsDeploy(m) && <button className="ds-act primary" onClick={() => validatePush(st.id)}>Validar y subir a main</button>}
-          {ts.action && <button className={`ds-act${ts.action !== 'validate' ? ' primary' : ''}`} onClick={() => doAction(st, ts.action)}>{ACTION_LABEL[ts.action]}</button>}
-          {ts.action === 'deploy' && <button className="ds-act" onClick={() => mutate((p) => setNoDeploy(p, st.id))}>Sin deploy</button>}
-        </div>
-        <h4>Fechas</h4>
-        <ul className="dz-tl">
-          {tl.map((x, i) => (
-            <li key={x.key} className={x.done ? 'done' : i === cur ? 'now' : ''}>
-              <i />
-              <div><div className="l">{x.label}</div><div className="d">{x.at ? `${fmtD(x.at)}${x.planned ? ' (previsto)' : ''}` : x.done ? 'sin fecha registrada' : '—'}{x.at && x.done ? <span className="r"> · {relD(x.at)}</span> : null}</div></div>
-            </li>
-          ))}
-        </ul>
-        <h4>Detalles</h4>
-        <dl className="dz-props">
-          <dt>Módulo</dt><dd>{m.dev.mod && cfg ? `${m.dev.mod} · ${cfg.modules[m.dev.mod] || ''}` : '—'}</dd>
-          <dt>Lote</dt><dd>{lote || '—'}</dd>
-          {rep.branch && <><dt>Rama</dt><dd className="dz-mono">{rep.branch}</dd></>}
-          {rep.commit && <><dt>Commit</dt><dd className="dz-mono">{rep.commit}</dd></>}
-        </dl>
-        {(rep.summary || rep.verify.length > 0 || rep.decisions.length > 0 || rep.pending.length > 0) && (
-          <>
-            <h4>Último informe</h4>
-            <div className="dz-box">
-              {rep.summary && <p>{rep.summary}</p>}
-              {rep.verify.length > 0 && <><div className="dz-sub">Cómo verificarlo</div><ol>{rep.verify.map((v, i) => <li key={i}>{v}</li>)}</ol></>}
-              {rep.decisions.length > 0 && <><div className="dz-sub">Decisiones</div><ul>{rep.decisions.map((v, i) => <li key={i}>{v}</li>)}</ul></>}
-              {rep.pending.length > 0 && <><div className="dz-sub">Pendiente</div><ul>{rep.pending.map((v, i) => <li key={i}>{v}</li>)}</ul></>}
-              <button className="ds-modbtn" onClick={() => setReviewId(st.id)}>Abrir el informe completo</button>
+        </header>
+        <div className="dz-body">
+          <input className="dz-title" value={m.text} aria-label="Título" onChange={(e) => mutate((p) => editDevItem(p, st.id, { text: e.target.value }))} />
+          {msg && <div className="ds-msg" role="status">{msg}</div>}
+          {ticketActions(st, ts)}
+          <h4>Historial</h4>
+          <ul className="dz-tl">
+            {tl.map((x, i) => (
+              <li key={x.key} className={x.done ? 'done' : i === cur ? 'now' : ''}>
+                <i />
+                <div><div className="l">{x.label}</div><div className="d">{x.at ? `${fmtWhen(x.at)}${x.planned ? ' · previsto' : ''}` : x.done ? 'sin fecha registrada' : '—'}</div></div>
+              </li>
+            ))}
+          </ul>
+          {(m.dev.revisions || []).length > 0 && (
+            <div className="dz-revs">
+              {m.dev.revisions.map((r) => <div key={r.n} className="dz-revi"><b>v{r.n}</b> · {fmtWhen(r.at)}<p>{r.text}</p></div>)}
             </div>
-          </>
-        )}
-        <h4>Comentarios</h4>
-        <textarea className="ds-note" rows={4} value={m.note || ''} placeholder="Comentarios, decisiones, enlaces, qué falta…" aria-label="Comentarios" onChange={(e) => mutate((p) => editDevItem(p, st.id, { note: e.target.value }))} />
-        <h4>Plan y verificación</h4>
-        <div className="dl-pieces">{pieceBox(st, 'plan')}{pieceBox(st, 'check')}</div>
-        <h4>Programación</h4>
-        {footerOf(st)}
-        <div className="dz-end">
-          {b && <button className="ds-modbtn" title="Cada feature vuelve a lanzarse sola a su propia hora" onClick={() => mutate((p) => unbatch(p, b))}>Deshacer el lote</button>}
-          <button className="ds-modbtn" onClick={() => { if (window.confirm('¿Quitar el ticket completo?')) { mutate((p) => removeDevItem(p, st.id)); setLogOpen(null); } }}>Quitar ticket</button>
+          )}
+          {raw && <><h4>Último informe</h4>{reportBlock(rep, st)}</>}
+          <h4>Comentarios</h4>
+          <textarea className="dz-note" rows={5} value={m.note || ''} placeholder="Notas, decisiones, enlaces, qué falta…" aria-label="Comentarios" onChange={(e) => mutate((p) => editDevItem(p, st.id, { note: e.target.value }))} />
+          <details className="dz-adv">
+            <summary>Más opciones</summary>
+            <dl className="dz-props">
+              <dt>Módulo</dt><dd>{m.dev.mod && cfg ? `${m.dev.mod} · ${cfg.modules[m.dev.mod] || ''}` : '—'}</dd>
+              <dt>Lote</dt><dd>{lote || '—'}</dd>
+              {rep.branch && <><dt>Rama</dt><dd className="dz-mono">{rep.branch}</dd></>}
+              {rep.commit && <><dt>Commit</dt><dd className="dz-mono">{rep.commit}</dd></>}
+            </dl>
+            {footerOf(st)}
+            <div className="dz-end">
+              {b && <button className="dz-link" onClick={() => mutate((p) => unbatch(p, b))}>Deshacer el lote</button>}
+              <button className="dz-link" onClick={() => { if (window.confirm('¿Quitar el ticket completo?')) { mutate((p) => removeDevItem(p, st.id)); setLogOpen(null); } }}>Quitar ticket</button>
+            </div>
+          </details>
         </div>
       </aside>
     );
@@ -393,11 +454,11 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
               return (
                 <div key={st.id} className={`dz-row${logOpen === st.id ? ' sel' : ''}`} role="row" tabIndex={0}
                   onClick={() => setLogOpen(logOpen === st.id ? null : st.id)} onKeyDown={(e) => { if (e.key === 'Enter') setLogOpen(logOpen === st.id ? null : st.id); }}>
-                  <span className="dl-code">{codeOf(m) || '—'}</span>
+                  <span className="dz-code">{codeOf(m) || '—'}{(m.dev.rev || 1) > 1 && <span className="dz-rev">v{m.dev.rev}</span>}</span>
                   <div className="dz-sub"><div className="dz-t">{m.text}</div><div className="dz-m">{m.dev.mod && cfg ? `${m.dev.mod} · ${cfg.modules[m.dev.mod] || ''}` : 'Sin módulo'}{lote ? ` · ${lote}` : ''}</div></div>
-                  <span className="dz-st"><span className={`ds-status ${ts.key}`}>{ts.label}</span></span>
-                  <div className="dz-dt ll">{fmtD(arr)}{arr && <em>{relD(arr)}</em>}</div>
-                  <div className={`dz-dt${late ? ' late' : ''}`}>{sch ? fmtD(sch) : 'Sin agendar'}{sch && <em>{relD(sch)}</em>}</div>
+                  <span className="dz-st">{pill(ts)}</span>
+                  <div className="dz-dt ll">{arr ? fmtWhen(arr) : '—'}</div>
+                  <div className={`dz-dt${late ? ' late' : ''}`}>{sch ? fmtWhen(sch) : 'Sin agendar'}{late ? <em>Atrasado</em> : null}</div>
                 </div>
               );
             })}
