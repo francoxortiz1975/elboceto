@@ -12,6 +12,7 @@ import { useAuth } from './context/AuthContext';
 import { hasCloudData, pullCloudToLocal, syncLocalToCloud } from './lib/cloudSync';
 import { subscribeToCloudChanges } from './lib/realtimeSync';
 import { loadAreaPlan, saveAreaPlan, importSchedule, isoOf } from './lib/areaPlan';
+import { TicketsPage } from './components/TicketsPage';
 import { runGenerators } from './lib/scheduler/generate';
 import { rollover } from './lib/scheduler/rollover';
 import { useAreaPlanSync } from './lib/useAreaPlanSync';
@@ -975,6 +976,10 @@ function parseTextToBlocks(rawText) {
     }
     setShowPinConfirm(false);
   };
+
+
+  // /tickets: the tickets console (same plan, same account)
+  if (window.location.pathname === '/tickets' || window.location.pathname.startsWith('/tickets/')) return <TicketsPage plan={areaPlan} onChange={setAreaPlan} user={user} />;
 
 
   return (

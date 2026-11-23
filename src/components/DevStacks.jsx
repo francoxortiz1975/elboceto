@@ -475,6 +475,7 @@ export function DevStacks({ plan, onChange, onBack, compact, tab, onTabChange })
       <div className="ap-head">
         <h1 className="font-title">Desarrollo</h1>
         <span className="ap-sub">plan · desarrollo · verificación</span>
+        <a className="ap-btn" href="/tickets" title="Abre la consola de tickets en pantalla completa">Abrir Tickets ↗</a>
         {onBack && <button className="ap-btn ap-back" onClick={onBack}><ChevronUp size={12} style={{ verticalAlign: '-2px' }} /> Lienzo</button>}
       </div>
       <div className="ap-filters">
