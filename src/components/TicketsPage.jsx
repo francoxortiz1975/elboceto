@@ -49,6 +49,17 @@ export function TicketsPage({ plan, onChange, user }) {
   const sel = ref ? all.find((st) => st.id.toLowerCase() === ref || codeOf(st.main).toLowerCase() === ref) || null : null;
   useEffect(() => { setMode(null); setCorr(''); setMsg(''); setWhenKey(whenOptions(new Date())[0].key); }, [sel && sel.id]);
 
+  const copy = async (text, what) => {
+    try { await navigator.clipboard.writeText(text); } catch {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch { /* nothing else to try */ } document.body.removeChild(ta);
+    }
+    say(`${what} copiado`);
+  };
+  const reportAsText = (st, rep) => {
+    const part = (title, items, numbered) => (items.length ? `\n${title}\n${items.map((v, i) => (numbered ? `${i + 1}. ${v}` : `- ${v}`)).join('\n')}\n` : '');
+    return [`${codeOf(st.main) || 'Ticket'} · ${st.main.text}`, rep.summary ? `\n${rep.summary}` : '', part('Qué se hizo', rep.done), part('Cómo comprobarlo', rep.verify, true), part('Decisiones', rep.decisions), part('Pendiente', rep.pending), (rep.branch || rep.commit) ? `\n${rep.branch}${rep.commit ? ` · ${rep.commit}` : ''}` : ''].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  };
   const say = (t) => { setToast(t); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 2400); };
   const open = (st) => { const r = st ? (codeOf(st.main) || st.id) : ''; window.history.pushState(null, '', r ? `/tickets/${r}` : '/tickets'); setRef(r.toLowerCase()); };
   const pickArea = (v) => { setAreaId(v); open(null); try { localStorage.setItem(AREA_KEY, v); } catch { /* storage unavailable */ } };
@@ -187,7 +198,7 @@ export function TicketsPage({ plan, onChange, user }) {
         </div>
         {raw && (
           <div className="tk-rep">
-            <h3>Último informe</h3>
+            <div className="tk-rephd"><h3>Último informe</h3><button className="tk-copy" onClick={() => copy(reportAsText(st, rep), 'Informe')}>Copiar informe</button></div>
             {rep.summary && <p className="lead">{rep.summary}</p>}
             {sec('Qué se hizo', rep.done)}{sec('Cómo comprobarlo', rep.verify, true)}{sec('Decisiones', rep.decisions)}{sec('Pendiente', rep.pending)}
             {(rep.branch || rep.commit) && <div className="tk-mono">{rep.branch}{rep.commit ? ` · ${rep.commit}` : ''}</div>}
