@@ -224,3 +224,35 @@
 .tk-ctxbox { display: grid; gap: 6px; margin-top: 10px; }
 .tk-ctxbox pre { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(0, 0, 0, 0.3); color: var(--tk-ink); font: 400 13px/1.55 'Geist Mono', ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
 .tk-warn { padding: 10px 14px; border-radius: 12px; background: rgba(242, 146, 43, 0.18); font-size: 14px; }
+
+/* ---- premium glass: reflection (light that follows the pointer, a sheen, a lit rim), dispersion at the edges and, in Chromium, refraction ---- */
+.tk-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.tk-kpi, .tk-list, .tk-new, .tk-note-bar, .tk-areasel, .tk-search, .tk-add, .tk-modal, .tk-queue { position: relative; }
+.tk-glass {
+  background:
+    radial-gradient(520px circle at var(--mx, 25%) var(--my, 0%), rgba(255, 255, 255, 0.20), transparent 58%),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.17) 0%, rgba(255, 255, 255, 0.05) 36%, rgba(255, 255, 255, 0.02) 62%, rgba(255, 255, 255, 0.10) 100%);
+  background-attachment: fixed, scroll;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(24px) saturate(175%) brightness(1.06);
+  backdrop-filter: blur(24px) saturate(175%) brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    inset 1px 0 0 rgba(255, 140, 140, 0.20),
+    inset -1px 0 0 rgba(130, 170, 255, 0.24),
+    0 26px 60px -22px rgba(0, 0, 0, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.tk-root.refract .tk-glass { -webkit-backdrop-filter: blur(18px) saturate(175%) brightness(1.06) url(#tk-refract); backdrop-filter: blur(18px) saturate(175%) brightness(1.06) url(#tk-refract); }
+.tk-glass::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.30) 0%, rgba(255, 255, 255, 0.07) 13%, rgba(255, 255, 255, 0) 30%), linear-gradient(0deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 22%);
+  mix-blend-mode: screen; opacity: 0.7; }
+.tk-glass::after { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 0;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.80), rgba(255, 255, 255, 0.06) 32%, rgba(255, 255, 255, 0) 58%, rgba(255, 255, 255, 0.40));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+.tk-glass > * { position: relative; z-index: 1; }
+.tk-kpi:hover { transform: translateY(-2px); }
+.tk-modal.tk-glass { background: linear-gradient(155deg, rgba(48, 50, 60, 0.86), rgba(24, 26, 32, 0.86)); background-attachment: scroll; }
+.tk-panel.tk-glass > *, .tk-rail.tk-glass > * { position: relative; }
+@media (prefers-reduced-motion: reduce) { .tk-glass { background-attachment: scroll; } }

@@ -41,8 +41,19 @@ export function TicketsPage({ plan, onChange, user }) {
   const [decFor, setDecFor] = useState(null); // ticket whose decisions are being answered
   const [fileView, setFileView] = useState(null);
   const toastTimer = useRef(null);
+  const rootRef = useRef(null);
+  const [refract] = useState(() => typeof window !== 'undefined' && !!window.chrome && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
   const mutate = (fn) => onChange((p) => fn(p));
 
+  // A soft light that follows the pointer over the glass (reflection)
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return undefined;
+    let raf = 0;
+    const move = (e) => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { el.style.setProperty('--mx', `${e.clientX}px`); el.style.setProperty('--my', `${e.clientY}px`); }); };
+    window.addEventListener('pointermove', move, { passive: true });
+    return () => { window.removeEventListener('pointermove', move); cancelAnimationFrame(raf); };
+  }, []);
   useEffect(() => { const h = () => setRef((window.location.pathname.split('/')[2] || '').toLowerCase()); window.addEventListener('popstate', h); return () => window.removeEventListener('popstate', h); }, []);
   // A finished "subir a main" block marks its feature as deployed; open work of the area becomes tickets (both once).
   useEffect(() => { if (applyDeploys(plan) !== plan) onChange((p) => applyDeploys(p)); }, [plan, onChange]);
@@ -353,7 +364,13 @@ export function TicketsPage({ plan, onChange, user }) {
   const areaName = (plan.areas.find((a) => a.id === areaId) || {}).name || 'Tickets';
 
   return (
-    <div className="tk-root">
+    <div className={`tk-root${refract ? ' refract' : ''}`} ref={rootRef}>
+      <svg className="tk-defs" width="0" height="0" aria-hidden="true" focusable="false">
+        <filter id="tk-refract" x="-4%" y="-4%" width="108%" height="108%" colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.006 0.010" numOctaves="2" seed="11" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="16" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
       <div className="tk-room" aria-hidden="true"><i /><i /><i /></div>
       <div className="tk-shell">
         <nav className="tk-glass tk-rail" aria-label="Secciones">

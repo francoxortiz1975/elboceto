@@ -161,11 +161,11 @@ export const cleanEffort = (e) => (EFFORTS.includes(e) ? e : DEFAULT_EFFORT);
 // (pushing, publishing, deploying, merging). Other modes: manual, acceptEdits, dontAsk, plan, bypassPermissions (not recommended).
 export const PERMISSION_MODES = ['manual', 'acceptEdits', 'auto', 'dontAsk', 'plan', 'bypassPermissions'];
 export const DEFAULT_PERMISSION_MODE = 'auto';
-export const DEFAULT_DENY = ['Bash(git push *)', 'Bash(git push)', 'Bash(npm publish*)', 'Bash(vercel *)', 'Bash(gh pr merge *)', 'Bash(supabase db push*)', 'Bash(supabase functions deploy*)', 'Bash(rm -rf*)', 'Read(.env*)', 'Bash(cat .env*)'];
+export const DEFAULT_DENY = ['Bash(SKIP_SEGURIDAD=1 git push*)', 'Bash(git push *)', 'Bash(git push)', 'Bash(npm publish*)', 'Bash(vercel *)', 'Bash(gh pr merge *)', 'Bash(supabase db push*)', 'Bash(supabase functions deploy*)', 'Bash(rm -rf*)', 'Read(.env*)', 'Bash(cat .env*)'];
 // Level 1 ("work on your Mac, upload nothing"): read, edit, branch, commit locally, run tests / lint / build. Anything else is left to the auto-mode classifier.
 export const DEFAULT_ALLOW = ['Edit', 'Write', 'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git add*)', 'Bash(git commit*)', 'Bash(git checkout -b *)', 'Bash(git switch -c *)', 'Bash(git branch*)', 'Bash(npm run test*)', 'Bash(npm test*)', 'Bash(npm run lint*)', 'Bash(npm run build*)', 'Bash(npx tsc*)'];
 export const cleanPermissionMode = (m) => (PERMISSION_MODES.includes(m) ? m : DEFAULT_PERMISSION_MODE);
-export const cleanDeny = (list) => (Array.isArray(list) ? list : []).map(String).filter((t) => /^[\w ()*.:/@-]{1,80}$/.test(t));
+export const cleanDeny = (list) => (Array.isArray(list) ? list : []).map(String).filter((t) => /^[\w ()*.:/@=-]{1,90}$/.test(t));
 // Both tool flags take a list, so each gets ONE comma-joined value and they go last (after the message).
 export const permissionFlags = (mode, deny, allow = []) => {
   const no = cleanDeny(deny);
@@ -180,8 +180,8 @@ export const notifyArgs = (title, text, sound = '') => ['-e', 'on run argv', '-e
 
 // Per-area exceptions ("areaAllow" in iris-areas.json): extra tools an area's unattended runs may use. A pattern that is allowed for an area
 // is taken out of the deny list for that area only; every other area keeps the full list.
-export const DEPLOY_ALLOW = ['Bash(git push*)', 'Bash(git merge*)', 'Bash(git checkout*)', 'Bash(git switch*)', 'Bash(git pull*)', 'Bash(git fetch*)', 'Bash(vercel *)'];
-export const DEPLOY_UNDENY = ['Bash(git push *)', 'Bash(git push)', 'Bash(vercel *)'];
+export const DEPLOY_ALLOW = ['Bash(SKIP_SEGURIDAD=1 git push origin main)', 'Bash(git push*)', 'Bash(git merge*)', 'Bash(git checkout*)', 'Bash(git switch*)', 'Bash(git pull*)', 'Bash(git fetch*)', 'Bash(vercel *)'];
+export const DEPLOY_UNDENY = ['Bash(SKIP_SEGURIDAD=1 git push*)', 'Bash(git push *)', 'Bash(git push)', 'Bash(vercel *)'];
 // deploy: the run the user asked to push to main. Only that run gets git push / merge; every other run keeps its prohibition.
 export function toolsFor(conf, areaName, { deploy = false } = {}) {
   const key = Object.keys(conf.areaAllow || {}).find((k) => k.trim().toLowerCase() === String(areaName || '').trim().toLowerCase());

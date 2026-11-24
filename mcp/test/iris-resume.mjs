@@ -147,3 +147,8 @@ ok(/El Boceto: backlog/.test(ex) && /get_today/.test(ex) && /Detalle/.test(ex) &
 ok(AC.asksForCalendar(ex) && !AC.asksForCalendar('Trabaja en una rama.') && AC.extractBocetoRules('# Solo\n\nnada') === '', 'it notices a rule that asks for the calendar; no section means empty');
 
 ok(WN.windowIsOurs('cd x && claude --resume \'e466-aaa\' hola', 'e466-aaa') && !WN.windowIsOurs('francoortiz@mac ~ % ls', 'e466-aaa') && !WN.windowIsOurs('', 'e466-aaa'), 'a window is closed only if its screen shows the conversation we launched in it (a reused tty is left alone)');
+
+const sk = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: R.DEFAULT_DENY }, 'MediLyft', { deploy: true });
+const sn = R.toolsFor({ allowedTools: ['Edit'], disallowedTools: R.DEFAULT_DENY }, 'MediLyft');
+ok(sk.allow.includes('Bash(SKIP_SEGURIDAD=1 git push origin main)') && !sk.deny.includes('Bash(SKIP_SEGURIDAD=1 git push*)'), 'a push-to-main run may use SKIP_SEGURIDAD=1 git push origin main');
+ok(sn.deny.includes('Bash(SKIP_SEGURIDAD=1 git push*)') && !sn.allow.some((x) => /SKIP_SEGURIDAD/.test(x)), 'every other run is denied that command, so a prefixed push cannot slip past the git push rule');
